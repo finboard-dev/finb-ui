@@ -16,42 +16,56 @@ export default function Home() {
   const { isSidebarOpen, responsePanelWidth } = useAppSelector(
     (state) => state.chat
   );
-  const [panelSizes, setPanelSizes] = useState({
-    mainPanelSize: 70,
-    responsePanelSize: 30,
-  });
 
-  // Move the calculation into a useEffect to ensure it only runs on client
+  // We'll keep track of the container width
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  // Initialize and update container width
   useEffect(() => {
-    const calculateSizes = () => {
-      const totalWidth = window.innerWidth;
-      const mainPanelSize = 100 - (responsePanelWidth / totalWidth) * 100;
-      const responsePanelSize = (responsePanelWidth / totalWidth) * 100;
-      return { mainPanelSize, responsePanelSize };
+    if (typeof window === "undefined") return;
+
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
     };
 
-    // Set initial panel sizes
-    setPanelSizes(calculateSizes());
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
 
-    const handleResize = () => {
-      setPanelSizes(calculateSizes());
-    };
+  // Calculate the min and max percentages based on the container width
+  const getConstraints = () => {
+    if (!containerWidth) return { minSize: 20, maxSize: 70 }; // Default constraints
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [responsePanelWidth]);
+    const minSize = (300 / containerWidth) * 100; // 300px minimum
+    const maxSize = (800 / containerWidth) * 100; // 800px maximum
 
-  const handlePanelResize = (sizes: number[]) => {
-    if (typeof window !== "undefined") {
-      const totalWidth = window.innerWidth;
-      let newWidth = Math.round((totalWidth * sizes[1]) / 100);
-      newWidth = Math.max(300, Math.min(800, newWidth));
-      dispatch(setResponsePanelWidth(newWidth));
-    }
+    return { minSize, maxSize };
   };
 
+  const handlePanelResize = (sizes: number[]) => {
+    if (!containerWidth) return;
+
+    // Calculate the new width in pixels based on percentage
+    const newWidth = Math.round((containerWidth * sizes[1]) / 100);
+
+    // Clamp the value between 300px and 800px
+    const clampedWidth = Math.max(300, Math.min(800, newWidth));
+
+    // Store the new width in your state
+    dispatch(setResponsePanelWidth(clampedWidth));
+  };
+
+  const { minSize, maxSize } = getConstraints();
+
   return (
-    <main className="flex h-screen overflow-hidden bg-white dark:bg-zinc-900">
+    <main
+      ref={containerRef}
+      className="flex h-screen overflow-hidden bg-white dark:bg-zinc-900"
+    >
       <ChatSidebar />
 
       <PanelGroup
@@ -60,8 +74,8 @@ export default function Home() {
         className="flex-1"
       >
         <Panel
-          defaultSize={panelSizes.mainPanelSize}
           className="overflow-hidden"
+          minSize={100 - maxSize} // Ensure main panel doesn't get too small
         >
           <ChatContainer />
         </Panel>
@@ -71,9 +85,10 @@ export default function Home() {
         </PanelResizeHandle>
 
         <Panel
-          defaultSize={panelSizes.responsePanelSize}
+          defaultSize={30}
+          minSize={minSize}
+          maxSize={maxSize}
           className="bg-white dark:bg-zinc-900 border-l border-gray-200 dark:border-zinc-700 overflow-auto"
-          style={{ minWidth: "300px", maxWidth: "800px" }}
         >
           <ResponsePanel />
         </Panel>

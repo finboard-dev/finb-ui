@@ -6,6 +6,7 @@ module.exports = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
+    './visualizations/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {
@@ -25,6 +26,9 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+      },
+      colors : {
+        ceramic: { 50: '#f8fafc' },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

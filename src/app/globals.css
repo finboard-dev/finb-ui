@@ -120,3 +120,72 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Add these styles to your CSS file */
+
+/* Fix for react-grid-layout's resizing behavior */
+.react-grid-item.react-grid-placeholder {
+  background: rgba(0, 120, 240, 0.2);
+  border: 2px dashed #0078f0;
+  opacity: 0.7;
+  border-radius: 4px;
+  transition: all 100ms ease;
+}
+
+/* Improved resize handle */
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6"><path d="M 6 6 L 0 6 L 0 4.2 L 4 4.2 L 4.2 0 L 6 0 L 6 6 Z" fill="rgba(0,0,0,0.3)"/></svg>');
+  background-position: bottom right;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: se-resize;
+  padding: 0 3px 3px 0;
+}
+
+/* Make blocks more visually clear */
+.dashboard-container .react-grid-item {
+  transition: transform 200ms ease, opacity 200ms ease, box-shadow 200ms ease;
+}
+
+.dashboard-container .react-grid-item:hover {
+  z-index: 3;
+}
+
+.dashboard-container .react-grid-item.react-grid-item--resizing,
+.dashboard-container .react-grid-item.react-draggable-dragging {
+  z-index: 4;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Block wrapper styling */
+.block-wrapper {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+/* Dashboard component fullscreen */
+.dashboard-container {
+  min-height: 100%;
+}
+
+/* Element styling */
+.element-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.element-header {
+  flex-shrink: 0;
+}
+
+.element-content {
+  flex-grow: 1;
+  overflow: auto;
+}

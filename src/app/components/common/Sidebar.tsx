@@ -6,6 +6,7 @@ import {
   PlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  PanelLeft,
   User,
   MessageSquare,
 } from "lucide-react";
@@ -25,7 +26,7 @@ const ChatSidebar = () => {
       <div className="p-4 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
         {isSidebarOpen ? (
           <>
-            <h2 className="font-semibold text-lg">Claude</h2>
+            <h2 className="font-semibold text-lg">FinB</h2>
             <Button
               onClick={() => dispatch(toggleSidebar())}
               variant="ghost"
@@ -42,7 +43,7 @@ const ChatSidebar = () => {
             size="icon"
             className="w-full h-8 hover:bg-gray-200 dark:hover:bg-zinc-700 flex items-center justify-center"
           >
-            <ChevronRightIcon className="h-4 w-4" />
+            <PanelLeft className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -55,7 +56,7 @@ const ChatSidebar = () => {
             New Chat
           </Button>
         ) : (
-          <Button className="w-full flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white p-2">
+          <Button className="w-full rounded-full flex items-center justify-center h-full bg-purple-600 hover:bg-purple-700 text-white">
             <PlusIcon className="h-5 w-5" />
           </Button>
         )}
@@ -63,7 +64,7 @@ const ChatSidebar = () => {
 
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto p-2">
-        <div className="space-y-1">
+        {/* <div className="space-y-1">
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
@@ -80,7 +81,7 @@ const ChatSidebar = () => {
               )}
             </div>
           ))}
-        </div>
+        </div> */}
       </div>
 
       {/* Footer */}
@@ -88,7 +89,7 @@ const ChatSidebar = () => {
         {isSidebarOpen ? (
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Claude 3.7 Sonnet
+              Settings
             </div>
             <Button
               variant="ghost"

@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit'
 import chatReducer from './slices/chatSlice'
+import responsePanelReducer from './slices/responsePanelSlice'
 
 export const store = configureStore({
   reducer: {
     chat: chatReducer,
+    responsePanel: responsePanelReducer,
   },
 })
 
