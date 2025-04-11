@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -12,34 +12,51 @@ import {
   saveToLocalStorage,
 } from "@/lib/store/slices/responsePanelSlice";
 import GoogleSheet from "./GoogleSheetsEmbeded";
-import { Preview } from "@/hooks/useBabelRenderer";
-import HomeChart from "../visualization/Page";
+import VisualizationView from "../visualization/VisualizationView";
+import { enhancedChartSpecs } from "@/data/dummyData";
+import ResizeObserver from "resize-observer-polyfill";
 
 const ResponsePanel = () => {
-  const [chartCode, setChartCode] = useState(`
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="value" stroke="#8884d8" />
-      </LineChart>
-    </ResponsiveContainer>
-  `);
-  const [chartData, setChartData] = useState([
-    { name: "Jan", value: 400 },
-    { name: "Feb", value: 300 },
-    { name: "Mar", value: 600 },
-    { name: "Apr", value: 800 },
-  ]);
-  const [activeTab, setActiveTab] = useState("sql");
+  // State to detect panel resize for triggering chart re-renders
+  const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const [activeTab, setActiveTab] = useState("visualization");
   const dispatch = useAppDispatch();
-  const { sql, tableData } = useAppSelector((state) => {
-    console.log("Redux state:", state.responsePanel);
-    return state.responsePanel;
-  });
+  const { sql, tableData } = useAppSelector((state) => state.responsePanel);
+
+  // Track panel dimensions using ResizeObserver
+  useEffect(() => {
+    if (!panelRef.current) return;
+
+    const updateDimensions = () => {
+      if (panelRef.current) {
+        const { width, height } = panelRef.current.getBoundingClientRect();
+        setPanelSize({ width, height });
+      }
+    };
+
+    // Set initial dimensions
+    updateDimensions();
+
+    // Create a ResizeObserver to detect panel size changes
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(panelRef.current);
+
+    return () => {
+      if (panelRef.current) {
+        resizeObserver.unobserve(panelRef.current);
+      }
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // Choose which chart to display based on panel size
+  const getAppropriateChartSpec = () => {
+    // For demonstration, we're using the pie chart (index 3)
+    // We'll make a copy to avoid modifying the original
+    return JSON.parse(JSON.stringify(enhancedChartSpecs[0]));
+  };
 
   const handleSave = () => {
     dispatch(saveToLocalStorage());
@@ -52,25 +69,22 @@ const ResponsePanel = () => {
     }
   };
 
-  const mockData = [
-    { name: "Jan", value: 400 },
-    { name: "Feb", value: 300 },
-    { name: "Mar", value: 600 },
-    { name: "Apr", value: 800 },
-  ];
-
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-zinc-900">
+    <div
+      ref={panelRef}
+      className="flex flex-col h-full bg-white"
+      key={`panel-${panelSize.width}-${panelSize.height}`}
+    >
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="flex-1 flex flex-col"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-zinc-700">
-          <TabsList className="bg-transparent h-auto border rounded-md">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <TabsList className="bg-transparent h-auto border-gray-500 rounded-md">
             <TabsTrigger
               value="sql"
-              className="px-3 py-2 data-[state=active]:bg-gray-100 data-[state=active]:dark:bg-zinc-800"
+              className="px-3 py-2 data-[state=active]:bg-gray-100"
               title="SQL Editor"
               aria-label="SQL Editor"
             >
@@ -78,7 +92,7 @@ const ResponsePanel = () => {
             </TabsTrigger>
             <TabsTrigger
               value="visualization"
-              className="px-3 py-2 data-[state=active]:bg-gray-100 data-[state=active]:dark:bg-zinc-800"
+              className="px-3 py-2 data-[state=active]:bg-gray-100"
               title="Visualization"
               aria-label="Visualization"
             >
@@ -86,7 +100,7 @@ const ResponsePanel = () => {
             </TabsTrigger>
             <TabsTrigger
               value="table"
-              className="px-3 py-2 data-[state=active]:bg-gray-100 data-[state=active]:dark:bg-zinc-800"
+              className="px-3 py-2 data-[state=active]:bg-gray-100"
               title="Table"
               aria-label="Table"
             >
@@ -97,7 +111,7 @@ const ResponsePanel = () => {
             size="sm"
             variant="outline"
             onClick={handleSave}
-            className="hover:cursor-pointer"
+            className="hover:cursor-pointer border-gray-300 text-gray-700 hover:bg-gray-100"
           >
             Save
           </Button>
@@ -105,7 +119,7 @@ const ResponsePanel = () => {
 
         <TabsContent
           value="sql"
-          className="flex-1 p-4 overflow-auto bg-gray-50 dark:bg-zinc-800 rounded-md m-4"
+          className="flex-1 p-4 overflow-auto bg-gray-50 rounded-md m-4"
         >
           {sql === undefined ? (
             <p className="text-gray-500">No SQL query available</p>
@@ -121,12 +135,12 @@ const ResponsePanel = () => {
           )}
         </TabsContent>
 
-        <TabsContent
-          value="visualization"
-          className="flex-1 p-4 flex justify-center"
-        >
-          <div className="w-full max-w-3xl h-96 p-4 bg-white dark:bg-zinc-800 rounded-lg">
-            <HomeChart />
+        <TabsContent value="visualization" className="flex-1 p-4 flex flex-col">
+          <div className="w-full h-full">
+            <VisualizationView
+              charts={getAppropriateChartSpec()}
+              title="Business Analytics Overview"
+            />
           </div>
         </TabsContent>
 

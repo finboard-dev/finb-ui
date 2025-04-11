@@ -1,129 +1,96 @@
+@import "tailwindcss/preflight";
+@tailwind utilities;
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@tailwindcss animate;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
+/* globals.css - converted from Tailwind config */
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  
+  /* Colors from Tailwind config */
+  --ceramic-50: #f8fafc;
+  
+  --gray-150: #E4E5E5;
+  
+  --sidebar-primary: #F5F7FB;
+  --sidebar-button-add: #171821;
+  
+  --background-sidebar: #E4E5E5;
+  --background-button-dark: #2B2C36;
+  --background-card: #F8F8F8;
+  --background-button-blue: #3E5BF9;
+  
+  --border-primary: #EFF1F5;
+  --border-button: #0B2CE0;
+  
+  --chat-primary: #EFF1F5;
+
+  --logo-text: #B7B7BA;
+
+  --border-dropdown: #EFF1F5;
+  
+  --text-primary: #2B2C36;
+  --text-placeholder: #949599;
+  --text-secondary: #949599;
+  --text-dropdown: #171821;
+  --text-heading: #171821;
+  --text-selected: #3E5BF9;
+  --text-light: #F1F1F1;
+
+  --input-border: #F5F7FB
+
+  /* Container settings */
+  --container-padding: 2rem;
+  --container-max-width-2xl: 1400px;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Animation keyframes */
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* Base styles */
+html, body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* Container styles */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--container-padding);
+  padding-right: var(--container-padding);
+}
+
+@media (min-width: 1400px) {
+  .container {
+    max-width: var(--container-max-width-2xl);
   }
 }
 
-/* Add these styles to your CSS file */
+/* Animation classes */
+.animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
 
-/* Fix for react-grid-layout's resizing behavior */
+.animate-accordion-up {
+  animation: accordion-up 0.2s ease-out;
+}
+
+/* Layout grid styles */
 .react-grid-item.react-grid-placeholder {
   background: rgba(0, 120, 240, 0.2);
   border: 2px dashed #0078f0;
@@ -132,14 +99,12 @@
   transition: all 100ms ease;
 }
 
-/* Improved resize handle */
 .react-resizable-handle {
   position: absolute;
   width: 20px;
   height: 20px;
   bottom: 0;
   right: 0;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6"><path d="M 6 6 L 0 6 L 0 4.2 L 4 4.2 L 4.2 0 L 6 0 L 6 6 Z" fill="rgba(0,0,0,0.3)"/></svg>');
   background-position: bottom right;
   background-repeat: no-repeat;
   background-origin: content-box;
@@ -148,7 +113,6 @@
   padding: 0 3px 3px 0;
 }
 
-/* Make blocks more visually clear */
 .dashboard-container .react-grid-item {
   transition: transform 200ms ease, opacity 200ms ease, box-shadow 200ms ease;
 }
@@ -163,19 +127,17 @@
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
 }
 
-/* Block wrapper styling */
+/* Common layout components */
 .block-wrapper {
   overflow: hidden;
   height: 100%;
   width: 100%;
 }
 
-/* Dashboard component fullscreen */
 .dashboard-container {
   min-height: 100%;
 }
 
-/* Element styling */
 .element-container {
   display: flex;
   flex-direction: column;
@@ -188,4 +150,36 @@
 .element-content {
   flex-grow: 1;
   overflow: auto;
+}
+
+/* Utility classes for the custom colors */
+.bg-ceramic-50 { background-color: var(--ceramic-50); }
+.bg-gray-150 { background-color: var(--gray-150); }
+.bg-sidebar-primary { background-color: var(--sidebar-primary); }
+.bg-sidebar-button-add { background-color: var(--sidebar-button-add); }
+.bg-background-sidebar { background-color: var(--background-sidebar); }
+.bg-background-button-dark { background-color: var(--background-button-dark); }
+.bg-background-card { background-color: var(--background-card); }
+.bg-background-button-blue { background-color: var(--background-button-blue); }
+.bg-chat-primary { background-color: var(--chat-primary); }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-placeholder { color: var(--text-placeholder); }
+.text-dropdown { color: var(--text-dropdown); }
+.text-selected { color: var(--text-selected); }
+.text-heading { color: var(--text-heading); }
+.text-light { color: var(--text-light); }
+
+.logo-text { color: var(--logo-text); }
+
+.border-primary { border-color: var(--border-primary); }
+.border-button { border-color: var(--border-button); }
+
+.border-input { border-color: var(--input-border); }
+
+.border-dropdown { border-color: var(--border-dropdown); }
+
+.bg-home {
+  background: linear-gradient(to bottom, #F5F7FB, #FFFFFF);
 }
