@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDown, ArrowUp } from "lucide-react";
 import Image from "next/image";
-import startChat from "@/../public/start-chat-button.svg";
 import { useAppSelector } from "@/lib/store/hooks";
 import { useChatStream } from "@/hooks/useChatStreaming";
 
-const MessageInput = () => {
+type MessageInput = {
+  placeholder?: string | "Ask anything";
+  showBorder?: boolean;
+};
+
+export default function MessageInput({
+  placeholder,
+  showBorder = true,
+}: MessageInput) {
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState(1);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
@@ -18,9 +26,9 @@ const MessageInput = () => {
   const { sendMessage } = useChatStream();
 
   const models = [
+    { id: "finboard", name: "Finboard" },
     { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet" },
     { id: "claude-3-opus", name: "Claude 3 Opus" },
-    { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" },
   ];
   const [selectedModel, setSelectedModel] = useState(models[0]);
 
@@ -71,9 +79,8 @@ const MessageInput = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send message on Enter key (without Shift key for new lines)
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault(); // Prevent default to avoid newline
+      e.preventDefault();
       handleSubmit(e);
     }
   };
@@ -86,92 +93,85 @@ const MessageInput = () => {
   const isButtonDisabled = isResponding || !message.trim();
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <form onSubmit={handleSubmit} className="relative">
-        <div className="flex flex-col w-full">
-          <div className="shadow-[#D0BAFF] rounded-2xl">
-            <div
-              className={`block bg-white w-full p-5 shadow-sm text-base outline-none border transition-colors duration-200 relative rounded-2xl ${
-                isResponding
-                  ? "border-gray-200 cursor-not-allowed"
-                  : "border-[#ECEFF5] focus:border-[#ECEFF5] focus:ring-4 focus:ring-[#ECEFF5] focus:ring-opacity-50"
-              }`}
-            >
-              <textarea
-                ref={textareaRef}
-                value={message}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isResponding ? "Waiting for response..." : "Message FinB..."
-                }
-                className={`w-9/12 placeholder:text-slate-400 max-md:w-5/6 outline-none bg-transparent resize-none overflow-hidden ${
-                  isResponding
-                    ? "cursor-not-allowed placeholder-gray-400"
-                    : "placeholder-[#343a40cc]"
-                }`}
-                disabled={isResponding}
-                rows={rows}
-                style={{ minHeight: "24px", maxHeight: "120px" }}
-              />
-              <button
-                type="button"
+    <div className="w-full max-w-4xl mx-auto px-4 py-8">
+      <Card
+        className={`${
+          !showBorder
+            ? "bg-transparent px-0 py-0 border-none"
+            : "rounded-2xl bg-background-card -z-10 border-none px-3 py-3"
+        }`}
+      >
+        <Card className="rounded-xl bg-white z-10 border-primary p-6">
+          <div className="flex flex-col w-full">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                isResponding ? "Waiting for response..." : placeholder
+              }
+              className="text-base placeholder:text-placeholder placeholder:font-medium h-20 text-gray-500 font-light w-full outline-none px-2 resize-none"
+              disabled={isResponding}
+              rows={rows}
+              style={{ minHeight: "24px" }}
+            />
+
+            <div className="flex items-center pt-3 gap-2">
+              <div className="relative" ref={modelSelectorRef}>
+                <div
+                  className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer"
+                  onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-green-600 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">qb</span>
+                    </div>
+                    <span className="text-gray-800 font-medium">
+                      {selectedModel.name}
+                    </span>
+                  </div>
+                  <div className="border-l ml-3 border-primary">
+                    <ChevronDown className="ml-2 h-5 w-5 text-gray-500" />
+                  </div>
+                </div>
+
+                {isModelSelectorOpen && (
+                  <div className="absolute bottom-full left-0 mb-1 bg-white rounded-lg z-10 w-48 border border-primary">
+                    {models.map((model) => (
+                      <div
+                        key={model.id}
+                        className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
+                          model.id === selectedModel.id
+                            ? "bg-gray-100 text-gray-900"
+                            : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => selectModel(model)}
+                      >
+                        {model.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-grow"></div>
+
+              <Button
                 onClick={handleSubmit}
                 disabled={isButtonDisabled}
-                className={`absolute flex justify-center items-center gap-3 top-1/2 transform -translate-y-1/2 px-2 rounded-full h-8 right-4 font-medium text-sm transition-all duration-200 ${
+                className={`rounded-full h-12 w-12 p-0 flex items-center justify-center ${
                   isButtonDisabled
-                    ? "bg-gradient-to-b from-[#4A25F0] to-[#7A3EFF] cursor-not-allowed opacity-50"
-                    : "bg-gradient-to-b from-[#4A25F0] to-[#7A3EFF] hover:bg-green-blue focus:ring-4"
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-gray-900 hover:bg-gray-800"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Image
-                    src={startChat}
-                    alt="Start Chat"
-                    width={16}
-                    height={16}
-                  />
-                </div>
-              </button>
+                <ArrowUp className="h-5 w-5 text-white" />
+              </Button>
             </div>
           </div>
-        </div>
-
-        {/* Floating model selector */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 mb-2">
-          <div className="relative" ref={modelSelectorRef}>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md py-1 px-2 flex items-center gap-1"
-            >
-              {selectedModel.name}
-              <ChevronDownIcon className="h-3 w-3" />
-            </Button>
-
-            {isModelSelectorOpen && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 rounded-lg bg-transparent z-10 animate-in fade-in slide-in-from-bottom-5 duration-200 w-48">
-                {models.map((model) => (
-                  <div
-                    key={model.id}
-                    className={`px-3 py-2 text-xs cursor-pointer mb-1 rounded-lg backdrop-blur-md transition-all duration-150 ${
-                      model.id === selectedModel.id
-                        ? "bg-purple-100/90 dark:bg-purple-900/90 text-purple-600 dark:text-purple-300"
-                        : "bg-white/80 dark:bg-zinc-800/80 hover:bg-gray-100/90 dark:hover:bg-zinc-700/90"
-                    } border border-gray-200/50 dark:border-zinc-700/50`}
-                    onClick={() => selectModel(model)}
-                  >
-                    {model.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </form>
+        </Card>
+      </Card>
     </div>
   );
-};
-
-export default MessageInput;
+}

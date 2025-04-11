@@ -35,7 +35,7 @@ export const useChatStream = () => {
       // Prepare request payload
       const chatMessage: ChatMessage = {
         message,
-        thread_id: getThreadId(),
+        thread_id: getThreadId() ? getThreadId() : uuidv4(),
         stream_tokens: true,
       };
 
@@ -102,6 +102,16 @@ export const useChatStream = () => {
         return accumulatedContent;
       } catch (error) {
         console.error('Error in chat stream:', error);
+        
+        const updatedMessage: MessageType = {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: 'Sorry, something went wrong. Please try again.',
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        
+        dispatch(updateMessage(updatedMessage));
         dispatch(setIsResponding(false));
         throw error;
       }

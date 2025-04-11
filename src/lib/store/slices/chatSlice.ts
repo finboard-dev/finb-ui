@@ -1,4 +1,3 @@
-// src/lib/store/slices/chatSlice.ts
 import { MessageType } from "@/types/chat";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
@@ -44,6 +43,7 @@ export const chatSlice = createSlice({
       } else {
         state.messages.push(action.payload);
       }
+      console.log(state.messages)
     },
     updateMessage: (state, action: PayloadAction<MessageType>) => {
       const index = state.messages.findIndex(msg => msg.id === action.payload.id);

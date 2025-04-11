@@ -11,6 +11,7 @@ export interface MessageType {
   content: string;
   timestamp: string;
   variants?: { id: number; content: string }[]; // Optional for response variants
+  isError?: boolean; // Optional for error handling
 }
 
 export interface ToolCall {
