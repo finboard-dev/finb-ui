@@ -1,6 +1,3 @@
-"use client";
-
-import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   PlusIcon,
@@ -12,10 +9,17 @@ import {
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { toggleSidebar } from "@/lib/store/slices/chatSlice";
+import {
+  CollapsedOrganizationDropdown,
+  OrganizationDropdown,
+} from "./OrganisationDropdown";
+import { useSelectedCompany } from "@/hooks/useSelectedCompany";
 
 const ChatSidebar = () => {
   const dispatch = useAppDispatch();
   const { isSidebarOpen } = useAppSelector((state) => state.chat);
+  const userName = useAppSelector((state) => state.user.user?.username);
+  const selectedCompany = useSelectedCompany();
 
   return (
     <div
@@ -23,7 +27,7 @@ const ChatSidebar = () => {
         isSidebarOpen ? "w-64" : "w-16"
       }`}
     >
-      <div className="p-4 border-b border-primary  flex items-center justify-between">
+      <div className="py-4 px-4 border-b border-primary  flex items-center justify-between">
         {isSidebarOpen ? (
           <>
             <h2 className="font-medium text-heading text-lg">FinB</h2>
@@ -47,6 +51,18 @@ const ChatSidebar = () => {
           </Button>
         )}
       </div>
+
+      {selectedCompany && (
+        <div className="border-b border-gray-200">
+          {isSidebarOpen ? (
+            <div className="p-3">
+              <OrganizationDropdown />
+            </div>
+          ) : (
+            <CollapsedOrganizationDropdown />
+          )}
+        </div>
+      )}
 
       {/* New Chat Button */}
       <div className="p-4 ">
@@ -92,7 +108,7 @@ const ChatSidebar = () => {
         {isSidebarOpen ? (
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Settings
+              {userName}
             </div>
             <Button
               variant="ghost"

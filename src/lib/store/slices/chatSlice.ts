@@ -12,12 +12,12 @@ interface ChatState {
 
 const initialState: ChatState = {
   messages: [
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hello! How can I help you today?",
-      timestamp: new Date().toISOString(),
-    },
+    // {
+    //   id: "1",
+    //   role: "assistant",
+    //   content: "Hello! How can I help you today?",
+    //   timestamp: new Date().toISOString(),
+    // },
   ],
   isResponding: false,
   responseVariants: [

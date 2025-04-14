@@ -3,7 +3,8 @@ import { getThreadId, parseStreamChunk, processStreamResponse, ChatMessage } fro
 import { MessageType } from '@/types/chat';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch } from '@/lib/store/hooks';
-import { addMessage, setIsResponding , updateMessage} from '@/lib/store/slices/chatSlice';
+import { addMessage, setIsResponding, updateMessage } from '@/lib/store/slices/chatSlice';
+import { setCodeData, setTableData } from '@/lib/store/slices/responsePanelSlice';
 
 export const useChatStream = () => {
   const dispatch = useAppDispatch();
@@ -35,13 +36,13 @@ export const useChatStream = () => {
       // Prepare request payload
       const chatMessage: ChatMessage = {
         message,
-        thread_id: getThreadId() ? getThreadId() : uuidv4(),
+        thread_id: getThreadId(),
         stream_tokens: true,
       };
 
       try {
         // Set up streaming request
-        const response = await fetch(process.env.NEXT_PUBLIC_API_CHAT || '', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT!}/chat/stream`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -86,12 +87,18 @@ export const useChatStream = () => {
                     timestamp: new Date().toISOString(),
                   };
 
-                  // Use updateMessage instead of addMessage
                   dispatch(updateMessage(updatedMessage));
                 },
                 (toolCall) => {
-                  // Handle tool calls if needed
                   console.log('Tool call received:', toolCall);
+                },
+                (sidePanelData) => {
+                  const codeData = typeof sidePanelData === 'string' ? sidePanelData : JSON.stringify(sidePanelData, null, 2);
+                  if (typeof sidePanelData === 'object' && 'spreadsheet_url' in sidePanelData) {
+                    dispatch(setTableData(sidePanelData.spreadsheet_url));
+                  }
+                  dispatch(setCodeData(codeData));
+                  console.log('sidePanelData', sidePanelData);
                 }
               );
             }
@@ -102,7 +109,7 @@ export const useChatStream = () => {
         return accumulatedContent;
       } catch (error) {
         console.error('Error in chat stream:', error);
-        
+
         const updatedMessage: MessageType = {
           id: assistantMessageId,
           role: 'assistant',
@@ -110,7 +117,7 @@ export const useChatStream = () => {
           timestamp: new Date().toISOString(),
           isError: true,
         };
-        
+
         dispatch(updateMessage(updatedMessage));
         dispatch(setIsResponding(false));
         throw error;

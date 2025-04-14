@@ -1,99 +1,438 @@
-"use client";
-
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ArrowUp } from "lucide-react";
-import Image from "next/image";
+import { ArrowUp, Search } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import { useChatStream } from "@/hooks/useChatStreaming";
+import { useSelectedCompany } from "@/hooks/useSelectedCompany";
+import {
+  Editor,
+  EditorState,
+  CompositeDecorator,
+  ContentState,
+  Modifier,
+  convertToRaw,
+  getDefaultKeyBinding,
+  ContentBlock,
+  SelectionState,
+} from "draft-js";
+import "draft-js/dist/Draft.css";
+
+const FINANCIAL_REPORTS = [
+  {
+    id: "profit-loss",
+    name: "Profit & Loss",
+    command: "generate a profit and loss report",
+    icon: "📊",
+  },
+  {
+    id: "balance-sheet",
+    name: "Balance Sheet",
+    command: "generate a balance sheet",
+    icon: "📑",
+  },
+  {
+    id: "cash-flow",
+    name: "Cash Flow",
+    command: "generate a cash flow statement",
+    icon: "💰",
+  },
+  {
+    id: "income-statement",
+    name: "Income Statement",
+    command: "generate an income statement",
+    icon: "📈",
+  },
+  {
+    id: "annual-report",
+    name: "Annual Report",
+    command: "generate an annual report",
+    icon: "📆",
+  },
+  {
+    id: "quarterly-report",
+    name: "Quarterly Report",
+    command: "generate a quarterly report",
+    icon: "🗓️",
+  },
+  {
+    id: "expense-report",
+    name: "Expense Report",
+    command: "generate an expense report",
+    icon: "💸",
+  },
+  {
+    id: "tax-report",
+    name: "Tax Report",
+    command: "generate a tax report",
+    icon: "📝",
+  },
+  {
+    id: "budget-report",
+    name: "Budget Analysis",
+    command: "generate a budget analysis",
+    icon: "🔍",
+  },
+  {
+    id: "forecast-report",
+    name: "Financial Forecast",
+    command: "generate a financial forecast",
+    icon: "🔮",
+  },
+];
 
 type MessageInput = {
-  placeholder?: string | "Ask anything";
+  placeholder?: string;
   showBorder?: boolean;
+  className?: string;
+};
+
+// Entity types for mentions
+const MENTION_ENTITY = "MENTION";
+
+// Mention component to render mentions
+const Mention = (props: any) => {
+  const { report } = props.contentState.getEntity(props.entityKey).getData();
+  return (
+    <span
+      className="inline-flex items-center bg-blue-100 text-blue-800 rounded-md py-0.5 px-2 mx-0.5 font-medium text-sm"
+      data-mention-id={report.id}
+    >
+      <span className="mr-1">{report.icon}</span>@{report.name}
+    </span>
+  );
 };
 
 export default function MessageInput({
-  placeholder,
+  placeholder = "Ask about your financial data...",
   showBorder = true,
+  className,
 }: MessageInput) {
-  const [message, setMessage] = useState("");
-  const [rows, setRows] = useState(1);
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const modelSelectorRef = useRef<HTMLDivElement>(null);
+  //constants
+  const placeholderText =
+    "Ask about your financial data... e.g., Revenue for last quarter";
+
+  // State for the editor
+  const decorator = useMemo(() => createDecorator(), []);
+  const [editorState, setEditorState] = useState(() =>
+    EditorState.createEmpty(decorator)
+  );
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [mentionSelection, setMentionSelection] = useState({
+    start: 0,
+    end: 0,
+  });
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // References
+  const editorRef = useRef<Editor>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // App state
   const { isResponding } = useAppSelector((state) => state.chat);
   const { sendMessage } = useChatStream();
+  const selectedCompany = useSelectedCompany();
 
-  const models = [
-    { id: "finboard", name: "Finboard" },
-    { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet" },
-    { id: "claude-3-opus", name: "Claude 3 Opus" },
-  ];
-  const [selectedModel, setSelectedModel] = useState(models[0]);
+  // Create decorator for mentions
+  function createDecorator() {
+    return new CompositeDecorator([
+      {
+        strategy: findMentionEntities,
+        component: Mention,
+      },
+    ]);
+  }
 
+  // Strategy to find mention entities
+  function findMentionEntities(
+    contentBlock: ContentBlock,
+    callback: (start: number, end: number) => void,
+    contentState: ContentState
+  ) {
+    contentBlock.findEntityRanges((character: { getEntity: () => any }) => {
+      const entityKey = character.getEntity();
+      return (
+        entityKey !== null &&
+        contentState.getEntity(entityKey).getType() === MENTION_ENTITY
+      );
+    }, callback);
+  }
+
+  // Filter reports based on search term
+  const filteredReports = FINANCIAL_REPORTS.filter((report) =>
+    report.name.toLowerCase().includes(mentionFilter.toLowerCase())
+  );
+
+  // Check if company is selected
+  const validSelectedCompany = () => {
+    return !!(selectedCompany && selectedCompany.name);
+  };
+
+  // Handle click outside to close mention suggestions
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (
-        modelSelectorRef.current &&
-        !modelSelectorRef.current.contains(event.target as Node)
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        containerRef.current &&
+        containerRef.current.contains(e.target as Node)
       ) {
-        setIsModelSelectorOpen(false);
+        setShowMentionSuggestions(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
+  // Reset active index when filtered reports change
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filteredReports.length]);
 
-    const textareaLineHeight = 24;
-    const prevRows = e.target.rows;
-    e.target.rows = 1;
+  // Position the menu based on cursor position
+  useEffect(() => {
+    if (showMentionSuggestions && editorRef.current) {
+      const editorRoot = editorRef.current.editor;
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const editorRect = editorRoot?.getBoundingClientRect();
+        if (!editorRect) return;
 
-    const currentRows = Math.ceil(e.target.scrollHeight / textareaLineHeight);
-
-    if (currentRows === prevRows) {
-      e.target.rows = currentRows;
+        setMenuPosition({
+          top: rect.bottom - editorRect.top,
+          left: Math.min(
+            rect.left - editorRect.left,
+            editorRoot ? editorRoot.clientWidth - 250 : 0
+          ),
+        });
+      }
     }
+  }, [showMentionSuggestions]);
 
-    setRows(currentRows < 4 ? currentRows : 4);
-  };
+  // Handle editor changes
+  const handleEditorChange = (newState: React.SetStateAction<EditorState>) => {
+    const selection = (newState as EditorState).getSelection();
+    const content = (newState as EditorState).getCurrentContent();
+    const currentBlock = content.getBlockForKey(selection.getStartKey());
+    const blockText = currentBlock.getText();
+    const cursorPosition = selection.getStartOffset();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim() && !isResponding) {
-      const messageToSend = message;
-      setMessage("");
-      setRows(1);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
+    // Check if we're in a potential mention situation
+    if (blockText.length > 0) {
+      // Find the @ symbol before cursor
+      let mentionStartPos = -1;
+      for (let i = cursorPosition - 1; i >= 0; i--) {
+        if (blockText.charAt(i) === "@") {
+          // Make sure this @ is not inside an existing mention entity
+          const entityKey = currentBlock.getEntityAt(i);
+          if (!entityKey) {
+            mentionStartPos = i;
+            break;
+          }
+        } else if (/\s/.test(blockText.charAt(i))) {
+          // Stop at whitespace
+          break;
+        }
       }
 
-      await sendMessage.mutate(messageToSend);
+      if (mentionStartPos >= 0) {
+        // Extract the current filter text
+        const filter = blockText.substring(mentionStartPos + 1, cursorPosition);
+        setMentionFilter(filter);
+        setMentionSelection({
+          start: mentionStartPos,
+          end: cursorPosition,
+        });
+        setShowMentionSuggestions(true);
+      } else {
+        setShowMentionSuggestions(false);
+      }
+    } else {
+      setShowMentionSuggestions(false);
     }
+
+    setEditorState(newState);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  // Handle selecting a report from dropdown
+  const handleSelectReport = (report: {
+    id?: string;
+    name: any;
+    command?: string;
+    icon?: string;
+  }) => {
+    // Get current selection and content
+    const selectionState = editorState.getSelection();
+    const contentState = editorState.getCurrentContent();
+
+    // Create a selection for the entire mention text including @
+    const mentionRange: SelectionState = selectionState.merge({
+      anchorOffset: mentionSelection.start,
+      focusOffset: mentionSelection.end,
+    });
+
+    // Create the entity for the mention
+    const contentStateWithEntity = contentState.createEntity(
+      MENTION_ENTITY,
+      "IMMUTABLE",
+      { report }
+    );
+    const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
+
+    // Replace the selection with mention text and apply the entity
+    const mentionText = `@${report.name}`;
+    const contentStateWithMention = Modifier.replaceText(
+      contentStateWithEntity,
+      mentionRange,
+      mentionText,
+      undefined,
+      entityKey
+    );
+
+    // Add a space after the mention
+    const spaceOffset = mentionSelection.start + mentionText.length;
+    const selectionAfterMention = contentStateWithMention
+      .getSelectionAfter()
+      .merge({
+        anchorOffset: spaceOffset,
+        focusOffset: spaceOffset,
+      });
+
+    const contentStateWithSpace = Modifier.insertText(
+      contentStateWithMention,
+      selectionAfterMention,
+      " "
+    );
+
+    // Create new editor state
+    const newEditorState = EditorState.push(
+      editorState,
+      contentStateWithSpace,
+      "insert-characters"
+    );
+
+    // Move cursor after the space
+    const newSelection = newEditorState.getSelection().merge({
+      anchorOffset: spaceOffset + 1,
+      focusOffset: spaceOffset + 1,
+    });
+
+    const editorStateWithNewSelection = EditorState.forceSelection(
+      newEditorState,
+      newSelection
+    );
+
+    // Update state
+    setEditorState(editorStateWithNewSelection);
+    setShowMentionSuggestions(false);
+
+    // Focus editor
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.focus();
+      }
+    }, 0);
+  };
+
+  // Handle key commands
+  const handleKeyCommand = (command: string, editorState: any) => {
+    if (command === "submit") {
+      handleSubmit();
+      return "handled";
+    }
+    return "not-handled";
+  };
+
+  // Custom key binding for Enter to submit
+  const keyBindingFn = (e: React.KeyboardEvent<{}>) => {
+    if (showMentionSuggestions && filteredReports.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((activeIndex + 1) % filteredReports.length);
+        return null;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex(
+          (activeIndex - 1 + filteredReports.length) % filteredReports.length
+        );
+        return null;
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleSelectReport(filteredReports[activeIndex]);
+        return null;
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentionSuggestions(false);
+        return null;
+      }
+    } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      return "submit";
     }
+
+    return getDefaultKeyBinding(e);
   };
 
-  const selectModel = (model: (typeof models)[0]) => {
-    setSelectedModel(model);
-    setIsModelSelectorOpen(false);
+  // Extract mentions from content
+  const extractMentionsFromContent = (contentState: ContentState) => {
+    const mentions: any[] = [];
+    const blocks = convertToRaw(contentState).blocks;
+
+    // Go through all blocks
+    blocks.forEach((block) => {
+      // Check for entity ranges
+      if (block.entityRanges.length > 0) {
+        const entityMap = convertToRaw(contentState).entityMap;
+
+        // Process each entity
+        block.entityRanges.forEach((range) => {
+          const entity = entityMap[range.key];
+          if (entity.type === MENTION_ENTITY) {
+            mentions.push(entity.data.report);
+          }
+        });
+      }
+    });
+
+    return mentions;
   };
 
-  const isButtonDisabled = isResponding || !message.trim();
+  // Submit the message
+  const handleSubmit = () => {
+    const contentState = editorState.getCurrentContent();
+    if (!contentState.hasText() || isResponding) {
+      return;
+    }
+
+    // Get plain text
+    const blocks = convertToRaw(contentState).blocks;
+    const messageText = blocks.map((block) => block.text).join("\n");
+
+    // Extract mentions
+    const mentions = extractMentionsFromContent(contentState);
+
+    // Prepare the message with mentions appended as commands
+    let messageToSend = messageText.trim();
+    if (mentions.length > 0) {
+      messageToSend +=
+        "\n" + mentions.map((mention) => `[${mention.command}]`).join("\n");
+    }
+
+    // Reset input
+    setEditorState(EditorState.createEmpty(createDecorator()));
+
+    // Send message
+    sendMessage.mutate(messageToSend);
+  };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-8">
+    <div className={`${className}w-full max-w-4xl mx-auto px-4 py-8`}>
       <Card
         className={`${
           !showBorder
@@ -101,75 +440,139 @@ export default function MessageInput({
             : "rounded-2xl bg-background-card -z-10 border-none px-3 py-3"
         }`}
       >
-        <Card className="rounded-xl bg-white z-10 border-primary p-6">
-          <div className="flex flex-col w-full">
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={handleTextareaChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                isResponding ? "Waiting for response..." : placeholder
-              }
-              className="text-base placeholder:text-placeholder placeholder:font-medium h-20 text-gray-500 font-light w-full outline-none px-2 resize-none"
-              disabled={isResponding}
-              rows={rows}
-              style={{ minHeight: "24px" }}
-            />
+        <Card className="rounded-xl bg-white border-primary p-6">
+          <div className="relative" ref={containerRef}>
+            {/* Editor */}
+            <div
+              className={`${
+                showBorder ? "min-h-[40px]" : "min-h-[48px]"
+              } px-2 py-2 text-base text-gray-800 focus:outline-none w-full`}
+            >
+              <Editor
+                ref={editorRef}
+                editorState={editorState}
+                onChange={handleEditorChange}
+                placeholder={
+                  isResponding ? "Waiting for response..." : placeholderText
+                }
+                readOnly={isResponding || !validSelectedCompany()}
+                handleKeyCommand={handleKeyCommand}
+                keyBindingFn={keyBindingFn}
+                stripPastedStyles={true}
+              />
+            </div>
 
-            <div className="flex items-center pt-3 gap-2">
-              <div className="relative" ref={modelSelectorRef}>
-                <div
-                  className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer"
-                  onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-green-600 flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">qb</span>
-                    </div>
-                    <span className="text-gray-800 font-medium">
-                      {selectedModel.name}
-                    </span>
-                  </div>
-                  <div className="border-l ml-3 border-primary">
-                    <ChevronDown className="ml-2 h-5 w-5 text-gray-500" />
-                  </div>
+            {/* Mention suggestions dropdown */}
+            {showMentionSuggestions && filteredReports.length > 0 && (
+              <div
+                ref={menuRef}
+                className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-100 max-h-64 overflow-y-auto w-72"
+                style={{
+                  top: `${menuPosition.top}px`,
+                  left: `${menuPosition.left}px`,
+                }}
+              >
+                <div className="p-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50 rounded-t-lg">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-600">
+                    {mentionFilter
+                      ? `Results for "${mentionFilter}"`
+                      : "Select a financial report"}
+                  </span>
                 </div>
 
-                {isModelSelectorOpen && (
-                  <div className="absolute bottom-full left-0 mb-1 bg-white rounded-lg z-10 w-48 border border-primary">
-                    {models.map((model) => (
+                {filteredReports.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-500 flex flex-col items-center justify-center">
+                    <div className="text-gray-300 text-4xl mb-2">🔍</div>
+                    <div className="font-medium">No reports found</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Try a different search term
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {filteredReports.map((report, index) => (
                       <div
-                        key={model.id}
-                        className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
-                          model.id === selectedModel.id
-                            ? "bg-gray-100 text-gray-900"
+                        key={report.id}
+                        onClick={() => handleSelectReport(report)}
+                        className={`px-3 py-2.5 cursor-pointer flex items-center gap-3 transition-colors ${
+                          index === activeIndex
+                            ? "bg-blue-50"
                             : "hover:bg-gray-50"
                         }`}
-                        onClick={() => selectModel(model)}
                       >
-                        {model.name}
+                        <div className="w-8 h-8 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center text-lg">
+                          {report.icon}
+                        </div>
+                        <div className="flex flex-col">
+                          <span
+                            className={`text-sm ${
+                              index === activeIndex
+                                ? "text-blue-700 font-medium"
+                                : "text-gray-800"
+                            }`}
+                          >
+                            {report.name}
+                          </span>
+                          <span className="text-xs text-gray-500 mt-0.5">
+                            Financial report
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-
-              <div className="flex-grow"></div>
-
-              <Button
-                onClick={handleSubmit}
-                disabled={isButtonDisabled}
-                className={`rounded-full h-12 w-12 p-0 flex items-center justify-center ${
-                  isButtonDisabled
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-gray-900 hover:bg-gray-800"
-                }`}
-              >
-                <ArrowUp className="h-5 w-5 text-white" />
-              </Button>
-            </div>
+            )}
           </div>
+
+          <div className="flex items-center mt-3 gap-2">
+            <div className="relative">
+              <div className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer">
+                {!selectedCompany?.name ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <div
+                      className={`w-3 h-3 rounded-full bg-gray-200 shimmer`}
+                    ></div>
+                    <div
+                      className={`h-5 w-24 bg-gray-200 rounded shimmer`}
+                    ></div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-800 flex items-center justify-center"></div>
+                    <span className="text-gray-800 font-medium">
+                      {selectedCompany.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-grow"></div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                !editorState.getCurrentContent().hasText() || isResponding
+              }
+              className={`rounded-full h-12 w-12 p-0 flex items-center justify-center ${
+                !editorState.getCurrentContent().hasText() || isResponding
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gray-900 hover:bg-gray-800"
+              }`}
+            >
+              <ArrowUp className="h-5 w-5 text-white" />
+            </Button>
+          </div>
+
+          {/* Hint for @ mention */}
+          {!showBorder && (
+            <div className="text-xs text-gray-400">
+              Type <span className="font-medium">@</span> to mention a financial
+              report
+            </div>
+          )}
         </Card>
       </Card>
     </div>

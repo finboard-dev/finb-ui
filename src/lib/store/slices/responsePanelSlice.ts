@@ -2,24 +2,16 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ResponseData {
-  id?: string;
-  sql: string;
-  tableData?: Array<Record<string, any>>;
-  visualizationData?: Array<Record<string, any>>;
+  id?: string | null;
+  code: any;
+  tableData?: any;
+  visualizationData?: Array<Record<string, any>> | null;
 }
 
 const initialState: ResponseData = {
-  sql: `SELECT 
-    product_category,
-    COUNT(*) as total_sales,
-    SUM(amount) as revenue,
-    AVG(amount) as avg_sale
-  FROM sales
-  WHERE transaction_date >= '2023-01-01'
-  GROUP BY product_category
-  ORDER BY revenue DESC
-  LIMIT 10;`,
-
+  code: undefined,
+  tableData: null,
+  visualizationData: null,
 };
 
 const loadSavedResponses = (): ResponseData[] => {
@@ -38,12 +30,14 @@ export const responseSlice = createSlice({
   name: 'responsePanel',
   initialState: initialState,
   reducers: {
-    setSqlQuery: (state, action: PayloadAction<string>) => {
-      state.sql = action.payload;
+    setCodeData: (state, action: PayloadAction<string>) => {
+      state.code = action.payload;
     },
-    setTableData: (state, action: PayloadAction<Array<Record<string, any>>>) => {
+    setTableData: (state, action: any) => {
       state.tableData = action.payload;
-      state.visualizationData = action.payload; 
+    },
+    setVisualizationData: (state, action: PayloadAction<Array<Record<string, any>>>) => {
+      state.visualizationData = action.payload;
     },
     saveToLocalStorage: (state) => {
       try {
@@ -62,6 +56,6 @@ export const responseSlice = createSlice({
   },
 });
 
-export const { setSqlQuery, setTableData, saveToLocalStorage } = responseSlice.actions;
+export const { setCodeData, setTableData, saveToLocalStorage } = responseSlice.actions;
 
 export default responseSlice.reducer;

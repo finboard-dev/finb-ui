@@ -53,7 +53,7 @@ const NoChatBranding = () => {
         </section>
         <section className="flex flex-col items-center pb-24">
           <div className="flex flex-col w-5xl">
-            <div className="py-16 ">
+            <div className="pt-16">
               <h1 className="text-2xl font-semibold text-left text-primary">
                 Explore
               </h1>
@@ -61,7 +61,7 @@ const NoChatBranding = () => {
                 Financial insights, reports, and visualizations
               </p>
             </div>
-            <div className="pt-6 grid grid-cols-3 gap-4">
+            <div className="pt-8 grid grid-cols-3 gap-4">
               {cardImages.map((card, i) => (
                 <Image
                   key={i}
