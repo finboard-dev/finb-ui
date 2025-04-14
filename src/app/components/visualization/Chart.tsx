@@ -1,10 +1,8 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { View, parse } from "vega";
 import { compile } from "vega-lite";
 import { Handler } from "vega-tooltip";
-import ResizeObserver from "resize-observer-polyfill"; // For better browser support
+import ResizeObserver from "resize-observer-polyfill";
 
 interface VegaLiteChartProps {
   spec: any;
@@ -21,7 +19,6 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
     width: 0,
     height: 0,
   });
-
   // Set up resize observer to track container size changes
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,7 +47,8 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
     };
   }, []);
 
-  // Handle chart rendering when spec or container size changes
+  // In your VegaLiteChart component, modify the useEffect that handles rendering:
+
   useEffect(() => {
     if (!containerRef.current || !spec || containerDimensions.width === 0)
       return;
@@ -65,48 +63,19 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
       // Create a deep copy of the spec to avoid modifying the original
       const specWithDimensions = JSON.parse(JSON.stringify(spec));
 
-      // Always use container width as the chart width
-      specWithDimensions.width = containerDimensions.width - 20; // Small padding
+      // Calculate dimensions with some padding
+      const containerWidth = containerDimensions.width;
+      const containerHeight = containerDimensions.height || 300; // Fallback height
 
-      // For height, either use the container height or maintain aspect ratio
-      specWithDimensions.height = Math.min(
-        containerDimensions.height - 20, // Avoid overflow
-        containerDimensions.width * 0.6 // Maintain reasonable aspect ratio
-      );
+      // Set explicit width and height with padding
+      specWithDimensions.width = containerWidth - 20; // 10px padding on each side
+      specWithDimensions.height = containerHeight - 20; // 10px padding on each side
 
-      // Handle axis configuration to prevent overlapping labels
-      if (
-        specWithDimensions.encoding &&
-        specWithDimensions.encoding.x &&
-        specWithDimensions.encoding.x.axis
-      ) {
-        // Adjust x-axis label angle based on container width
-        if (containerDimensions.width < 500) {
-          specWithDimensions.encoding.x.axis.labelAngle = -45;
-          specWithDimensions.encoding.x.axis.labelAlign = "right";
-          specWithDimensions.encoding.x.axis.labelBaseline = "middle";
-        } else {
-          // Reset to horizontal labels for wider containers
-          specWithDimensions.encoding.x.axis.labelAngle = 0;
-          specWithDimensions.encoding.x.axis.labelAlign = "center";
-          specWithDimensions.encoding.x.axis.labelBaseline = "top";
-        }
-      }
-
-      // Adjust legend position and layout based on container width
-      if (
-        specWithDimensions.encoding &&
-        specWithDimensions.encoding.color &&
-        specWithDimensions.encoding.color.legend
-      ) {
-        if (containerDimensions.width < 500) {
-          specWithDimensions.encoding.color.legend.orient = "bottom";
-          specWithDimensions.encoding.color.legend.columns = 2;
-        } else {
-          specWithDimensions.encoding.color.legend.orient = "right";
-          specWithDimensions.encoding.color.legend.columns = 1;
-        }
-      }
+      // Ensure the chart has autosize to fit container
+      specWithDimensions.autosize = {
+        type: "fit",
+        contains: "padding",
+      };
 
       // Compile Vega-Lite to Vega
       const vegaSpec = compile(specWithDimensions).spec;
@@ -128,15 +97,19 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
       });
       view.tooltip(tooltipHandler.call);
 
-      // Make sure the SVG scales to fit the container
-      view.run();
+      // Run the view
+      view.runAsync().catch((err) => {
+        console.error("Error rendering chart:", err);
+      });
 
       // Ensure the SVG fits the container
       const svg = containerRef.current.querySelector("svg");
       if (svg) {
         svg.setAttribute("width", "100%");
         svg.setAttribute("height", "100%");
+        svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
         svg.style.display = "block";
+        svg.style.overflow = "visible";
       }
 
       // Store the view reference for cleanup
@@ -146,11 +119,12 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
     }
   }, [spec, containerDimensions]);
 
+  // Also update the container div:
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full ${className}`}
-      style={{ minHeight: "300px" }}
+      className={`w-full h-full overflow-hidden ${className}`}
+      style={{ minHeight: "300px", position: "relative" }}
     />
   );
 };

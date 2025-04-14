@@ -1,7 +1,5 @@
-"use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useRef } from "react";
 import VegaLiteChart from "./Chart";
-import ResizeObserver from "resize-observer-polyfill";
 
 interface ChartSpec {
   title?: string;
@@ -23,17 +21,27 @@ export default function VisualizationView({
   className = "",
 }: DashboardProps) {
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const safeCharts = charts ? JSON.parse(JSON.stringify(charts)) : null;
 
   return (
-    <div ref={dashboardRef} className={` ${className}`}>
+    <div ref={dashboardRef} className={`${className} overflow-hidden`}>
       {isLoading ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-gray-500">Loading visualizations...</div>
         </div>
       ) : (
-        <div className="charts-grid w-full h-full flex flex-col">
-          <div className="relative flex-1 w-full">
-            <VegaLiteChart spec={charts} className="chart" />
+        <div className="w-full h-full flex flex-col">
+          <div className="w-full relative" style={{ height: "100%" }}>
+            {safeCharts ? (
+              <VegaLiteChart
+                spec={safeCharts}
+                className="chart w-full h-full"
+              />
+            ) : (
+              <div className="text-red-500">
+                No chart specification available
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -60,7 +60,7 @@ const ChatContainer = () => {
     .lastIndexOf("assistant");
 
   return (
-    <div className="flex flex-col h-full flex-1 bg-home">
+    <div className="flex flex-col h-full flex-1 bg-white">
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.map((message, index) => (
@@ -78,8 +78,8 @@ const ChatContainer = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-gray-200">
-        <MessageInput />
+      <div className="px-4 border-gray-200">
+        <MessageInput placeholder="Ask Anything!" />
       </div>
     </div>
   );

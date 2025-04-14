@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export interface ChatMessage {
   message: string;
   thread_id: string | null;
@@ -5,25 +7,47 @@ export interface ChatMessage {
 }
 
 export const getThreadId = (): string | null => {
-  // Placeholder: Implement your thread ID logic here
-  return localStorage.getItem('thread_id') || null;
+  const generateId = uuidv4();
+  const savedId = localStorage.getItem('thread_id');
+  if (savedId) {
+    return savedId;
+  } else {
+    localStorage.setItem('thread_id', generateId);
+    return generateId;
+  }
 };
+
+// Buffer to accumulate chunks
+let jsonBuffer: string = '';
 
 export const parseStreamChunk = (chunk: string): any => {
   try {
     if (!chunk || chunk.trim() === '') return null;
 
-    const jsonString = chunk.startsWith('data: ')
-      ? chunk.slice(6)
-      : chunk;
+    // Remove 'data: ' prefix if present
+    const jsonString = chunk.startsWith('data: ') ? chunk.slice(6) : chunk;
 
     if (jsonString.trim() === '[DONE]') {
+      jsonBuffer = ''; // Reset buffer on stream end
       return { type: 'done' };
     }
 
-    return JSON.parse(jsonString);
+    // Append chunk to buffer
+    jsonBuffer += jsonString;
+
+    // Try to parse the buffered content
+    // Only attempt parsing if the buffer looks like a complete JSON object
+    if (jsonBuffer.trim().startsWith('{') && jsonBuffer.trim().endsWith('}')) {
+      const parsed = JSON.parse(jsonBuffer);
+      jsonBuffer = ''; // Reset buffer after successful parsing
+      return parsed;
+    }
+
+    // If the buffer doesn't form a complete JSON object yet, return null
+    return null;
   } catch (error) {
-    console.error('Error parsing stream chunk:', error, 'Raw chunk:', chunk);
+    console.error('Error parsing stream chunk:', error, 'Raw chunk:', chunk, 'Buffer:', jsonBuffer);
+    // Don't reset the buffer here; keep accumulating
     return null;
   }
 };
@@ -31,24 +55,35 @@ export const parseStreamChunk = (chunk: string): any => {
 export const processStreamResponse = (
   response: any,
   onToken: (token: string) => void,
-  onToolCall: (toolCall: any) => void
+  onToolCall: (toolCall: any) => void,
+  onSidePanelData?: (data: any) => void
 ) => {
   if (!response) return;
 
   if (response.type === 'done') {
-    // Stream is complete
     return;
   }
 
   if (response.type === 'token') {
+    // onToken(response.content);
+  } else if (response.type === 'error') {
     onToken(response.content);
   } else if (response.type === 'message') {
-    // Don't call onToken for full messages, as we've already processed the tokens
-    // This prevents duplication of content
-    
-    // If you need to handle any final message metadata, do it here
-    // But don't add the content again with: onToken(response.content.content);
-  } else if (response.type === 'tool_call') {
-    onToolCall(response.content);
+    if (response.content?.type === 'ai' && response.content?.content !== '') {
+      onToken(response.content.content);
+    } else if (response.content?.type === 'tool') {
+      console.log('Tool call:', response.content);
+
+      if (typeof response.content.content === 'string' && response.content.content.trim() !== '') {
+        try {
+          const toolContent = JSON.parse(response.content.content);
+          if (onSidePanelData) {
+            onSidePanelData(toolContent.data);
+          }
+        } catch (error) {
+          console.error('Error parsing tool content:', error, 'Content:', response.content.content);
+        }
+      }
+    }
   }
 };

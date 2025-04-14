@@ -37,7 +37,7 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
       } mb-6 items-start max-w-3xl mx-auto`}
     >
       {!isAssistant ? (
-        <div className="px-5 py-3 rounded-xl text-base font-medium max-w-[85%] bg-[#F5F4F0] text-zinc-700 ml-2 overflow-hidden">
+        <div className="px-5 py-3 rounded-xl text-base font-medium max-w-[85%] bg-background-card text-zinc-700 ml-2 overflow-hidden">
           <div className="prose max-w-full break-words">
             <ReactMarkdown
               components={{

@@ -1,33 +1,33 @@
-"use client";
-
 import React, { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Copy, Code, BarChart2, Table } from "lucide-react";
 import { toast } from "sonner";
-import Editor from "@monaco-editor/react";
+import dynamic from "next/dynamic";
 import {
-  setSqlQuery,
+  setCodeData,
   saveToLocalStorage,
 } from "@/lib/store/slices/responsePanelSlice";
 import GoogleSheet from "./GoogleSheetsEmbeded";
 import VisualizationView from "../visualization/VisualizationView";
 import { enhancedChartSpecs } from "@/data/dummyData";
-import ResizeObserver from "resize-observer-polyfill";
+
+const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 const ResponsePanel = () => {
-  // State to detect panel resize for triggering chart re-renders
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
-
   const [activeTab, setActiveTab] = useState("visualization");
   const dispatch = useAppDispatch();
-  const { sql, tableData } = useAppSelector((state) => state.responsePanel);
+  const { code, tableData, visualizationData } = useAppSelector(
+    (state) => state.responsePanel
+  );
 
-  // Track panel dimensions using ResizeObserver
+  console.log(visualizationData, "visualizationData");
+
   useEffect(() => {
-    if (!panelRef.current) return;
+    if (!panelRef.current || typeof ResizeObserver === "undefined") return;
 
     const updateDimensions = () => {
       if (panelRef.current) {
@@ -36,10 +36,7 @@ const ResponsePanel = () => {
       }
     };
 
-    // Set initial dimensions
     updateDimensions();
-
-    // Create a ResizeObserver to detect panel size changes
     const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(panelRef.current);
 
@@ -51,11 +48,8 @@ const ResponsePanel = () => {
     };
   }, []);
 
-  // Choose which chart to display based on panel size
   const getAppropriateChartSpec = () => {
-    // For demonstration, we're using the pie chart (index 3)
-    // We'll make a copy to avoid modifying the original
-    return JSON.parse(JSON.stringify(enhancedChartSpecs[0]));
+    return JSON.parse(JSON.stringify(enhancedChartSpecs[6]));
   };
 
   const handleSave = () => {
@@ -65,7 +59,7 @@ const ResponsePanel = () => {
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      dispatch(setSqlQuery(value));
+      dispatch(setCodeData(value));
     }
   };
 
@@ -121,14 +115,15 @@ const ResponsePanel = () => {
           value="sql"
           className="flex-1 p-4 overflow-auto bg-gray-50 rounded-md m-4"
         >
-          {sql === undefined ? (
+          {typeof code !== "string" || code === "" ? (
             <p className="text-gray-500">No SQL query available</p>
           ) : (
             <Editor
               height="100%"
               width="100%"
-              language="sql"
-              value={sql}
+              language="json"
+              theme="vs-light"
+              value={code}
               onChange={handleEditorChange}
               options={{ minimap: { enabled: false } }}
             />
@@ -137,17 +132,21 @@ const ResponsePanel = () => {
 
         <TabsContent value="visualization" className="flex-1 p-4 flex flex-col">
           <div className="w-full h-full">
-            <VisualizationView
-              charts={getAppropriateChartSpec()}
-              title="Business Analytics Overview"
-            />
+            {visualizationData === null ? (
+              <p className="text-gray-500">No visualization data available</p>
+            ) : (
+              <VisualizationView
+                charts={getAppropriateChartSpec()}
+                title="Business Analytics Overview"
+              />
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="table" className="flex-1 p-4 overflow-auto">
           {tableData ? (
             <div className="w-full h-full overflow-x-auto">
-              <GoogleSheet sheetId="2PACX-1vRYKvFuTDizMFcFVsoB-KMgWxlNAkNl6UhOeMu4pqEqjtrfQ7k-I-gkTlGlZVaFjN9eBzbfCUJZQkTA" />
+              <GoogleSheet sheetId={tableData} />
             </div>
           ) : (
             <p className="text-gray-500">No table data available</p>

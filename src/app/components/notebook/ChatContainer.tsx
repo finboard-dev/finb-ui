@@ -7,13 +7,13 @@ import {
   setIsResponding,
   toggleSidebar,
 } from "@/lib/store/slices/chatSlice";
-import MessageItem from "./MessageItem";
 import { MenuIcon } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
-import MessageInput from "./MessageInput";
 import Image from "next/image";
-import chatLogo from "@/../public/chat_logo_final.svg"; // Adjust path as needed
+import chatLogo from "@/../public/chat_logo_final.svg";
+import MessageInput from "../chat/MessageInput";
+import MessageItem from "../chat/MessageItem";
 
 const ChatContainer = () => {
   const dispatch = useAppDispatch();
