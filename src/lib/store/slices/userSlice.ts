@@ -4,27 +4,28 @@ export interface Company {
   id: string;
   is_active: boolean;
   name: string;
+  roles?: string[];
+  permissions?: string[];
 }
 
 export interface Organization {
   id: string;
   is_active: boolean;
   name: string;
+  roles?: string[];
+  permissions?: string[];
 }
 
 export interface User {
   email: string;
-  username: string;
-  full_name: string | null;
+  first_name: string;
+  last_name: string;
   id: string;
   is_active: boolean;
-  is_superuser: boolean;
   created_at: string;
   updated_at: string;
   companies: Company[];
-  organization: Organization;
-  roles: string[];
-  permissions: string[];
+  organizations: Organization[];
 }
 
 interface UserState {
@@ -80,6 +81,6 @@ export const selectUserLoading = (state: { user: UserState }) => state.user.load
 export const selectUser = (state: { user: UserState }) => state.user.user;
 export const selectSelectedCompany = (state: { user: UserState }) => state.user.selectedCompany;
 export const selectUserCompanies = (state: { user: UserState }) => state.user.user?.companies || [];
-export const selectUserOrganization = (state: { user: UserState }) => state.user.user?.organization;
+export const selectUserOrganization = (state: { user: UserState }) => state.user.user?.organizations[0] || null; // Updated to handle array
 
 export default userSlice.reducer;
