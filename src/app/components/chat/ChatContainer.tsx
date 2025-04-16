@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import MessageInput from "./MessageInput";
 
 const ChatContainer = () => {
-  const dispatch = useAppDispatch();
   const { messages, isResponding, isSidebarOpen } = useAppSelector(
     (state) => state.chat
   );
@@ -23,36 +22,6 @@ const ChatContainer = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const handleSendMessage = (content: string) => {
-    if (!content.trim()) return;
-
-    const userMessage = {
-      id: uuidv4(),
-      role: "user" as const,
-      content,
-      timestamp: new Date().toISOString(),
-    };
-
-    dispatch(addMessage(userMessage));
-    dispatch(setIsResponding(true));
-
-    setTimeout(() => {
-      const botMessage = {
-        id: uuidv4(),
-        role: "assistant" as const,
-        content: `This is a simulated response to: "${content}"`,
-        timestamp: new Date().toISOString(),
-        variants: [
-          { id: 1, content: `This is the default response to: "${content}"` },
-          { id: 2, content: `This is variant 1 response to: "${content}"` },
-          { id: 3, content: `This is variant 2 response to: "${content}"` },
-        ],
-      };
-      dispatch(addMessage(botMessage));
-      dispatch(setIsResponding(false));
-    }, 1000);
-  };
 
   // Get the latest assistant message index
   const latestAssistantIndex = messages

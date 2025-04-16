@@ -10,8 +10,15 @@ export interface MessageType {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  variants?: { id: number; content: string }[]; // Optional for response variants
-  isError?: boolean; // Optional for error handling
+  variants?: {
+    id: number;
+    content: string;
+  }[];
+  isError?: boolean;
+  toolCall?: {
+    name: string;
+    args: any;
+  };
 }
 
 export interface ToolCall {

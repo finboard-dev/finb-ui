@@ -4,7 +4,8 @@ import { MessageType } from '@/types/chat';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { addMessage, setIsResponding, updateMessage } from '@/lib/store/slices/chatSlice';
-import { setCodeData, setTableData } from '@/lib/store/slices/responsePanelSlice';
+import { setCodeData, setTableData, setVisualizationData } from '@/lib/store/slices/responsePanelSlice';
+import { setToolCallLoading } from '@/lib/store/slices/loadingSlice';
 
 export const useChatStream = () => {
   const dispatch = useAppDispatch();
@@ -58,6 +59,9 @@ export const useChatStream = () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedContent = '';
+        let hasToolCall = false;
+        let toolCallName = '';
+        let toolCallArgs: null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -76,15 +80,19 @@ export const useChatStream = () => {
               processStreamResponse(
                 parsedResponse,
                 (token) => {
-                  // Handle token updates
                   accumulatedContent += token;
 
-                  // Update assistant message with new content
                   const updatedMessage: MessageType = {
                     id: assistantMessageId,
                     role: 'assistant',
                     content: accumulatedContent,
                     timestamp: new Date().toISOString(),
+                    ...(hasToolCall && {
+                      toolCall: {
+                        name: toolCallName,
+                        args: toolCallArgs
+                      }
+                    })
                   };
 
                   dispatch(updateMessage(updatedMessage));
@@ -94,13 +102,110 @@ export const useChatStream = () => {
                 },
                 (sidePanelData) => {
                   const codeData = typeof sidePanelData === 'string' ? sidePanelData : JSON.stringify(sidePanelData, null, 2);
-                  if (typeof sidePanelData === 'object' && 'spreadsheet_url' in sidePanelData) {
-                    dispatch(setTableData(sidePanelData.spreadsheet_url));
+                  if (sidePanelData?.data?.spreadsheet_url) {
+                    dispatch(setTableData(sidePanelData.data.spreadsheet_url));
                   }
                   dispatch(setCodeData(codeData));
-                  console.log('sidePanelData', sidePanelData);
+                  if (sidePanelData.type === "graph") {
+                    try {
+                      const graphSchema = sidePanelData.schema;
+                      if (!graphSchema) {
+                        console.error('No schema found in graph data:', sidePanelData);
+                        return;
+                      }
+                      if (!graphSchema.$schema) {
+                        graphSchema.$schema = "https://vega.github.io/schema/vega-lite/v5.json";
+                      }
+                      dispatch(setVisualizationData(graphSchema));
+                    } catch (error) {
+                      console.error('Error processing graph data:', error);
+                      dispatch(setVisualizationData([]));
+                    }
+                  }
                 }
               );
+              
+              // Handle tool calls
+              if (parsedResponse.content?.type === 'ai' && parsedResponse.content?.tool_calls?.[0]?.name) {
+                hasToolCall = true;
+                toolCallName = parsedResponse.content.tool_calls[0].name;
+                
+                const toolCallArgsRaw = parsedResponse.content?.tool_calls?.[0]?.args;
+                if (toolCallArgsRaw) {
+                  try {
+                    toolCallArgs = typeof toolCallArgsRaw === 'string' 
+                      ? JSON.parse(toolCallArgsRaw) 
+                      : toolCallArgsRaw;
+                  } catch (e) {
+                    console.warn('Failed to parse tool call args:', e);
+                    toolCallArgs = toolCallArgsRaw; 
+                  }
+                }
+                
+                dispatch(setToolCallLoading(true));
+                
+                const updatedMessage: MessageType = {
+                  id: assistantMessageId,
+                  role: 'assistant',
+                  content: accumulatedContent,
+                  timestamp: new Date().toISOString(),
+                  toolCall: {
+                    name: toolCallName,
+                    args: toolCallArgs
+                  }
+                };
+                
+                dispatch(updateMessage(updatedMessage));
+              }
+              
+              if (hasToolCall && 
+                  parsedResponse.content?.content !== undefined && 
+                  parsedResponse.content?.type === 'tool') {
+                try {
+                  let contentObj;
+                  
+                  if (typeof parsedResponse.content.content === 'string' && 
+                      parsedResponse.content.content.trim() !== '') {
+                    try {
+                      contentObj = JSON.parse(parsedResponse.content.content);
+                    } catch (parseError) {
+                      console.warn('Error parsing tool content:', parseError);
+                      contentObj = { data: parsedResponse.content.content };
+                    }
+                  } else if (typeof parsedResponse.content.content === 'object') {
+                    // Content is already an object
+                    contentObj = parsedResponse.content.content;
+                  } else {
+                    // Default fallback
+                    contentObj = { data: parsedResponse.content.content };
+                  }
+                  
+                  // Extract args from content object
+                  toolCallArgs = parsedResponse.content?.tool_calls?.[0]?.args
+                  
+                  // Update the message with tool call args
+                  const updatedMessage: MessageType = {
+                    id: assistantMessageId,
+                    role: 'assistant',
+                    content: accumulatedContent,
+                    timestamp: new Date().toISOString(),
+                    toolCall: {
+                      name: toolCallName,
+                      args: toolCallArgs
+                    }
+                  };
+                  
+                  dispatch(updateMessage(updatedMessage));
+                  
+                  // Set loading state to false when tool call response is received
+                  dispatch(setToolCallLoading(false));
+                } catch (error) {
+                  console.error('Error handling tool response:', error);
+                  
+                  // Attempt to continue gracefully
+                  dispatch(setToolCallLoading(false));
+                }
+              }
             }
           }
         }
@@ -120,6 +225,7 @@ export const useChatStream = () => {
 
         dispatch(updateMessage(updatedMessage));
         dispatch(setIsResponding(false));
+        dispatch(setToolCallLoading(false));
         throw error;
       }
     },

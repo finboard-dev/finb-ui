@@ -1,4 +1,6 @@
-import React, { useRef, useState, useEffect } from "react";
+"use client";
+
+import React, { useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown,
@@ -17,127 +19,169 @@ import {
 import { RootState } from "@/lib/store/store";
 import { Company } from "@/lib/store/slices/userSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  initializeComponent,
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toggleSidebar } from "@/lib/store/slices/chatSlice";
 
-type OrganisationDropdownProps = {
-  isSidebarOpen?: boolean;
-};
+export const OrganizationDropdown: React.FC = () => {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const componentId = "dropdown-organization";
 
-export const OrganizationDropdown: React.FC =
-  ({}: OrganisationDropdownProps) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const dispatch = useDispatch();
+  // Initialize dropdown state from URL param
+  useEffect(() => {
+    const isOpenFromUrl = searchParams.get(componentId) === "open";
+    dispatch(
+      initializeComponent({
+        type: "dropdown",
+        id: componentId,
+        isOpenFromUrl,
+      })
+    );
+  }, [dispatch, searchParams]);
 
-    const organization = useSelector(selectUserOrganization);
-    const companies = useSelector(selectUserCompanies);
-    const selectedCompany = useSelector(selectSelectedCompany);
+  const isOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, componentId)
+  );
+  const organization = useSelector(selectUserOrganization);
+  const companies = useSelector(selectUserCompanies);
+  const selectedCompany = useSelector(selectSelectedCompany);
 
-    const handleCompanySelect = (company: Company) => {
-      dispatch(setSelectedCompany(company));
-      setIsOpen(false);
+  // Function to update URL params
+  const updateUrlParams = (isOpen: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (isOpen) {
+      params.set(componentId, "open");
+    } else {
+      params.delete(componentId);
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleToggle = () => {
+    const newState = !isOpen;
+    dispatch(toggleComponent({ id: componentId, forceState: newState }));
+    updateUrlParams(newState);
+  };
+
+  const handleCompanySelect = (company: Company) => {
+    dispatch(setSelectedCompany(company));
+    dispatch(toggleComponent({ id: componentId, forceState: false }));
+    updateUrlParams(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        dispatch(toggleComponent({ id: componentId, forceState: false }));
+        updateUrlParams(false);
+      }
     };
 
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (
-          dropdownRef.current &&
-          !dropdownRef.current.contains(event.target as Node)
-        ) {
-          setIsOpen(false);
-        }
-      };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dispatch, searchParams, router]);
 
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }, []);
+  if (!organization || !companies.length) return null;
 
-    if (!organization || !companies.length) return null;
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        className="flex w-full hover:cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left shadow-sm hover:bg-gray-50 focus:outline-none transition-all duration-200"
+        onClick={handleToggle}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 text-white shadow-inner">
+            <span className="text-xs font-semibold">
+              {selectedCompany?.name.substring(0, 2).toUpperCase() || "SC"}
+            </span>
+            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white"></div>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-gray-900 line-clamp-1">
+              {selectedCompany?.name || "Select Company"}
+            </span>
+            <span className="text-xs text-gray-500 line-clamp-1">
+              {organization.name}
+            </span>
+          </div>
+        </div>
+        <ChevronsUpDown className="h-4 w-4 text-gray-500 shrink-0 ml-1.5" />
+      </button>
 
-    return (
-      <div className="relative w-full" ref={dropdownRef}>
-        <button
-          type="button"
-          className="flex w-full hover:cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left shadow-sm hover:bg-gray-50 focus:outline-none transition-all duration-200"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 text-white shadow-inner">
-              <span className="text-xs font-semibold">
-                {selectedCompany?.name.substring(0, 2).toUpperCase() || "SC"}
-              </span>
-              <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white"></div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-900 line-clamp-1">
-                {selectedCompany?.name || "Select Company"}
-              </span>
-              <span className="text-xs text-gray-500 line-clamp-1">
+      {isOpen && (
+        <div className="absolute top-full left-0 z-50 mt-1.5 w-full overflow-hidden rounded-lg border border-gray-200 bg-white animate-in fade-in-0 zoom-in-95 duration-100">
+          <div className="p-2.5 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Users className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-gray-700">
                 {organization.name}
               </span>
             </div>
           </div>
-          <ChevronsUpDown className="h-4 w-4 text-gray-500 shrink-0 ml-1.5" />
-        </button>
 
-        {isOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1.5 w-full overflow-hidden rounded-lg border border-gray-200 bg-white animate-in fade-in-0 zoom-in-95 duration-100">
-            <div className="p-2.5 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Users className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium text-gray-700">
-                  {organization.name}
-                </span>
-              </div>
-            </div>
-
-            <div className="max-h-64 overflow-y-auto py-1">
-              {companies.map((company) => (
+          <div className="max-h-64 overflow-y-auto py-1">
+            {companies.map((company) => (
+              <div
+                key={company.id}
+                className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
+                  company.id === selectedCompany?.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+                onClick={() => handleCompanySelect(company)}
+              >
                 <div
-                  key={company.id}
-                  className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
-                    company.id === selectedCompany?.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                  onClick={() => handleCompanySelect(company)}
-                >
-                  <div
-                    className={`flex h-6 w-6 items-center justify-center rounded-md 
+                  className={`flex h-6 w-6 items-center justify-center rounded-md 
                   ${
                     company.id === selectedCompany?.id
                       ? "bg-primary/20 text-primary"
                       : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
                   }`}
-                  >
-                    <span className="text-xs font-medium">
-                      {company.name.substring(0, 2).toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="flex-grow text-sm">{company.name}</span>
-                  {company.id === selectedCompany?.id && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
+                >
+                  <span className="text-xs font-medium">
+                    {company.name.substring(0, 2).toUpperCase()}
+                  </span>
                 </div>
-              ))}
-            </div>
-
-            <div className="border-t border-gray-100 p-2 bg-gray-50">
-              <button
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
-                onClick={() => setIsOpen(false)}
-              >
-                <Building className="h-3.5 w-3.5" />
-                <span>Manage companies</span>
-              </button>
-            </div>
+                <span className="flex-grow text-sm">{company.name}</span>
+                {company.id === selectedCompany?.id && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </div>
+            ))}
           </div>
-        )}
-      </div>
-    );
-  };
+
+          <div className="border-t border-gray-100 p-2 bg-gray-50">
+            <button
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+              onClick={() => {
+                dispatch(
+                  toggleComponent({ id: componentId, forceState: false })
+                );
+                updateUrlParams(false);
+              }}
+            >
+              <Building className="h-3.5 w-3.5" />
+              <span>Manage companies</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CollapsedOrganizationDropdown = () => {
   const dispatch = useAppDispatch();

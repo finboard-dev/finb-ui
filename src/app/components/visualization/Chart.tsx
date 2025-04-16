@@ -1,8 +1,12 @@
+"use client";
+
 import React, { useEffect, useRef, useState } from "react";
 import { View, parse } from "vega";
 import { compile } from "vega-lite";
 import { Handler } from "vega-tooltip";
 import ResizeObserver from "resize-observer-polyfill";
+import { version as vegaVersion } from "vega";
+import { version as vegaLiteVersion } from "vega-lite";
 
 interface VegaLiteChartProps {
   spec: any;
@@ -79,6 +83,7 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
 
       // Compile Vega-Lite to Vega
       const vegaSpec = compile(specWithDimensions).spec;
+      console.log(specWithDimensions);
 
       // Parse the Vega specification
       const runtime = parse(vegaSpec);
@@ -119,12 +124,17 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
     }
   }, [spec, containerDimensions]);
 
-  // Also update the container div:
+  useEffect(() => {
+    console.log("Vega version:", vegaVersion);
+    console.log("Vega-Lite version:", vegaLiteVersion);
+    console.log("Original spec:", JSON.stringify(spec));
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className={`w-full h-full overflow-hidden ${className}`}
-      style={{ minHeight: "300px", position: "relative" }}
+      style={{ minHeight: "full", position: "relative" }}
     />
   );
 };

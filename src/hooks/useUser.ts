@@ -10,7 +10,7 @@ export function useUser({ isEnabled = true }: User) {
   return useQuery({
     queryKey: ['user'],
     queryFn: async () => {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT}/users/me`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT}/user/me`, {
         headers: {
           'Authorization': `Bearer ${BEARER_TOKEN}`,
         }

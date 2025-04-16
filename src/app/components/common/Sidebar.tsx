@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import {
   PlusIcon,
@@ -8,31 +10,70 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { toggleSidebar } from "@/lib/store/slices/chatSlice";
+import {
+  initializeComponent,
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
 import {
   CollapsedOrganizationDropdown,
   OrganizationDropdown,
 } from "./OrganisationDropdown";
 import { useSelectedCompany } from "@/hooks/useSelectedCompany";
+import { useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const ChatSidebar = () => {
   const dispatch = useAppDispatch();
-  const { isSidebarOpen } = useAppSelector((state) => state.chat);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const componentId = "sidebar-chat";
+
+  useEffect(() => {
+    const isOpenFromUrl = searchParams.get(componentId) === "open";
+    dispatch(
+      initializeComponent({
+        type: "sidebar",
+        id: componentId,
+        isOpenFromUrl,
+      })
+    );
+  }, [dispatch, searchParams]);
+
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, componentId)
+  );
   const userName = useAppSelector((state) => state.user.user?.username);
   const selectedCompany = useSelectedCompany();
 
+  const updateUrlParams = (isOpen: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (isOpen) {
+      params.set(componentId, "open");
+    } else {
+      params.delete(componentId);
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleToggle = () => {
+    const newState = !isSidebarOpen;
+    dispatch(toggleComponent({ id: componentId, forceState: newState }));
+    updateUrlParams(newState);
+  };
+
   return (
     <div
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary  bg-gray-50  transition-all duration-300 ${
+      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-300 ${
         isSidebarOpen ? "w-64" : "w-16"
       }`}
     >
-      <div className="py-4 px-4 border-b border-primary  flex items-center justify-between">
+      <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
         {isSidebarOpen ? (
           <>
             <h2 className="font-medium text-heading text-lg">FinB</h2>
             <Button
-              onClick={() => dispatch(toggleSidebar())}
+              onClick={handleToggle}
               variant="ghost"
               size="icon"
               className="h-8 w-8 hover:bg-gray-200"
@@ -42,7 +83,7 @@ const ChatSidebar = () => {
           </>
         ) : (
           <Button
-            onClick={() => dispatch(toggleSidebar())}
+            onClick={handleToggle}
             variant="ghost"
             size="icon"
             className="w-full h-8 hover:bg-gray-200 flex items-center justify-center"
@@ -65,7 +106,7 @@ const ChatSidebar = () => {
       )}
 
       {/* New Chat Button */}
-      <div className="p-4 ">
+      <div className="p-4">
         {isSidebarOpen ? (
           <Button
             variant={"ghost"}
@@ -82,29 +123,10 @@ const ChatSidebar = () => {
       </div>
 
       {/* Chat History */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {/* <div className="space-y-1">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className={`${
-                isSidebarOpen
-                  ? "p-2 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 cursor-pointer text-sm"
-                  : "p-2 flex justify-center rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 cursor-pointer"
-              }`}
-            >
-              {isSidebarOpen ? (
-                `Chat ${i + 1}`
-              ) : (
-                <MessageSquare className="h-5 w-5 text-gray-500" />
-              )}
-            </div>
-          ))}
-        </div> */}
-      </div>
+      <div className="flex-1 overflow-y-auto p-2"></div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-primary ">
+      <div className="p-4 border-t border-primary">
         {isSidebarOpen ? (
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -123,7 +145,7 @@ const ChatSidebar = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 hover:bg-gray-200 "
+              className="h-8 w-8 hover:bg-gray-200"
             >
               <User className="h-5 w-5" />
             </Button>

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,10 +49,6 @@ const ResponsePanel = () => {
       resizeObserver.disconnect();
     };
   }, []);
-
-  const getAppropriateChartSpec = () => {
-    return JSON.parse(JSON.stringify(enhancedChartSpecs[6]));
-  };
 
   const handleSave = () => {
     dispatch(saveToLocalStorage());
@@ -136,7 +134,7 @@ const ResponsePanel = () => {
               <p className="text-gray-500">No visualization data available</p>
             ) : (
               <VisualizationView
-                charts={getAppropriateChartSpec()}
+                charts={visualizationData}
                 title="Business Analytics Overview"
               />
             )}

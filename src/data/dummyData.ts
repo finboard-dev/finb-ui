@@ -494,32 +494,59 @@ export const heatmapSpec = {
 };
 
 const d = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": 300,
+  "height": 200,
+  "padding": 10,
   "data": {
     "values": [
-      {"a": "A", "b": -28}, {"a": "B", "b": 55}, {"a": "C", "b": -33},
-      {"a": "D", "b": 91}, {"a": "E", "b": 81}, {"a": "F", "b": 53},
-      {"a": "G", "b": -19}, {"a": "H", "b": 87}, {"a": "I", "b": 52}
+      {"month": 3, "category1": 60, "category2": 40},
+      {"month": 4, "category1": 20, "category2": 80},
+      {"month": 6, "category1": 50, "category2": 50},
+      {"month": 8, "category1": 30, "category2": 70},
+      {"month": 9, "category1": 70, "category2": 30}
     ]
   },
-  "mark": "bar",
-  "encoding": {
-    "x": {
-      "field": "a", "type": "nominal",
-      "axis": {
-        "domain": false,
-        "ticks": false,
-        "labelAngle": 0,
-        "labelPadding": 4
+  "layer": [
+    {
+      "mark": {"type": "bar", "cornerRadius": 4},
+      "encoding": {
+        "x": {"field": "month", "type": "ordinal", "axis": {"labelAngle": 0}},
+        "y": {"field": "category1", "type": "quantitative", "axis": {"title": null, "tickCount": 5, "grid": true}},
+        "color": {"value": "#4C78A8"}
       }
     },
-    "y": {
-      "field": "b", "type": "quantitative",
-      "axis": {
-        "gridColor": {
-          "condition": {"test": "datum.value === 0", "value": "black"},
-          "value": "#ddd"
-        }
+    {
+      "mark": {"type": "bar", "cornerRadius": 4},
+      "encoding": {
+        "x": {"field": "month", "type": "ordinal"},
+        "y": {"field": "category2", "type": "quantitative"},
+        "color": {"value": "#B3CDE3"}
       }
+    }
+  ],
+  "config": {
+    "axis": {
+      "domainColor": "#D3D3D3",
+      "tickColor": "#D3D3D3",
+      "labelColor": "#808080",
+      "labelFontSize": 12,
+      "titleFontSize": 0
+    },
+    "view": {
+      "stroke": null
+    }
+  },
+  "title": {
+    "text": "Expenses Breakdown",
+    "fontSize": 16,
+    "color": "#000000",
+    "anchor": "middle",
+    "offset": 10
+  },
+  "encoding": {
+    "y": {
+      "scale": {"domain": [0, 100]}
     }
   }
 }
