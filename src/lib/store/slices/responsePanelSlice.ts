@@ -5,7 +5,7 @@ export interface ResponseData {
   id?: string | null;
   code: any;
   tableData?: any;
-  visualizationData?: Array<Record<string, any>> | null;
+  visualizationData?: any;
 }
 
 const initialState: ResponseData = {
@@ -56,6 +56,6 @@ export const responseSlice = createSlice({
   },
 });
 
-export const { setCodeData, setTableData, saveToLocalStorage } = responseSlice.actions;
+export const { setCodeData, setTableData, setVisualizationData, saveToLocalStorage } = responseSlice.actions;
 
 export default responseSlice.reducer;

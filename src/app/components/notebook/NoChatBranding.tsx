@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import MessageInput from "../chat/MessageInput";
 import { Card } from "@/components/ui/card";

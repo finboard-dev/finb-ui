@@ -1,3 +1,5 @@
+"use client";
+
 import { range } from "ramda";
 import { v4 as uuidv4 } from "uuid";
 import { Responsive, WidthProvider } from "react-grid-layout";

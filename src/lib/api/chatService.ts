@@ -17,7 +17,6 @@ export const getThreadId = (): string | null => {
   }
 };
 
-// Buffer to accumulate chunks
 let jsonBuffer: string = '';
 
 export const parseStreamChunk = (chunk: string): any => {
@@ -65,12 +64,13 @@ export const processStreamResponse = (
   }
 
   if (response.type === 'token') {
-    // onToken(response.content);
   } else if (response.type === 'error') {
     onToken(response.content);
   } else if (response.type === 'message') {
     if (response.content?.type === 'ai' && response.content?.content !== '') {
       onToken(response.content.content);
+    } else if (response.content?.type === 'ai' && response.content?.tool_calls?.[0]?.name) {
+      onToken(response.content?.tool_calls[0]?.name);
     } else if (response.content?.type === 'tool') {
       console.log('Tool call:', response.content);
 
@@ -78,10 +78,14 @@ export const processStreamResponse = (
         try {
           const toolContent = JSON.parse(response.content.content);
           if (onSidePanelData) {
-            onSidePanelData(toolContent.data);
+            onSidePanelData(toolContent);
           }
         } catch (error) {
           console.error('Error parsing tool content:', error, 'Content:', response.content.content);
+        }
+      } else if (typeof response.content.content === 'object') {
+        if (onSidePanelData) {
+          onSidePanelData(response.content.content);
         }
       }
     }
