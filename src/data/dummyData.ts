@@ -495,62 +495,188 @@ export const heatmapSpec = {
 
 const d = {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "width": 300,
-  "height": 200,
-  "padding": 10,
+  "description": "Interactive line chart with Voronoi-based tooltips and animations",
+  "width": 600,
+  "height": 600,
+  "padding": 20,
   "data": {
     "values": [
-      {"month": 3, "category1": 60, "category2": 40},
-      {"month": 4, "category1": 20, "category2": 80},
-      {"month": 6, "category1": 50, "category2": 50},
-      {"month": 8, "category1": 30, "category2": 70},
-      {"month": 9, "category1": 70, "category2": 30}
+      {"date": "2025-01-01", "value": 100},
+      {"date": "2025-02-01", "value": 120},
+      {"date": "2025-03-01", "value": 110},
+      {"date": "2025-04-01", "value": 140},
+      {"date": "2025-05-01", "value": 130},
+      {"date": "2025-06-01", "value": 160},
+      {"date": "2025-07-01", "value": 170},
+      {"date": "2025-08-01", "value": 150},
+      {"date": "2025-09-01", "value": 180},
+      {"date": "2025-10-01", "value": 200}
     ]
+  },
+  "config": {
+    "view": {"stroke": null},
+    "axis": {
+      "gridColor": "#e5e7eb",
+      "gridOpacity": 0.5,
+      "titleFontSize": 12,
+      "titleFontWeight": "normal",
+      "labelFontSize": 10
+    },
+    "legend": {"disable": true}
   },
   "layer": [
     {
-      "mark": {"type": "bar", "cornerRadius": 4},
+      "mark": {
+        "type": "line",
+        "interpolate": "monotone",
+        "stroke": "#3b82f6",
+        "strokeWidth": 3,
+        "opacity": 0.8
+      },
       "encoding": {
-        "x": {"field": "month", "type": "ordinal", "axis": {"labelAngle": 0}},
-        "y": {"field": "category1", "type": "quantitative", "axis": {"title": null, "tickCount": 5, "grid": true}},
-        "color": {"value": "#4C78A8"}
+        "x": {
+          "field": "date",
+          "type": "temporal",
+          "axis": {
+            "title": "Date",
+            "format": "%b %Y",
+            "tickCount": "month"
+          }
+        },
+        "y": {
+          "field": "value",
+          "type": "quantitative",
+          "axis": {"title": "Value"}
+        }
+      },
+      "transform": [
+        {
+          "window": [{"op": "rank", "as": "id"}]
+        }
+      ],
+      "animation": {
+        "type": "tween",
+        "duration": 1000,
+        "easing": "easeOutQuad"
       }
     },
     {
-      "mark": {"type": "bar", "cornerRadius": 4},
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 100,
+        "stroke": "#3b82f6",
+        "strokeWidth": 2,
+        "fill": "white",
+        "opacity": 0
+      },
       "encoding": {
-        "x": {"field": "month", "type": "ordinal"},
-        "y": {"field": "category2", "type": "quantitative"},
-        "color": {"value": "#B3CDE3"}
+        "x": {"field": "date", "type": "temporal"},
+        "y": {"field": "value", "type": "quantitative"},
+        "opacity": {
+          "condition": {
+            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
+            "value": 1
+          },
+          "value": 0
+        }
       }
+    },
+    {
+      "mark": {
+        "type": "rule",
+        "stroke": "#9ca3af",
+        "strokeWidth": 1,
+        "strokeDash": [4, 4],
+        "opacity": 0
+      },
+      "encoding": {
+        "x": {"field": "date", "type": "temporal"},
+        "opacity": {
+          "condition": {
+            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
+            "value": 1
+          },
+          "value": 0
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "rule",
+        "stroke": "#9ca3af",
+        "strokeWidth": 1,
+        "strokeDash": [4, 4],
+        "opacity": 0
+      },
+      "encoding": {
+        "y": {"field": "value", "type": "quantitative"},
+        "opacity": {
+          "condition": {
+            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
+            "value": 1
+          },
+          "value": 0
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "path",
+        "fill": "transparent",
+        "stroke": "transparent"
+      },
+      "transform": [
+        {
+          "voronoi": {
+            "x": "datum.date",
+            "y": "datum.value",
+            "size": [{"signal": "width"}, {"signal": "height"}]
+          }
+        }
+      ],
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "date",
+            "type": "temporal",
+            "title": "Date",
+            "format": "%b %d, %Y"
+          },
+          {"field": "value", "type": "quantitative", "title": "Value"}
+        ]
+      },
+      "params": [
+        {
+          "name": "hover",
+          "select": {
+            "type": "point",
+            "on": "mouseover",
+            "nearest": true,
+            "fields": ["id"]
+          }
+        }
+      ],
     }
   ],
-  "config": {
-    "axis": {
-      "domainColor": "#D3D3D3",
-      "tickColor": "#D3D3D3",
-      "labelColor": "#808080",
-      "labelFontSize": 12,
-      "titleFontSize": 0
-    },
-    "view": {
-      "stroke": null
+  "signals": [
+    {
+      "name": "hover_id",
+      "value": null,
+      "on": [
+        {"events": "@voronoi:mouseover", "update": "datum.id"},
+        {"events": "@voronoi:mouseout", "update": "null"}
+      ]
     }
-  },
-  "title": {
-    "text": "Expenses Breakdown",
-    "fontSize": 16,
-    "color": "#000000",
-    "anchor": "middle",
-    "offset": 10
-  },
-  "encoding": {
-    "y": {
-      "scale": {"domain": [0, 100]}
+  ],
+  "animation": {
+    "tooltip": {
+      "type": "tween",
+      "duration": 200,
+      "easing": "easeInOut"
     }
   }
 }
-
 
 
 // Collection of all chart specs

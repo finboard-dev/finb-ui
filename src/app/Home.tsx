@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import {
   toggleSidebar,
@@ -8,9 +8,9 @@ import {
 } from "@/lib/store/slices/chatSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ChatContainer from "./components/chat/ChatContainer";
-import ChatSidebar from "./components/common/Sidebar";
 import NoChatBranding from "./components/notebook/NoChatBranding";
 import ResponsePanel from "./components/notebook/Responsepanel";
+import ChatSidebar from "./components/common/Sidebar";
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -64,7 +64,9 @@ export default function Home() {
 
   return (
     <main ref={containerRef} className="flex h-screen overflow-hidden bg-white">
-      <ChatSidebar />
+      <Suspense fallback={<div className="w-16 h-full bg-gray-50"></div>}>
+        <ChatSidebar />
+      </Suspense>
 
       <div className="flex flex-1 w-full h-full flex-row-reverse">
         {showChat ? (

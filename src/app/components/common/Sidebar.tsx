@@ -1,14 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  PlusIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  PanelLeft,
-  User,
-  MessageSquare,
-} from "lucide-react";
+import { PlusIcon, ChevronLeftIcon, PanelLeft, User } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   initializeComponent,
@@ -20,16 +13,26 @@ import {
   OrganizationDropdown,
 } from "./OrganisationDropdown";
 import { useSelectedCompany } from "@/hooks/useSelectedCompany";
-import { useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-const ChatSidebar = () => {
+// Client component - uses hooks
+const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
+    null
+  );
   const componentId = "sidebar-chat";
 
+  // Get search params safely on client side
   useEffect(() => {
+    setSearchParams(new URLSearchParams(window.location.search));
+  }, []);
+
+  useEffect(() => {
+    if (!searchParams) return;
+
     const isOpenFromUrl = searchParams.get(componentId) === "open";
     dispatch(
       initializeComponent({
@@ -38,7 +41,7 @@ const ChatSidebar = () => {
         isOpenFromUrl,
       })
     );
-  }, [dispatch, searchParams]);
+  }, [dispatch, searchParams, componentId]);
 
   const isSidebarOpen = useAppSelector((state) =>
     selectIsComponentOpen(state, componentId)
@@ -48,6 +51,8 @@ const ChatSidebar = () => {
   const selectedCompany = useSelectedCompany();
 
   const updateUrlParams = (isOpen: boolean) => {
+    if (!searchParams) return;
+
     const params = new URLSearchParams(searchParams.toString());
     if (isOpen) {
       params.set(componentId, "open");
@@ -155,6 +160,11 @@ const ChatSidebar = () => {
       </div>
     </div>
   );
+};
+
+// Wrapper with Suspense boundary
+const ChatSidebar = () => {
+  return <ChatSidebarClient />;
 };
 
 export default ChatSidebar;
