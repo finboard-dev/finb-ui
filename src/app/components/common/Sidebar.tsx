@@ -43,7 +43,8 @@ const ChatSidebar = () => {
   const isSidebarOpen = useAppSelector((state) =>
     selectIsComponentOpen(state, componentId)
   );
-  const userName = useAppSelector((state) => state.user.user?.username);
+  const userFirstName = useAppSelector((state) => state.user.user?.first_name);
+  const userLastName = useAppSelector((state) => state.user.user?.last_name);
   const selectedCompany = useSelectedCompany();
 
   const updateUrlParams = (isOpen: boolean) => {
@@ -130,7 +131,7 @@ const ChatSidebar = () => {
         {isSidebarOpen ? (
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {userName}
+              {userFirstName} {userLastName}
             </div>
             <Button
               variant="ghost"
