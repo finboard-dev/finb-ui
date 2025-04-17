@@ -124,17 +124,11 @@ const VegaLiteChart: React.FC<VegaLiteChartProps> = ({
     }
   }, [spec, containerDimensions]);
 
-  useEffect(() => {
-    console.log("Vega version:", vegaVersion);
-    console.log("Vega-Lite version:", vegaLiteVersion);
-    console.log("Original spec:", JSON.stringify(spec));
-  }, []);
-
   return (
     <div
       ref={containerRef}
       className={`w-full h-full overflow-hidden ${className}`}
-      style={{ minHeight: "full", position: "relative" }}
+      style={{ minHeight: "500px", position: "relative" }}
     />
   );
 };

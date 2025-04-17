@@ -68,10 +68,22 @@ const ChatSidebarClient = () => {
     updateUrlParams(newState);
   };
 
+  // Handle click on the sidebar when collapsed
+  const handleSidebarClick = () => {
+    if (!isSidebarOpen) {
+      handleToggle();
+    }
+  };
+
+  const handleNewCompanyClick = () => {
+    return localStorage.removeItem("thread_id");
+  };
+
   return (
     <div
+      onClick={handleSidebarClick}
       className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-300 ${
-        isSidebarOpen ? "w-64" : "w-16"
+        isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
       }`}
     >
       <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
@@ -116,6 +128,7 @@ const ChatSidebarClient = () => {
         {isSidebarOpen ? (
           <Button
             variant={"ghost"}
+            onClick={handleNewCompanyClick}
             className="w-full flex justify-start text-light cursor-pointer items-center gap-2 bg-background-button-dark"
           >
             <PlusIcon className="h-4 w-4" />

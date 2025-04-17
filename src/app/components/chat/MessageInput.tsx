@@ -5,8 +5,8 @@ import { ArrowUp, Search } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import { useChatStream } from "@/hooks/useChatStreaming";
 import { useSelectedCompany } from "@/hooks/useSelectedCompany";
-import dynamic from "next/dynamic";
 import {
+  Editor,
   EditorState,
   CompositeDecorator,
   ContentState,
@@ -17,11 +17,6 @@ import {
   SelectionState,
 } from "draft-js";
 import "draft-js/dist/Draft.css";
-
-// Import Draft.js Editor component with SSR disabled
-const Editor = dynamic(() => import("draft-js").then((mod) => mod.Editor), {
-  ssr: false,
-});
 
 const FINANCIAL_REPORTS = [
   {
@@ -117,13 +112,7 @@ export default function MessageInput({
   const placeholderText =
     "Ask about your financial data... e.g., Revenue for last quarter";
 
-  // Use client-side only initialization
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // State for the editor - initialize only on client
+  // State for the editor
   const decorator = useMemo(() => createDecorator(), []);
   const [editorState, setEditorState] = useState(() =>
     EditorState.createEmpty(decorator)
@@ -138,7 +127,7 @@ export default function MessageInput({
   const [activeIndex, setActiveIndex] = useState(0);
 
   // References
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<Editor>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -146,12 +135,6 @@ export default function MessageInput({
   const { isResponding } = useAppSelector((state) => state.chat);
   const { sendMessage } = useChatStream();
   const selectedCompany = useSelectedCompany();
-
-  const focusEditor = () => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
-  };
 
   // Create decorator for mentions
   function createDecorator() {
@@ -231,18 +214,6 @@ export default function MessageInput({
       }
     }
   }, [showMentionSuggestions]);
-
-  useEffect(() => {
-    // Find the editor DOM node after render
-    if (containerRef.current) {
-      const editorNode =
-        containerRef.current.querySelector(".DraftEditor-root");
-      if (editorNode) {
-        // Now you can store a reference to the DOM node
-        // This can be used for focusing, etc.
-      }
-    }
-  }, [editorState]);
 
   // Handle editor changes
   const handleEditorChange = (newState: React.SetStateAction<EditorState>) => {
@@ -369,108 +340,11 @@ export default function MessageInput({
     }, 0);
   };
 
-  const handleBackspace = (editorState: EditorState) => {
-    const selection = editorState.getSelection();
-    if (!selection.isCollapsed()) {
-      return "not-handled"; // Let default behavior handle selections
-    }
-
-    const contentState = editorState.getCurrentContent();
-    const blockKey = selection.getStartKey();
-    const block = contentState.getBlockForKey(blockKey);
-    const cursorOffset = selection.getStartOffset();
-
-    // Check if cursor is inside or immediately after a mention entity
-    if (cursorOffset > 0) {
-      // Check the character before the cursor (or two positions before if at boundary)
-      let checkOffset = cursorOffset - 1;
-      let entityKey = block.getEntityAt(checkOffset);
-
-      // If cursor is after the mention (e.g., at the space), check one position further back
-      if (!entityKey && cursorOffset > 1) {
-        checkOffset = cursorOffset - 2;
-        entityKey = block.getEntityAt(checkOffset);
-      }
-
-      if (
-        entityKey &&
-        contentState.getEntity(entityKey).getType() === MENTION_ENTITY
-      ) {
-        // Find the mention entity's range
-        let startOffset = checkOffset;
-        let endOffset = checkOffset + 1;
-
-        // Move startOffset to the beginning of the entity
-        while (
-          startOffset > 0 &&
-          block.getEntityAt(startOffset - 1) === entityKey
-        ) {
-          startOffset--;
-        }
-
-        // Move endOffset to the end of the entity
-        while (
-          endOffset < block.getLength() &&
-          block.getEntityAt(endOffset) === entityKey
-        ) {
-          endOffset++;
-        }
-
-        // Include trailing space if it exists
-        if (
-          endOffset < block.getLength() &&
-          block.getText()[endOffset] === " "
-        ) {
-          endOffset++;
-        }
-
-        // Create a selection for the entire mention (and trailing space)
-        const mentionSelection = SelectionState.createEmpty(blockKey).merge({
-          anchorOffset: startOffset,
-          focusOffset: endOffset,
-        });
-
-        // Remove the mention text and trailing space
-        let newContentState = Modifier.removeRange(
-          contentState,
-          mentionSelection,
-          "backward"
-        );
-
-        // Update the editor state
-        let newEditorState = EditorState.push(
-          editorState,
-          newContentState,
-          "remove-range"
-        );
-
-        // Ensure cursor is positioned correctly after deletion
-        const newSelection = SelectionState.createEmpty(blockKey).merge({
-          anchorOffset: startOffset,
-          focusOffset: startOffset,
-        });
-
-        newEditorState = EditorState.forceSelection(
-          newEditorState,
-          newSelection
-        );
-
-        setEditorState(newEditorState);
-        return "handled";
-      }
-    }
-
-    return "not-handled";
-  };
-
   // Handle key commands
-  const handleKeyCommand = (command: string, editorState: EditorState) => {
+  const handleKeyCommand = (command: string, editorState: any) => {
     if (command === "submit") {
       handleSubmit();
       return "handled";
-    }
-    if (command === "backspace") {
-      return handleBackspace(editorState);
     }
     return "not-handled";
   };
@@ -500,8 +374,6 @@ export default function MessageInput({
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       return "submit";
-    } else if (e.key === "Backspace") {
-      return "backspace";
     }
 
     return getDefaultKeyBinding(e);
@@ -559,55 +431,6 @@ export default function MessageInput({
     sendMessage.mutate(messageToSend);
   };
 
-  // Function to set editor reference
-  const setEditorReference = (editor: any) => {
-    editorRef.current = editor;
-  };
-
-  // Render placeholder while client-side hydration is happening
-  if (!isClient) {
-    return (
-      <div className={`${className}w-full max-w-4xl mx-auto px-4 py-8`}>
-        <Card
-          className={`${
-            !showBorder
-              ? "bg-transparent px-0 py-0 border-none"
-              : "rounded-2xl bg-background-card -z-10 border-none px-3 py-3"
-          }`}
-        >
-          <Card className="rounded-xl bg-white border-primary p-6">
-            <div className="relative">
-              <div
-                className={`${
-                  showBorder ? "min-h-[40px]" : "min-h-[48px]"
-                } px-2 py-2 text-base text-gray-800 focus:outline-none w-full`}
-              >
-                <div className="text-gray-400">{placeholderText}</div>
-              </div>
-            </div>
-            <div className="flex items-center mt-3 gap-2">
-              <div className="relative">
-                <div className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer">
-                  <div className="flex items-center gap-2 w-full">
-                    <div className="w-3 h-3 rounded-full bg-gray-200"></div>
-                    <div className="h-5 w-24 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-grow"></div>
-              <Button
-                disabled={true}
-                className="rounded-full h-12 w-12 p-0 flex items-center justify-center bg-gray-400 cursor-not-allowed"
-              >
-                <ArrowUp className="h-5 w-5 text-white" />
-              </Button>
-            </div>
-          </Card>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className={`${className}w-full max-w-4xl mx-auto px-4 py-8`}>
       <Card
@@ -625,21 +448,18 @@ export default function MessageInput({
                 showBorder ? "min-h-[40px]" : "min-h-[48px]"
               } px-2 py-2 text-base text-gray-800 focus:outline-none w-full`}
             >
-              {Editor && (
-                <div onClick={focusEditor}>
-                  <Editor
-                    editorState={editorState}
-                    onChange={handleEditorChange}
-                    placeholder={
-                      isResponding ? "Waiting for response..." : placeholderText
-                    }
-                    readOnly={isResponding || !validSelectedCompany()}
-                    handleKeyCommand={handleKeyCommand}
-                    keyBindingFn={keyBindingFn}
-                    stripPastedStyles={true}
-                  />
-                </div>
-              )}
+              <Editor
+                ref={editorRef}
+                editorState={editorState}
+                onChange={handleEditorChange}
+                placeholder={
+                  isResponding ? "Waiting for response..." : placeholderText
+                }
+                readOnly={isResponding || !validSelectedCompany()}
+                handleKeyCommand={handleKeyCommand}
+                keyBindingFn={keyBindingFn}
+                stripPastedStyles={true}
+              />
             </div>
 
             {/* Mention suggestions dropdown */}
@@ -711,8 +531,12 @@ export default function MessageInput({
               <div className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer">
                 {!selectedCompany?.name ? (
                   <div className="flex items-center gap-2 w-full">
-                    <div className="w-3 h-3 rounded-full bg-gray-200"></div>
-                    <div className="h-5 w-24 bg-gray-200 rounded"></div>
+                    <div
+                      className={`w-3 h-3 rounded-full bg-gray-200 shimmer`}
+                    ></div>
+                    <div
+                      className={`h-5 w-24 bg-gray-200 rounded shimmer`}
+                    ></div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -741,6 +565,14 @@ export default function MessageInput({
               <ArrowUp className="h-5 w-5 text-white" />
             </Button>
           </div>
+
+          {/* Hint for @ mention */}
+          {!showBorder && (
+            <div className="text-xs text-gray-400">
+              Type <span className="font-medium">@</span> to mention a financial
+              report
+            </div>
+          )}
         </Card>
       </Card>
     </div>

@@ -59,9 +59,7 @@ export const useChatStream = () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedContent = '';
-        let hasToolCall = false;
-        let toolCallName = '';
-        let toolCallArgs: null = null;
+        let toolCalls: { name: string; args: any; id?: string }[] = [];
 
         while (true) {
           const { done, value } = await reader.read();
@@ -87,18 +85,33 @@ export const useChatStream = () => {
                     role: 'assistant',
                     content: accumulatedContent,
                     timestamp: new Date().toISOString(),
-                    ...(hasToolCall && {
-                      toolCall: {
-                        name: toolCallName,
-                        args: toolCallArgs
-                      }
-                    })
+                    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
                   };
 
                   dispatch(updateMessage(updatedMessage));
                 },
                 (toolCall) => {
                   console.log('Tool call received:', toolCall);
+                  if (!toolCalls.some(tc => tc.id === toolCall.id)) {
+                    toolCalls = [
+                      ...toolCalls,
+                      {
+                        name: toolCall.name,
+                        args: toolCall.args,
+                        id: toolCall.id,
+                      },
+                    ];
+
+                    const updatedMessage: MessageType = {
+                      id: assistantMessageId,
+                      role: 'assistant',
+                      content: accumulatedContent,
+                      timestamp: new Date().toISOString(),
+                      toolCalls,
+                    };
+
+                    dispatch(updateMessage(updatedMessage));
+                  }
                 },
                 (sidePanelData) => {
                   const codeData = typeof sidePanelData === 'string' ? sidePanelData : JSON.stringify(sidePanelData, null, 2);
@@ -106,7 +119,7 @@ export const useChatStream = () => {
                     dispatch(setTableData(sidePanelData.data.spreadsheet_url));
                   }
                   dispatch(setCodeData(codeData));
-                  if (sidePanelData.type === "graph") {
+                  if (sidePanelData.type === 'graph') {
                     try {
                       const graphSchema = sidePanelData.schema;
                       if (!graphSchema) {
@@ -114,7 +127,7 @@ export const useChatStream = () => {
                         return;
                       }
                       if (!graphSchema.$schema) {
-                        graphSchema.$schema = "https://vega.github.io/schema/vega-lite/v5.json";
+                        graphSchema.$schema = 'https://vega.github.io/schema/vega-lite/v5.json';
                       }
                       dispatch(setVisualizationData(graphSchema));
                     } catch (error) {
@@ -124,85 +137,75 @@ export const useChatStream = () => {
                   }
                 }
               );
-              
-              // Handle tool calls
-              if (parsedResponse.content?.type === 'ai' && parsedResponse.content?.tool_calls?.[0]?.name) {
-                hasToolCall = true;
-                toolCallName = parsedResponse.content.tool_calls[0].name;
-                
-                const toolCallArgsRaw = parsedResponse.content?.tool_calls?.[0]?.args;
-                if (toolCallArgsRaw) {
-                  try {
-                    toolCallArgs = typeof toolCallArgsRaw === 'string' 
-                      ? JSON.parse(toolCallArgsRaw) 
-                      : toolCallArgsRaw;
-                  } catch (e) {
-                    console.warn('Failed to parse tool call args:', e);
-                    toolCallArgs = toolCallArgsRaw; 
-                  }
-                }
-                
+
+              // Handle tool calls from the parsed response
+              if (parsedResponse.content?.type === 'ai' && parsedResponse.content?.tool_calls?.length) {
                 dispatch(setToolCallLoading(true));
-                
-                const updatedMessage: MessageType = {
-                  id: assistantMessageId,
-                  role: 'assistant',
-                  content: accumulatedContent,
-                  timestamp: new Date().toISOString(),
-                  toolCall: {
-                    name: toolCallName,
-                    args: toolCallArgs
-                  }
-                };
-                
-                dispatch(updateMessage(updatedMessage));
-              }
-              
-              if (hasToolCall && 
-                  parsedResponse.content?.content !== undefined && 
-                  parsedResponse.content?.type === 'tool') {
-                try {
-                  let contentObj;
-                  
-                  if (typeof parsedResponse.content.content === 'string' && 
-                      parsedResponse.content.content.trim() !== '') {
-                    try {
-                      contentObj = JSON.parse(parsedResponse.content.content);
-                    } catch (parseError) {
-                      console.warn('Error parsing tool content:', parseError);
-                      contentObj = { data: parsedResponse.content.content };
+
+                const newToolCalls = parsedResponse.content.tool_calls
+                  .filter((toolCall: any) => !toolCalls.some(tc => tc.id === toolCall.id))
+                  .map((toolCall: any) => {
+                    let toolCallArgs = toolCall.args;
+                    if (typeof toolCallArgs === 'string') {
+                      try {
+                        toolCallArgs = JSON.parse(toolCallArgs);
+                      } catch (e) {
+                        console.warn('Failed to parse tool call args:', e);
+                      }
                     }
-                  } else if (typeof parsedResponse.content.content === 'object') {
-                    // Content is already an object
-                    contentObj = parsedResponse.content.content;
-                  } else {
-                    // Default fallback
-                    contentObj = { data: parsedResponse.content.content };
-                  }
-                  
-                  // Extract args from content object
-                  toolCallArgs = parsedResponse.content?.tool_calls?.[0]?.args
-                  
-                  // Update the message with tool call args
+                    return {
+                      name: toolCall.name,
+                      args: toolCallArgs,
+                      id: toolCall.id,
+                    };
+                  });
+
+                if (newToolCalls.length > 0) {
+                  toolCalls = [...toolCalls, ...newToolCalls];
+
                   const updatedMessage: MessageType = {
                     id: assistantMessageId,
                     role: 'assistant',
                     content: accumulatedContent,
                     timestamp: new Date().toISOString(),
-                    toolCall: {
-                      name: toolCallName,
-                      args: toolCallArgs
-                    }
+                    toolCalls,
                   };
-                  
+
                   dispatch(updateMessage(updatedMessage));
-                  
-                  // Set loading state to false when tool call response is received
+                }
+              }
+
+              // Handle tool responses
+              if (parsedResponse.content?.type === 'tool') {
+                try {
+                  let contentObj = typeof parsedResponse.content.content === 'string' && parsedResponse.content.content.trim() !== ''
+                    ? JSON.parse(parsedResponse.content.content)
+                    : parsedResponse.content.content || { data: parsedResponse.content.content };
+
+                  if (contentObj.data?.spreadsheet_url) {
+                    dispatch(setTableData(contentObj.data.spreadsheet_url));
+                  }
+                  dispatch(setCodeData(JSON.stringify(contentObj, null, 2)));
+                  if (contentObj.type === 'graph') {
+                    try {
+                      const graphSchema = contentObj.schema;
+                      if (!graphSchema) {
+                        console.error('No schema found in graph data:', contentObj);
+                        return;
+                      }
+                      if (!graphSchema.$schema) {
+                        graphSchema.$schema = 'https://vega.github.io/schema/vega-lite/v5.json';
+                      }
+                      dispatch(setVisualizationData(graphSchema));
+                    } catch (error) {
+                      console.error('Error processing graph data:', error);
+                      dispatch(setVisualizationData([]));
+                    }
+                  }
+
                   dispatch(setToolCallLoading(false));
                 } catch (error) {
                   console.error('Error handling tool response:', error);
-                  
-                  // Attempt to continue gracefully
                   dispatch(setToolCallLoading(false));
                 }
               }

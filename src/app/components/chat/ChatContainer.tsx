@@ -23,13 +23,12 @@ const ChatContainer = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Get the latest assistant message index
   const latestAssistantIndex = messages
     .map((msg) => msg.role)
     .lastIndexOf("assistant");
 
   return (
-    <div className="flex flex-col h-full flex-1 bg-white">
+    <div className="flex flex-col h-full flex-1">
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.map((message, index) => (
@@ -44,11 +43,13 @@ const ChatContainer = () => {
             />
           </div>
         ))}
+
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-4 border-gray-200">
-        <MessageInput placeholder="Ask Anything!" />
+      {/* Input area with glassmorphism effect */}
+      <div className="px-4 py-3">
+        <MessageInput placeholder="Ask anything!" />
       </div>
     </div>
   );

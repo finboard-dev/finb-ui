@@ -1,10 +1,8 @@
-// types/chat.ts
 export interface MessageVariant {
   id: number;
   content: string;
 }
 
-// src/types/chat.ts
 export interface MessageType {
   id: string;
   role: 'user' | 'assistant';
@@ -15,10 +13,11 @@ export interface MessageType {
     content: string;
   }[];
   isError?: boolean;
-  toolCall?: {
+  toolCalls?: {
     name: string;
     args: any;
-  };
+    id?: string;
+  }[];
 }
 
 export interface ToolCall {
