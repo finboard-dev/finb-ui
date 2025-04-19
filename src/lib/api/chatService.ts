@@ -70,18 +70,35 @@ export const processStreamResponse = (
     if (response.content?.type === 'ai' && response.content?.content !== '') {
       onToken(response.content.content);
     } else if (response.content?.type === 'ai' && response.content?.tool_calls?.[0]?.name) {
-      onToken(response.content?.tool_calls[0]?.name);
+      onToolCall(response.content?.tool_calls[0]);
     } else if (response.content?.type === 'tool') {
       console.log('Tool call:', response.content);
 
       if (typeof response.content.content === 'string' && response.content.content.trim() !== '') {
-        try {
-          const toolContent = JSON.parse(response.content.content);
+        // Check if content starts with "Error:" to handle error messages properly
+        if (response.content.content.trim().startsWith('Error:')) {
           if (onSidePanelData) {
-            onSidePanelData(toolContent);
+            onSidePanelData({
+              type: 'error',
+              error: response.content.content
+            });
           }
-        } catch (error) {
-          console.error('Error parsing tool content:', error, 'Content:', response.content.content);
+        } else {
+          try {
+            const toolContent = JSON.parse(response.content.content);
+            if (onSidePanelData) {
+              onSidePanelData(toolContent);
+            }
+          } catch (error) {
+            // If JSON parsing fails, handle as plain text
+            if (onSidePanelData) {
+              onSidePanelData({
+                type: 'text',
+                text: response.content.content
+              });
+            }
+            console.warn('Failed to parse tool response as JSON:', error, 'Content:', response.content.content);
+          }
         }
       } else if (typeof response.content.content === 'object') {
         if (onSidePanelData) {

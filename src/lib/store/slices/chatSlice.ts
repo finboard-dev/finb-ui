@@ -1,5 +1,9 @@
-import { MessageType } from "@/types/chat";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { MessageType } from "@/types/chat";
+
+// Define constants for reuse
+export const PANEL_CLOSED_WIDTH = 0;
+export const PANEL_DEFAULT_WIDTH = 550;
 
 interface ChatState {
   messages: MessageType[];
@@ -11,14 +15,7 @@ interface ChatState {
 }
 
 const initialState: ChatState = {
-  messages: [
-    // {
-    //   id: "1",
-    //   role: "assistant",
-    //   content: "Hello! How can I help you today?",
-    //   timestamp: new Date().toISOString(),
-    // },
-  ],
+  messages: [],
   isResponding: false,
   responseVariants: [
     { id: 1, title: "Default Response" },
@@ -27,7 +24,7 @@ const initialState: ChatState = {
   ],
   selectedVariant: 1,
   isSidebarOpen: true,
-  responsePanelWidth: 550,
+  responsePanelWidth: PANEL_CLOSED_WIDTH, // Initially closed
 };
 
 export const chatSlice = createSlice({
@@ -43,7 +40,6 @@ export const chatSlice = createSlice({
       } else {
         state.messages.push(action.payload);
       }
-      console.log(state.messages)
     },
     updateMessage: (state, action: PayloadAction<MessageType>) => {
       const index = state.messages.findIndex(msg => msg.id === action.payload.id);
@@ -63,6 +59,12 @@ export const chatSlice = createSlice({
     setResponsePanelWidth: (state, action: PayloadAction<number>) => {
       state.responsePanelWidth = action.payload;
     },
+    openResponsePanel: (state) => {
+      state.responsePanelWidth = PANEL_DEFAULT_WIDTH;
+    },
+    closeResponsePanel: (state) => {
+      state.responsePanelWidth = PANEL_CLOSED_WIDTH;
+    },
   },
 });
 
@@ -73,5 +75,8 @@ export const {
   setSelectedVariant,
   toggleSidebar,
   setResponsePanelWidth,
+  openResponsePanel,
+  closeResponsePanel,
 } = chatSlice.actions;
+
 export default chatSlice.reducer;

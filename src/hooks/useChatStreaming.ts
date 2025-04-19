@@ -4,8 +4,21 @@ import { MessageType } from '@/types/chat';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { addMessage, setIsResponding, updateMessage } from '@/lib/store/slices/chatSlice';
-import { setCodeData, setTableData, setVisualizationData } from '@/lib/store/slices/responsePanelSlice';
+import { addToolCallResponse, setActiveToolCallId } from '@/lib/store/slices/responsePanelSlice';
 import { setToolCallLoading } from '@/lib/store/slices/loadingSlice';
+import { setResponsePanelWidth } from '@/lib/store/slices/chatSlice';
+
+// Define Vega-Lite schema type to avoid 'never' errors
+interface VegaLiteSchema {
+  $schema: string;
+  data: Record<string, any>;
+  mark: string;
+  encoding: Record<string, any>;
+  title?: string;
+  width?: number;
+  height?: number;
+  [key: string]: any;
+}
 
 export const useChatStream = () => {
   const dispatch = useAppDispatch();
@@ -91,7 +104,6 @@ export const useChatStream = () => {
                   dispatch(updateMessage(updatedMessage));
                 },
                 (toolCall) => {
-                  console.log('Tool call received:', toolCall);
                   if (!toolCalls.some(tc => tc.id === toolCall.id)) {
                     toolCalls = [
                       ...toolCalls,
@@ -114,14 +126,10 @@ export const useChatStream = () => {
                   }
                 },
                 (sidePanelData) => {
-                  const codeData = typeof sidePanelData === 'string' ? sidePanelData : JSON.stringify(sidePanelData, null, 2);
-                  if (sidePanelData?.data?.spreadsheet_url) {
-                    dispatch(setTableData(sidePanelData.data.spreadsheet_url));
-                  }
-                  dispatch(setCodeData(codeData));
+                  // Handle side panel data (e.g., graph schema from tool call)
                   if (sidePanelData.type === 'graph') {
                     try {
-                      const graphSchema = sidePanelData.schema;
+                      const graphSchema: VegaLiteSchema = sidePanelData.schema;
                       if (!graphSchema) {
                         console.error('No schema found in graph data:', sidePanelData);
                         return;
@@ -129,10 +137,18 @@ export const useChatStream = () => {
                       if (!graphSchema.$schema) {
                         graphSchema.$schema = 'https://vega.github.io/schema/vega-lite/v5.json';
                       }
-                      dispatch(setVisualizationData(graphSchema));
+                      dispatch(addToolCallResponse({
+                        id: uuidv4(),
+                        tool_call_id: parsedResponse.content?.tool_call_id || uuidv4(),
+                        tool_name: 'generate_vegalite_schema',
+                        data: graphSchema,
+                        type: 'graph',
+                        messageId: assistantMessageId,
+                      }));
+                      dispatch(setActiveToolCallId(parsedResponse.content?.tool_call_id || uuidv4()));
+                      dispatch(setResponsePanelWidth(550)); // Open ResponsePanel
                     } catch (error) {
                       console.error('Error processing graph data:', error);
-                      dispatch(setVisualizationData([]));
                     }
                   }
                 }
@@ -178,34 +194,87 @@ export const useChatStream = () => {
               // Handle tool responses
               if (parsedResponse.content?.type === 'tool') {
                 try {
-                  let contentObj = typeof parsedResponse.content.content === 'string' && parsedResponse.content.content.trim() !== ''
-                    ? JSON.parse(parsedResponse.content.content)
-                    : parsedResponse.content.content || { data: parsedResponse.content.content };
-
-                  if (contentObj.data?.spreadsheet_url) {
-                    dispatch(setTableData(contentObj.data.spreadsheet_url));
+                  let contentObj;
+                  
+                  if (typeof parsedResponse.content.content === 'string' && parsedResponse.content.content.trim() !== '') {
+                    // Check if the content starts with "Error:" to handle error messages properly
+                    if (parsedResponse.content.content.trim().startsWith('Error:')) {
+                      contentObj = { 
+                        error: parsedResponse.content.content,
+                        type: 'error'
+                      };
+                    } else {
+                      try {
+                        contentObj = JSON.parse(parsedResponse.content.content);
+                      } catch (parseError) {
+                        // If JSON parsing fails, treat as plain text
+                        contentObj = { 
+                          text: parsedResponse.content.content,
+                          type: 'text' 
+                        };
+                      }
+                    }
+                  } else {
+                    contentObj = parsedResponse.content.content || { data: parsedResponse.content.content };
                   }
-                  dispatch(setCodeData(JSON.stringify(contentObj, null, 2)));
-                  if (contentObj.type === 'graph') {
-                    try {
-                      const graphSchema = contentObj.schema;
-                      if (!graphSchema) {
-                        console.error('No schema found in graph data:', contentObj);
-                        return;
-                      }
-                      if (!graphSchema.$schema) {
-                        graphSchema.$schema = 'https://vega.github.io/schema/vega-lite/v5.json';
-                      }
-                      dispatch(setVisualizationData(graphSchema));
-                    } catch (error) {
-                      console.error('Error processing graph data:', error);
-                      dispatch(setVisualizationData([]));
+
+                  const toolCallId = parsedResponse.content.tool_call_id;
+                  const toolName = toolCalls.find(tc => tc.id === toolCallId)?.name || 'unknown';
+
+                  // Determine the type of data
+                  let dataType: 'code' | 'table' | 'graph' | 'error' | 'text' = 'code';
+                  let dataContent: any = contentObj;
+
+                  if (contentObj.type === 'error') {
+                    dataType = 'error';
+                    dataContent = contentObj.error;
+                  } else if (contentObj.type === 'text') {
+                    dataType = 'text';
+                    dataContent = contentObj.text;
+                  } else if (contentObj.data?.spreadsheet_url) {
+                    dataType = 'table';
+                    dataContent = contentObj.data.spreadsheet_url;
+                  } else if (contentObj.type === 'graph') {
+                    dataType = 'graph';
+                    dataContent = contentObj.schema as VegaLiteSchema;
+                    if (typeof dataContent === 'object' && dataContent !== null && !dataContent.$schema) {
+                      dataContent.$schema = 'https://vega.github.io/schema/vega-lite/v5.json';
                     }
                   }
+
+                  // Add tool call response to Redux
+                  dispatch(addToolCallResponse({
+                    id: uuidv4(),
+                    tool_call_id: toolCallId,
+                    tool_name: toolName,
+                    data: dataContent,
+                    type: dataType,
+                    messageId: assistantMessageId,
+                  }));
+
+                  // Set active tab and open ResponsePanel
+                  dispatch(setActiveToolCallId(toolCallId));
+                  dispatch(setResponsePanelWidth(550));
 
                   dispatch(setToolCallLoading(false));
                 } catch (error) {
                   console.error('Error handling tool response:', error);
+                  
+                  // Add error response to Redux for failed tool responses
+                  const toolCallId = parsedResponse.content.tool_call_id;
+                  const toolName = toolCalls.find(tc => tc.id === toolCallId)?.name || 'unknown';
+                  
+                  dispatch(addToolCallResponse({
+                    id: uuidv4(),
+                    tool_call_id: toolCallId,
+                    tool_name: toolName,
+                    data: `Error processing response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    type: 'error',
+                    messageId: assistantMessageId,
+                  }));
+                  
+                  dispatch(setActiveToolCallId(toolCallId));
+                  dispatch(setResponsePanelWidth(550));
                   dispatch(setToolCallLoading(false));
                 }
               }

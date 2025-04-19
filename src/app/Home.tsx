@@ -17,7 +17,7 @@ export default function Home() {
   const { isSidebarOpen, responsePanelWidth, messages } = useAppSelector(
     (state) => state.chat
   );
-  const { code } = useAppSelector((state) => state.responsePanel);
+  const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
 
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLElement | null>(null);
@@ -79,7 +79,7 @@ export default function Home() {
               <ChatContainer />
             </Panel>
 
-            {code !== undefined && (
+            {toolCallResponses.length > 0 && (
               <>
                 <PanelResizeHandle className="w-[0.2] bg-gray-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition-colors group relative">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 bg-inherit rounded-full group-hover:bg-purple-400 dark:group-hover:bg-purple-600" />

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { ChevronDown, ChevronUp, Terminal, Loader2 } from "lucide-react";
+import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
+import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 
 interface ToolCall {
   name: string;
@@ -15,6 +18,8 @@ interface ToolCallDisplayProps {
 }
 
 const ToolCallDisplay = ({ toolCalls, isLoading }: ToolCallDisplayProps) => {
+  const dispatch = useAppDispatch();
+  const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
   const [isExpanded, setIsExpanded] = useState(true);
   const [savedToolCalls, setSavedToolCalls] = useState<ToolCall[]>(toolCalls);
   const [expandedCalls, setExpandedCalls] = useState<Record<number, boolean>>(
@@ -41,6 +46,42 @@ const ToolCallDisplay = ({ toolCalls, isLoading }: ToolCallDisplayProps) => {
       ...prev,
       [index]: !prev[index],
     }));
+  };
+
+  // Fixed handleToolCallClick function
+  const handleToolCallClick = (toolCallId: string | undefined) => {
+    if (!toolCallId) return;
+
+    // Find matching tool call response by ID
+    const matchingResponse = toolCallResponses.find(
+      (response) => response.tool_call_id === toolCallId
+    );
+
+    if (matchingResponse) {
+      // Set active tab and ensure response panel is visible
+      dispatch(setActiveToolCallId(matchingResponse.tool_call_id));
+      dispatch(setResponsePanelWidth(550));
+    } else {
+      // If no direct match, try to find by tool name
+      const toolCall = toolCalls.find((tc) => tc.id === toolCallId);
+
+      if (toolCall) {
+        // Look for any response with the same tool name
+        const similarResponse = toolCallResponses.find(
+          (response) =>
+            response.tool_name.toLowerCase() === toolCall.name.toLowerCase()
+        );
+
+        if (similarResponse) {
+          dispatch(setActiveToolCallId(similarResponse.tool_call_id));
+          dispatch(setResponsePanelWidth(550));
+        } else {
+          // No matching tab found, show the panel anyway
+          // This ensures the panel opens even if no exact match is found
+          dispatch(setResponsePanelWidth(550));
+        }
+      }
+    }
   };
 
   const getToolCallStatusClasses = (name: string) => {
@@ -101,12 +142,16 @@ const ToolCallDisplay = ({ toolCalls, isLoading }: ToolCallDisplayProps) => {
         return (
           <div
             key={toolCall.id || index}
-            className={`border rounded-xl overflow-hidden shadow-lg transition-all bg-gradient-to-br backdrop-blur-md ${statusClasses}`}
+            className={`border rounded-xl overflow-hidden shadow-lg transition-all bg-gradient-to-br backdrop-blur-md ${statusClasses} cursor-pointer`}
             style={{ backdropFilter: "blur(8px)" }}
+            onClick={() => handleToolCallClick(toolCall.id)}
           >
             <div
               className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-all"
-              onClick={() => toggleCall(index)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCall(index);
+              }}
             >
               <div className="flex items-center space-x-3">
                 <div

@@ -1,16 +1,8 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
-import {
-  addMessage,
-  setIsResponding,
-  toggleSidebar,
-} from "@/lib/store/slices/chatSlice";
+import { useAppSelector } from "@/lib/store/hooks";
 import MessageItem from "./MessageItem";
-import { MenuIcon } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
-import { Button } from "@/components/ui/button";
 import MessageInput from "./MessageInput";
 
 const ChatContainer = () => {
@@ -29,7 +21,6 @@ const ChatContainer = () => {
 
   return (
     <div className="flex flex-col h-full flex-1">
-      {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.map((message, index) => (
           <div key={message.id} className="relative">
@@ -47,7 +38,6 @@ const ChatContainer = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area with glassmorphism effect */}
       <div className="px-4 py-3">
         <MessageInput placeholder="Ask anything!" />
       </div>

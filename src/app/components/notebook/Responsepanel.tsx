@@ -4,29 +4,28 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Copy, Code, BarChart2, Table } from "lucide-react";
+import { X, Code, BarChart2, Table } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import {
   setCodeData,
   saveToLocalStorage,
+  resetToolCallResponses,
+  setActiveToolCallId,
 } from "@/lib/store/slices/responsePanelSlice";
+import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
 import GoogleSheet from "./GoogleSheetsEmbeded";
 import VisualizationView from "../visualization/VisualizationView";
-import { enhancedChartSpecs } from "@/data/dummyData";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 const ResponsePanel = () => {
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState("visualization");
   const dispatch = useAppDispatch();
-  const { code, tableData, visualizationData } = useAppSelector(
+  const { code, toolCallResponses, activeToolCallId } = useAppSelector(
     (state) => state.responsePanel
   );
-
-  console.log(visualizationData, "visualizationData");
 
   useEffect(() => {
     if (!panelRef.current || typeof ResizeObserver === "undefined") return;
@@ -50,9 +49,13 @@ const ResponsePanel = () => {
     };
   }, []);
 
-  const handleSave = () => {
-    dispatch(saveToLocalStorage());
-    toast.success("All tabs saved to local storage");
+  // Auto-save when closing the panel
+  const handleClosePanel = () => {
+    if (toolCallResponses.length > 0) {
+      dispatch(saveToLocalStorage());
+      toast.success("Changes saved to local storage");
+    }
+    dispatch(setResponsePanelWidth(0));
   };
 
   const handleEditorChange = (value: string | undefined) => {
@@ -61,95 +64,102 @@ const ResponsePanel = () => {
     }
   };
 
+  // Set the latest tool call as active if none is selected
+  useEffect(() => {
+    if (toolCallResponses.length > 0 && !activeToolCallId) {
+      dispatch(
+        setActiveToolCallId(
+          toolCallResponses[toolCallResponses.length - 1].tool_call_id
+        )
+      );
+    }
+  }, [toolCallResponses, activeToolCallId, dispatch]);
+
+  // Map tool call types to icons
+  const getTabIcon = (type: string) => {
+    switch (type) {
+      case "graph":
+        return <BarChart2 className="w-4 h-4" />;
+      case "table":
+        return <Table className="w-4 h-4" />;
+      default:
+        return <Code className="w-4 h-4" />;
+    }
+  };
+
   return (
     <div
       ref={panelRef}
-      className="flex flex-col h-full bg-white"
+      className="flex flex-col h-full bg-white relative"
       key={`panel-${panelSize.width}-${panelSize.height}`}
     >
+      {/* Close button in the top-right corner */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 right-2 z-10 hover:bg-gray-100 rounded-full"
+        onClick={handleClosePanel}
+        aria-label="Close panel"
+      >
+        <X size={18} />
+      </Button>
+
       <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
+        value={activeToolCallId || undefined}
+        onValueChange={(value) => dispatch(setActiveToolCallId(value))}
         className="flex-1 flex flex-col"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <TabsList className="bg-transparent h-auto border-gray-500 rounded-md">
-            <TabsTrigger
-              value="sql"
-              className="px-3 py-2 data-[state=active]:bg-gray-100"
-              title="SQL Editor"
-              aria-label="SQL Editor"
-            >
-              <Code className="w-4 h-4" />
-            </TabsTrigger>
-            <TabsTrigger
-              value="visualization"
-              className="px-3 py-2 data-[state=active]:bg-gray-100"
-              title="Visualization"
-              aria-label="Visualization"
-            >
-              <BarChart2 className="w-4 h-4" />
-            </TabsTrigger>
-            <TabsTrigger
-              value="table"
-              className="px-3 py-2 data-[state=active]:bg-gray-100"
-              title="Table"
-              aria-label="Table"
-            >
-              <Table className="w-4 h-4" />
-            </TabsTrigger>
+        <div className="flex items-center p-4 border-b border-gray-200">
+          <TabsList className="bg-transparent h-auto border-gray-500 rounded-md flex flex-nowrap overflow-x-auto w-full pr-8">
+            {toolCallResponses.map((response) => (
+              <TabsTrigger
+                key={response.tool_call_id}
+                value={response.tool_call_id}
+                className="px-3 py-2 data-[state=active]:bg-gray-100 min-w-[40px] flex-shrink-0"
+                aria-label={response.type}
+              >
+                {getTabIcon(response.type)}
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSave}
-            className="hover:cursor-pointer border-gray-300 text-gray-700 hover:bg-gray-100"
-          >
-            Save
-          </Button>
         </div>
 
-        <TabsContent
-          value="sql"
-          className="flex-1 p-4 overflow-auto bg-gray-50 rounded-md m-4"
-        >
-          {typeof code !== "string" || code === "" ? (
-            <p className="text-gray-500">No SQL query available</p>
-          ) : (
-            <Editor
-              height="100%"
-              width="100%"
-              language="json"
-              theme="vs-light"
-              value={code}
-              onChange={handleEditorChange}
-              options={{ minimap: { enabled: false } }}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="visualization" className="flex-1 p-4 flex flex-col">
-          <div className="w-full h-full">
-            {visualizationData === null ? (
-              <p className="text-gray-500">No visualization data available</p>
+        {toolCallResponses.map((response) => (
+          <TabsContent
+            key={response.tool_call_id}
+            value={response.tool_call_id}
+            className="flex-1 p-4 overflow-auto"
+          >
+            {response.type === "graph" ? (
+              response.data ? (
+                <VisualizationView
+                  charts={response.data}
+                  title="Business Analytics Overview"
+                />
+              ) : (
+                <p className="text-gray-500">No visualization data available</p>
+              )
+            ) : response.type === "table" ? (
+              response.data ? (
+                <div className="w-full h-full overflow-x-auto">
+                  <GoogleSheet sheetId={response.data} />
+                </div>
+              ) : (
+                <p className="text-gray-500">No table data available</p>
+              )
             ) : (
-              <VisualizationView
-                charts={visualizationData}
-                title="Business Analytics Overview"
+              <Editor
+                height="100%"
+                width="100%"
+                language="json"
+                theme="vs-light"
+                value={code}
+                onChange={handleEditorChange}
+                options={{ minimap: { enabled: false } }}
               />
             )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="table" className="flex-1 p-4 overflow-auto">
-          {tableData ? (
-            <div className="w-full h-full overflow-x-auto">
-              <GoogleSheet sheetId={tableData} />
-            </div>
-          ) : (
-            <p className="text-gray-500">No table data available</p>
-          )}
-        </TabsContent>
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

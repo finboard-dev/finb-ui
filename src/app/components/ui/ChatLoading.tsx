@@ -296,7 +296,6 @@ export const CompactParticlesLoader = () => {
       {/* Light rays from the center - shorter for compact design */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full flex items-center justify-center">
         <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent animate-pulse"></div>
-        <div className="w-0.5 h-8 bg-gradient-to-b from-transparent via-purple-400/30 to-transparent animate-pulse"></div>
         <div
           className="w-6 h-0.5 bg-gradient-to-r from-transparent via-blue-400/30 to-transparent rotate-45 absolute animate-pulse"
           style={{ animationDelay: "0.5s" }}
