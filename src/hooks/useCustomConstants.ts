@@ -8,8 +8,3 @@ export const useSelectedCompany = (): Company | null => {
   return selectedCompany;
 };
 
-export const useSelectedCompanyId = () => {
-  const selectedCompanyId = useSelector(selectSelectedCompanyId)
-  console.log('Selected company ID:', selectedCompanyId);
-  return selectedCompanyId;
-}

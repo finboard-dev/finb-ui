@@ -46,7 +46,7 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
       <div
         className={`py-3 ${
           isAssistant
-            ? "text-zinc-700"
+            ? "text-zinc-700 px-2"
             : "px-5 bg-background-card text-zinc-700 rounded-xl font-medium"
         } overflow-hidden`}
       >

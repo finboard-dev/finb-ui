@@ -3,11 +3,17 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance => {
   const axiosInstance = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_CHAT,
-    // timeout: 15000,
     headers: {
       'Content-Type': 'application/json',
     },
     ...config,
+  });
+
+  axiosInstance.interceptors.request.use((config) => {
+    if (config.url?.includes('/auth/sso/login') || config.url?.includes('/qb/')) {
+      config.baseURL = process.env.NEXT_PUBLIC_API_DEV;
+    }
+    return config;
   });
 
   axiosInstance.interceptors.request.use(
