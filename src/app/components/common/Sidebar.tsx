@@ -12,7 +12,7 @@ import {
   CollapsedOrganizationDropdown,
   OrganizationDropdown,
 } from "./OrganisationDropdown";
-import { useSelectedCompany } from "@/hooks/useSelectedCompany";
+import { useSelectedCompany } from "@/hooks/useCustomConstants";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 

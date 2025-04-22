@@ -39,7 +39,7 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
     <div className="flex w-full justify-start mb-6 items-start max-w-3xl mx-auto">
       {/* Avatar or indicator area - consistent width for both message types */}
       <div className="flex-shrink-0 w-8 h-8 mt-2 flex items-center justify-center">
-        {/* Removed loader from here */}
+        {/* Avatar could go here */}
       </div>
 
       {/* Message content - consistently positioned for both message types */}
@@ -55,6 +55,7 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
           <ToolCallDisplay
             toolCalls={message.toolCalls || []}
             isLoading={isLoading}
+            messageId={message.id} // Pass the message ID to identify which tool calls belong to this message
           />
         )}
 

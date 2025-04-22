@@ -19,6 +19,11 @@ export default function Home() {
   );
   const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
 
+  // Add state for active message ID
+  const [activeMessageId, setActiveMessageId] = useState<string | undefined>(
+    undefined
+  );
+
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLElement | null>(null);
 
@@ -36,6 +41,29 @@ export default function Home() {
     window.addEventListener("resize", updateWidth);
 
     return () => window.removeEventListener("resize", updateWidth);
+  }, []);
+
+  // Listen for custom events for when a tool call is clicked
+  useEffect(() => {
+    const handleToolCallClick = (event: CustomEvent) => {
+      if (event.detail && event.detail.messageId) {
+        setActiveMessageId(event.detail.messageId);
+      }
+    };
+
+    // Add event listener for custom event
+    window.addEventListener(
+      "toolCallSelected",
+      handleToolCallClick as EventListener
+    );
+
+    // Clean up
+    return () => {
+      window.removeEventListener(
+        "toolCallSelected",
+        handleToolCallClick as EventListener
+      );
+    };
   }, []);
 
   const getConstraints = () => {
@@ -62,6 +90,13 @@ export default function Home() {
   const userMessages = messages.filter((msg) => msg.role === "user");
   const showChat = userMessages.length > 0;
 
+  // Filter tool call responses for the active message
+  const visibleResponses = activeMessageId
+    ? toolCallResponses.filter(
+        (response) => response.messageId === activeMessageId
+      )
+    : toolCallResponses;
+
   return (
     <main ref={containerRef} className="flex h-screen overflow-hidden bg-white">
       <Suspense fallback={<div className="w-16 h-full bg-gray-50"></div>}>
@@ -79,10 +114,10 @@ export default function Home() {
               <ChatContainer />
             </Panel>
 
-            {toolCallResponses.length > 0 && (
+            {visibleResponses.length > 0 && responsePanelWidth > 0 && (
               <>
-                <PanelResizeHandle className="w-[0.2] bg-gray-200 hover:bg-purple-400 dark:hover:bg-purple-600 transition-colors group relative">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 bg-inherit rounded-full group-hover:bg-purple-400 dark:group-hover:bg-purple-600" />
+                <PanelResizeHandle className="w-[0.2] bg-gray-200 z-50 transition-colors group relative">
+                  <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full " />
                 </PanelResizeHandle>
 
                 <Panel
@@ -91,7 +126,7 @@ export default function Home() {
                   maxSize={maxSize}
                   className="bg-white border-l border-gray-200 overflow-auto"
                 >
-                  <ResponsePanel />
+                  <ResponsePanel activeMessageId={activeMessageId} />
                 </Panel>
               </>
             )}

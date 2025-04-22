@@ -435,249 +435,306 @@ export const groupedBarSpec = {
 
 // 6. Heatmap Chart for Marketing Data Analysis
 export const heatmapSpec = {
-  title: "Marketing Metrics Heatmap",
-  width: 500,
-  height: 300,
-  data: { values: marketingData },
-  config: baseConfig,
-  transform: [
-    { fold: ["cost", "leads", "conversions"], as: ["metric", "value"] }
-  ],
-  mark: { 
-    type: "rect",
-    tooltip: true
-  },
-  encoding: {
-    x: {
-      field: "channel",
-      type: "nominal",
-      title: "Marketing Channel",
-      axis: {
-        labelAngle: 0,
-        tickSize: 0
-      }
-    },
-    y: {
-      field: "metric",
-      type: "nominal",
-      title: "Metric",
-      axis: {
-        tickSize: 0
-      }
-    },
-    color: {
-      field: "value",
-      type: "quantitative",
-      title: "Value",
-      scale: {
-        range: [
-          "#e0aaff", // Very light purple
-          "#c77dff", // Light purple
-          "#9d4edd", // Medium purple
-          "#7b2cbf", // Medium-dark purple
-          "#5a189a", // Dark purple
-          "#3c096c"  // Very dark purple
-        ],
-        domainMid: 200
-      },
-      legend: {
-        orient: "bottom",
-        direction: "horizontal"
-      }
-    },
-    tooltip: [
-      { field: "channel", type: "nominal", title: "Channel" },
-      { field: "metric", type: "nominal", title: "Metric" },
-      { field: "value", type: "quantitative", title: "Value" }
-    ]
-  }
-};
-
-const d = {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "description": "Interactive line chart with Voronoi-based tooltips and animations",
-  "width": 600,
-  "height": 600,
-  "padding": 20,
+  "title": "Revenue, Expense, and Net Income Comparison (2024 vs 2025)",
+
   "data": {
     "values": [
-      {"date": "2025-01-01", "value": 100},
-      {"date": "2025-02-01", "value": 120},
-      {"date": "2025-03-01", "value": 110},
-      {"date": "2025-04-01", "value": 140},
-      {"date": "2025-05-01", "value": 130},
-      {"date": "2025-06-01", "value": 160},
-      {"date": "2025-07-01", "value": 170},
-      {"date": "2025-08-01", "value": 150},
-      {"date": "2025-09-01", "value": 180},
-      {"date": "2025-10-01", "value": 200}
+      { "year": "2025", "month": "Jan", "category": "revenue", "value": 1000 },
+      { "year": "2025", "month": "Feb", "category": "revenue", "value": 100 },
+      { "year": "2025", "month": "Mar", "category": "revenue", "value": 1623 },
+      { "year": "2025", "month": "Apr", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "May", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Jun", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Jul", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Aug", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Sep", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Oct", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Nov", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Dec", "category": "revenue", "value": 0 },
+      { "year": "2025", "month": "Jan", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Feb", "category": "expense", "value": 6.5 },
+      { "year": "2025", "month": "Mar", "category": "expense", "value": -197995.01 },
+      { "year": "2025", "month": "Apr", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "May", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Jun", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Jul", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Aug", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Sep", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Oct", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Nov", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Dec", "category": "expense", "value": 0 },
+      { "year": "2025", "month": "Jan", "category": "net_income", "value": 1000 },
+      { "year": "2025", "month": "Feb", "category": "net_income", "value": 93.5 },
+      { "year": "2025", "month": "Mar", "category": "net_income", "value": 199493.01 },
+      { "year": "2025", "month": "Apr", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "May", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Jun", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Jul", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Aug", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Sep", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Oct", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Nov", "category": "net_income", "value": 0 },
+      { "year": "2025", "month": "Dec", "category": "net_income", "value": 0 },
+
+      { "year": "2024", "month": "Jan", "category": "revenue", "value": 0 },
+      { "year": "2024", "month": "Feb", "category": "revenue", "value": 391.25 },
+      { "year": "2024", "month": "Mar", "category": "revenue", "value": 521 },
+      { "year": "2024", "month": "Apr", "category": "revenue", "value": 867 },
+      { "year": "2024", "month": "May", "category": "revenue", "value": 6852.27 },
+      { "year": "2024", "month": "Jun", "category": "revenue", "value": 779 },
+      { "year": "2024", "month": "Jul", "category": "revenue", "value": 1441 },
+      { "year": "2024", "month": "Aug", "category": "revenue", "value": 0 },
+      { "year": "2024", "month": "Sep", "category": "revenue", "value": 101 },
+      { "year": "2024", "month": "Oct", "category": "revenue", "value": 0 },
+      { "year": "2024", "month": "Nov", "category": "revenue", "value": 1532 },
+      { "year": "2024", "month": "Dec", "category": "revenue", "value": 1100 },
+      { "year": "2024", "month": "Jan", "category": "expense", "value": 300 },
+      { "year": "2024", "month": "Feb", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Mar", "category": "expense", "value": 408.08 },
+      { "year": "2024", "month": "Apr", "category": "expense", "value": 511.68 },
+      { "year": "2024", "month": "May", "category": "expense", "value": 3158.69 },
+      { "year": "2024", "month": "Jun", "category": "expense", "value": 2308.85 },
+      { "year": "2024", "month": "Jul", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Aug", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Sep", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Oct", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Nov", "category": "expense", "value": 274 },
+      { "year": "2024", "month": "Dec", "category": "expense", "value": 0 },
+      { "year": "2024", "month": "Jan", "category": "net_income", "value": -300 },
+      { "year": "2024", "month": "Feb", "category": "net_income", "value": 391.25 },
+      { "year": "2024", "month": "Mar", "category": "net_income", "value": 112.92 },
+      { "year": "2024", "month": "Apr", "category": "net_income", "value": 355.32 },
+      { "year": "2024", "month": "May", "category": "net_income", "value": 3288.58 },
+      { "year": "2024", "month": "Jun", "category": "net_income", "value": -1529.85 },
+      { "year": "2024", "month": "Jul", "category": "net_income", "value": 1441 },
+      { "year": "2024", "month": "Aug", "category": "net_income", "value": 0 },
+      { "year": "2024", "month": "Sep", "category": "net_income", "value": 101 },
+      { "year": "2024", "month": "Oct", "category": "net_income", "value": 0 },
+      { "year": "2024", "month": "Nov", "category": "net_income", "value": 1257.25 },
+      { "year": "2024", "month": "Dec", "category": "net_income", "value": 1100 }
     ]
   },
-  "config": {
-    "view": {"stroke": null},
-    "axis": {
-      "gridColor": "#e5e7eb",
-      "gridOpacity": 0.5,
-      "titleFontSize": 12,
-      "titleFontWeight": "normal",
-      "labelFontSize": 10
-    },
-    "legend": {"disable": true}
-  },
-  "layer": [
-    {
-      "mark": {
-        "type": "line",
-        "interpolate": "monotone",
-        "stroke": "#3b82f6",
-        "strokeWidth": 3,
-        "opacity": 0.8
-      },
-      "encoding": {
-        "x": {
-          "field": "date",
-          "type": "temporal",
-          "axis": {
-            "title": "Date",
-            "format": "%b %Y",
-            "tickCount": "month"
-          }
-        },
-        "y": {
-          "field": "value",
-          "type": "quantitative",
-          "axis": {"title": "Value"}
-        }
-      },
-      "transform": [
-        {
-          "window": [{"op": "rank", "as": "id"}]
-        }
-      ],
-      "animation": {
-        "type": "tween",
-        "duration": 1000,
-        "easing": "easeOutQuad"
-      }
-    },
-    {
-      "mark": {
-        "type": "point",
-        "filled": true,
-        "size": 100,
-        "stroke": "#3b82f6",
-        "strokeWidth": 2,
-        "fill": "white",
-        "opacity": 0
-      },
-      "encoding": {
-        "x": {"field": "date", "type": "temporal"},
-        "y": {"field": "value", "type": "quantitative"},
-        "opacity": {
-          "condition": {
-            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
-            "value": 1
-          },
-          "value": 0
-        }
-      }
-    },
-    {
-      "mark": {
-        "type": "rule",
-        "stroke": "#9ca3af",
-        "strokeWidth": 1,
-        "strokeDash": [4, 4],
-        "opacity": 0
-      },
-      "encoding": {
-        "x": {"field": "date", "type": "temporal"},
-        "opacity": {
-          "condition": {
-            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
-            "value": 1
-          },
-          "value": 0
-        }
-      }
-    },
-    {
-      "mark": {
-        "type": "rule",
-        "stroke": "#9ca3af",
-        "strokeWidth": 1,
-        "strokeDash": [4, 4],
-        "opacity": 0
-      },
-      "encoding": {
-        "y": {"field": "value", "type": "quantitative"},
-        "opacity": {
-          "condition": {
-            "test": {"signal": "hover_id !== null && datum.id === hover_id"},
-            "value": 1
-          },
-          "value": 0
-        }
-      }
-    },
-    {
-      "mark": {
-        "type": "path",
-        "fill": "transparent",
-        "stroke": "transparent"
-      },
-      "transform": [
-        {
-          "voronoi": {
-            "x": "datum.date",
-            "y": "datum.value",
-            "size": [{"signal": "width"}, {"signal": "height"}]
-          }
-        }
-      ],
-      "encoding": {
-        "tooltip": [
-          {
-            "field": "date",
-            "type": "temporal",
-            "title": "Date",
-            "format": "%b %d, %Y"
-          },
-          {"field": "value", "type": "quantitative", "title": "Value"}
-        ]
-      },
-      "params": [
-        {
-          "name": "hover",
-          "select": {
-            "type": "point",
-            "on": "mouseover",
-            "nearest": true,
-            "fields": ["id"]
-          }
-        }
-      ],
+
+  "facet": {
+    "row": {
+      "field": "year",
+      "type": "nominal",
+      "header": { "title": "Year" }
     }
-  ],
-  "signals": [
-    {
-      "name": "hover_id",
-      "value": null,
-      "on": [
-        {"events": "@voronoi:mouseover", "update": "datum.id"},
-        {"events": "@voronoi:mouseout", "update": "null"}
+  },
+
+  "spec": {
+    "width": 800,
+    "height": 200,
+
+    "mark": {
+      "type": "line",
+      "interpolate": "monotone",
+      "point": { "filled": false, "strokeWidth": 2 }
+    },
+
+    "encoding": {
+      "x": {
+        "field": "month",
+        "type": "ordinal",
+        "sort": [
+          "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ],
+        "axis": { "title": "Month", "gridDash": [2, 2] }
+      },
+      "y": {
+        "field": "value",
+        "type": "quantitative",
+        "axis": { "title": "Amount ($)", "format": "$.2f", "gridDash": [2, 2] }
+      },
+      "color": {
+        "field": "category",
+        "type": "nominal",
+        "scale": { "scheme": "category10" },
+        "legend": { "title": "Category" }
+      },
+      "tooltip": [
+        { "field": "year", "type": "nominal", "title": "Year" },
+        { "field": "month", "type": "ordinal", "title": "Month" },
+        { "field": "category", "type": "nominal", "title": "Category" },
+        { "field": "value", "type": "quantitative", "title": "Amount", "format": "$.2f" }
       ]
     }
-  ],
-  "animation": {
-    "tooltip": {
-      "type": "tween",
-      "duration": 200,
-      "easing": "easeInOut"
-    }
+  },
+
+  "config": {
+    "axis": { "labelFontSize": 12, "titleFontSize": 14 },
+    "legend": { "labelFontSize": 12, "titleFontSize": 14 },
+    "title": { "fontSize": 16 }
   }
 }
 
+const d = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "values": [
+      {"year": "2025", "month": "Jan", "category": "revenue", "value": 1000, "x_index": 0, "y_index": 0},
+      {"year": "2025", "month": "Feb", "category": "revenue", "value": 100, "x_index": 1, "y_index": 0},
+      {"year": "2025", "month": "Mar", "category": "revenue", "value": 1623, "x_index": 2, "y_index": 0},
+      {"year": "2025", "month": "Apr", "category": "revenue", "value": 0, "x_index": 3, "y_index": 0},
+      {"year": "2025", "month": "May", "category": "revenue", "value": 0, "x_index": 4, "y_index": 0},
+      {"year": "2025", "month": "Jun", "category": "revenue", "value": 0, "x_index": 5, "y_index": 0},
+      {"year": "2025", "month": "Jul", "category": "revenue", "value": 0, "x_index": 6, "y_index": 0},
+      {"year": "2025", "month": "Aug", "category": "revenue", "value": 0, "x_index": 7, "y_index": 0},
+      {"year": "2025", "month": "Sep", "category": "revenue", "value": 0, "x_index": 8, "y_index": 0},
+      {"year": "2025", "month": "Oct", "category": "revenue", "value": 0, "x_index": 9, "y_index": 0},
+      {"year": "2025", "month": "Nov", "category": "revenue", "value": 0, "x_index": 10, "y_index": 0},
+      {"year": "2025", "month": "Dec", "category": "revenue", "value": 0, "x_index": 11, "y_index": 0},
+      {"year": "2025", "month": "Jan", "category": "expense", "value": 0, "x_index": 0, "y_index": 1},
+      {"year": "2025", "month": "Feb", "category": "expense", "value": 6.5, "x_index": 1, "y_index": 1},
+      {"year": "2025", "month": "Mar", "category": "expense", "value": 78, "x_index": 2, "y_index": 1},
+      {"year": "2025", "month": "Apr", "category": "expense", "value": 0, "x_index": 3, "y_index": 1},
+      {"year": "2025", "month": "May", "category": "expense", "value": 0, "x_index": 4, "y_index": 1},
+      {"year": "2025", "month": "Jun", "category": "expense", "value": 0, "x_index": 5, "y_index": 1},
+      {"year": "2025", "month": "Jul", "category": "expense", "value": 0, "x_index": 6, "y_index": 1},
+      {"year": "2025", "month": "Aug", "category": "expense", "value": 0, "x_index": 7, "y_index": 1},
+      {"year": "2025", "month": "Sep", "category": "expense", "value": 0, "x_index": 8, "y_index": 1},
+      {"year": "2025", "month": "Oct", "category": "expense", "value": 0, "x_index": 9, "y_index": 1},
+      {"year": "2025", "month": "Nov", "category": "expense", "value": 0, "x_index": 10, "y_index": 1},
+      {"year": "2025", "month": "Dec", "category": "expense", "value": 0, "x_index": 11, "y_index": 1},
+      {"year": "2025", "month": "Jan", "category": "net_income", "value": 1000, "x_index": 0, "y_index": 2},
+      {"year": "2025", "month": "Feb", "category": "net_income", "value": 93.5, "x_index": 1, "y_index": 2},
+      {"year": "2025", "month": "Mar", "category": "net_income", "value": 78, "x_index": 2, "y_index": 2},
+      {"year": "2025", "month": "Apr", "category": "net_income", "value": 0, "x_index": 3, "y_index": 2},
+      {"year": "2025", "month": "May", "category": "net_income", "value": 0, "x_index": 4, "y_index": 2},
+      {"year": "2025", "month": "Jun", "category": "net_income", "value": 0, "x_index": 5, "y_index": 2},
+      {"year": "2025", "month": "Jul", "category": "net_income", "value": 0, "x_index": 6, "y_index": 2},
+      {"year": "2025", "month": "Aug", "category": "net_income", "value": 0, "x_index": 7, "y_index": 2},
+      {"year": "2025", "month": "Sep", "category": "net_income", "value": 0, "x_index": 8, "y_index": 2},
+      {"year": "2025", "month": "Oct", "category": "net_income", "value": 0, "x_index": 9, "y_index": 2},
+      {"year": "2025", "month": "Nov", "category": "net_income", "value": 0, "x_index": 10, "y_index": 2},
+      {"year": "2025", "month": "Dec", "category": "net_income", "value": 0, "x_index": 11, "y_index": 2},
+      {"year": "2024", "month": "Jan", "category": "revenue", "value": 0, "x_index": 0, "y_index": 0},
+      {"year": "2024", "month": "Feb", "category": "revenue", "value": 391.25, "x_index": 1, "y_index": 0},
+      {"year": "2024", "month": "Mar", "category": "revenue", "value": 521, "x_index": 2, "y_index": 0},
+      {"year": "2024", "month": "Apr", "category": "revenue", "value": 867, "x_index": 3, "y_index": 0},
+      {"year": "2024", "month": "May", "category": "revenue", "value": 6852.27, "x_index": 4, "y_index": 0},
+      {"year": "2024", "month": "Jun", "category": "revenue", "value": 779, "x_index": 5, "y_index": 0},
+      {"year": "2024", "month": "Jul", "category": "revenue", "value": 1441, "x_index": 6, "y_index": 0},
+      {"year": "2024", "month": "Aug", "category": "revenue", "value": 0, "x_index": 7, "y_index": 0},
+      {"year": "2024", "month": "Sep", "category": "revenue", "value": 101, "x_index": 8, "y_index": 0},
+      {"year": "2024", "month": "Oct", "category": "revenue", "value": 0, "x_index": 9, "y_index": 0},
+      {"year": "2024", "month": "Nov", "category": "revenue", "value": 1532, "x_index": 10, "y_index": 0},
+      {"year": "2024", "month": "Dec", "category": "revenue", "value": 1100, "x_index": 11, "y_index": 0},
+      {"year": "2024", "month": "Jan", "category": "expense", "value": 300, "x_index": 0, "y_index": 1},
+      {"year": "2024", "month": "Feb", "category": "expense", "value": 0, "x_index": 1, "y_index": 1},
+      {"year": "2024", "month": "Mar", "category": "expense", "value": 408.08, "x_index": 2, "y_index": 1},
+      {"year": "2024", "month": "Apr", "category": "expense", "value": 511.68, "x_index": 3, "y_index": 1},
+      {"year": "2024", "month": "May", "category": "expense", "value": 3158.69, "x_index": 4, "y_index": 1},
+      {"year": "2024", "month": "Jun", "category": "expense", "value": 2308.85, "x_index": 5, "y_index": 1},
+      {"year": "2024", "month": "Jul", "category": "expense", "value": 0, "x_index": 6, "y_index": 1},
+      {"year": "2024", "month": "Aug", "category": "expense", "value": 0, "x_index": 7, "y_index": 1},
+      {"year": "2024", "month": "Sep", "category": "expense", "value": 0, "x_index": 8, "y_index": 1},
+      {"year": "2024", "month": "Oct", "category": "expense", "value": 0, "x_index": 9, "y_index": 1},
+      {"year": "2024", "month": "Nov", "category": "expense", "value": 274, "x_index": 10, "y_index": 1},
+      {"year": "2024", "month": "Dec", "category": "expense", "value": 0, "x_index": 11, "y_index": 1},
+      {"year": "2024", "month": "Jan", "category": "net_income", "value": -300, "x_index": 0, "y_index": 2},
+      {"year": "2024", "month": "Feb", "category": "net_income", "value": 391.25, "x_index": 1, "y_index": 2},
+      {"year": "2024", "month": "Mar", "category": "net_income", "value": 112.92, "x_index": 2, "y_index": 2},
+      {"year": "2024", "month": "Apr", "category": "net_income", "value": 355.32, "x_index": 3, "y_index": 2},
+      {"year": "2024", "month": "May", "category": "net_income", "value": 3288.58, "x_index": 4, "y_index": 2},
+      {"year": "2024", "month": "Jun", "category": "net_income", "value": -1529.85, "x_index": 5, "y_index": 2},
+      {"year": "2024", "month": "Jul", "category": "net_income", "value": 1441, "x_index": 6, "y_index": 2},
+      {"year": "2024", "month": "Aug", "category": "net_income", "value": 0, "x_index": 7, "y_index": 2},
+      {"year": "2024", "month": "Sep", "category": "net_income", "value": 101, "x_index": 8, "y_index": 2},
+      {"year": "2024", "month": "Oct", "category": "net_income", "value": 0, "x_index": 9, "y_index": 2},
+      {"year": "2024", "month": "Nov", "category": "net_income", "value": 1257.25, "x_index": 10, "y_index": 2},
+      {"year": "2024", "month": "Dec", "category": "net_income", "value": 1100, "x_index": 11, "y_index": 2}
+    ]
+  },
+  "title": "Revenue, Expense, and Net Income Comparison (2024 vs 2025)",
+  "facet": {
+    "row": {
+      "field": "year", 
+      "type": "nominal",
+      "title": "Year",
+      "sort": ["2024", "2025"]
+    }
+  },
+  "spec": {
+    "width": 800,
+    "height": 180,
+    "mark": {
+      "type": "line",
+      "point": {
+        "filled": false,
+        "strokeWidth": 2
+      },
+      "interpolate": "monotone"
+    },
+    "encoding": {
+      "x": {
+        "field": "month",
+        "type": "ordinal",
+        "sort": {
+          "field": "x_index",
+          "order": "ascending"
+        },
+        "axis": {
+          "title": "Month",
+          "gridDash": [2, 2]
+        }
+      },
+      "y": {
+        "field": "value",
+        "type": "quantitative",
+        "axis": {
+          "title": "Amount ($)",
+          "format": "$.2f",
+          "gridDash": [2, 2]
+        }
+      },
+      "color": {
+        "field": "category",
+        "type": "nominal",
+        "scale": {
+          "scheme": "category10"
+        },
+        "legend": {
+          "title": "Category"
+        }
+      },
+      "tooltip": [
+        {
+          "field": "month",
+          "type": "ordinal",
+          "title": "Month"
+        },
+        {
+          "field": "value",
+          "type": "quantitative",
+          "title": "Amount",
+          "format": "$.2f"
+        },
+        {
+          "field": "category",
+          "type": "nominal",
+          "title": "Category"
+        }
+      ]
+    }
+  },
+  "config": {
+    "axis": {
+      "labelFontSize": 12,
+      "titleFontSize": 14
+    },
+    "legend": {
+      "labelFontSize": 12,
+      "titleFontSize": 14
+    },
+    "title": {
+      "fontSize": 16
+    }
+  }
+}
 
 // Collection of all chart specs
 export const enhancedChartSpecs = [

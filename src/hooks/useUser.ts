@@ -1,4 +1,5 @@
 import { BEARER_TOKEN } from '@/constants'
+import { fetcher } from '@/lib/axios/config'
 import { useQuery } from '@tanstack/react-query'
 
 type User = {
@@ -10,17 +11,7 @@ export function useUser({ isEnabled = true }: User) {
   return useQuery({
     queryKey: ['user'],
     queryFn: async () => {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT}/user/me`, {
-        headers: {
-          'Authorization': `Bearer ${BEARER_TOKEN}`,
-        }
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch user')
-      }
-      
-      return response.json()
+      return fetcher.get(`/user/me`);
     },
     retry: 1, 
     enabled: isEnabled,
