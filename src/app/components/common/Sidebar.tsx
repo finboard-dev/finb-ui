@@ -15,6 +15,7 @@ import {
 import { useSelectedCompany } from "@/hooks/useCustomConstants";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import AddCompany from "./AddCompany";
 
 // Client component - uses hooks
 const ChatSidebarClient = () => {
@@ -135,10 +136,11 @@ const ChatSidebarClient = () => {
             New Chat
           </Button>
         ) : (
-          <Button className="w-full rounded-full flex items-center justify-center h-full bg-background-button-dark text-light">
+          <Button className="w-full rounded-full flex items-center justify-center h-fit bg-background-button-dark text-light">
             <PlusIcon className="h-5 w-5" />
           </Button>
         )}
+        <AddCompany />
       </div>
 
       {/* Chat History */}
