@@ -1,3 +1,4 @@
+// Updated ResponsePanel.tsx for your notebook folder
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -12,20 +13,32 @@ import {
   saveToLocalStorage,
   resetToolCallResponses,
   setActiveToolCallId,
+  ToolCallResponse,
 } from "@/lib/store/slices/responsePanelSlice";
 import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
-import GoogleSheet from "./GoogleSheetsEmbeded";
 import VisualizationView from "../visualization/VisualizationView";
+import GoogleSheet from "./GoogleSheetsEmbeded";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
-const ResponsePanel = () => {
+interface ResponsePanelProps {
+  activeMessageId?: string;
+}
+
+const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const { code, toolCallResponses, activeToolCallId } = useAppSelector(
     (state) => state.responsePanel
   );
+
+  // Filter tool call responses for the active message
+  const filteredResponses = activeMessageId
+    ? toolCallResponses.filter(
+        (response) => response.messageId === activeMessageId
+      )
+    : toolCallResponses;
 
   useEffect(() => {
     if (!panelRef.current || typeof ResizeObserver === "undefined") return;
@@ -49,7 +62,7 @@ const ResponsePanel = () => {
     };
   }, []);
 
-  // Auto-save when closing the panel
+  // Handle panel closing
   const handleClosePanel = () => {
     if (toolCallResponses.length > 0) {
       dispatch(saveToLocalStorage());
@@ -64,16 +77,20 @@ const ResponsePanel = () => {
     }
   };
 
-  // Set the latest tool call as active if none is selected
+  // Set the active tool call when the component mounts or the filtered responses change
   useEffect(() => {
-    if (toolCallResponses.length > 0 && !activeToolCallId) {
+    if (
+      filteredResponses.length > 0 &&
+      (!activeToolCallId ||
+        !filteredResponses.some((r) => r.tool_call_id === activeToolCallId))
+    ) {
       dispatch(
         setActiveToolCallId(
-          toolCallResponses[toolCallResponses.length - 1].tool_call_id
+          filteredResponses[filteredResponses.length - 1].tool_call_id
         )
       );
     }
-  }, [toolCallResponses, activeToolCallId, dispatch]);
+  }, [filteredResponses, activeToolCallId, dispatch]);
 
   // Map tool call types to icons
   const getTabIcon = (type: string) => {
@@ -87,11 +104,17 @@ const ResponsePanel = () => {
     }
   };
 
+  // Get tab label based on tool name and type
+  const getTabLabel = (response: ToolCallResponse) => {
+    const toolName = response.tool_name?.split("/").pop() || "";
+    return toolName || response.type;
+  };
+
   return (
     <div
       ref={panelRef}
       className="flex flex-col h-full bg-white relative"
-      key={`panel-${panelSize.width}-${panelSize.height}`}
+      key={`panel-${panelSize.width}-${panelSize.height}-${activeMessageId}`}
     >
       {/* Close button in the top-right corner */}
       <Button
@@ -111,20 +134,24 @@ const ResponsePanel = () => {
       >
         <div className="flex items-center p-4 border-b border-gray-200">
           <TabsList className="bg-transparent h-auto border-gray-500 rounded-md flex flex-nowrap overflow-x-auto w-full pr-8">
-            {toolCallResponses.map((response) => (
+            {filteredResponses.map((response) => (
               <TabsTrigger
                 key={response.tool_call_id}
                 value={response.tool_call_id}
-                className="px-3 py-2 data-[state=active]:bg-gray-100 min-w-[40px] flex-shrink-0"
+                className="px-3 py-2 data-[state=active]:bg-gray-100 min-w-[40px] flex-shrink-0 flex items-center gap-1"
                 aria-label={response.type}
+                title={getTabLabel(response)}
               >
                 {getTabIcon(response.type)}
+                <span className="truncate max-w-24 hidden sm:block">
+                  {getTabLabel(response)}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
 
-        {toolCallResponses.map((response) => (
+        {filteredResponses.map((response) => (
           <TabsContent
             key={response.tool_call_id}
             value={response.tool_call_id}
@@ -153,7 +180,11 @@ const ResponsePanel = () => {
                 width="100%"
                 language="json"
                 theme="vs-light"
-                value={code}
+                value={
+                  typeof response.data === "string"
+                    ? response.data
+                    : JSON.stringify(response.data, null, 2)
+                }
                 onChange={handleEditorChange}
                 options={{ minimap: { enabled: false } }}
               />

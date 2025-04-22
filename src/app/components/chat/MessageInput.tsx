@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUp, Search } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import { useChatStream } from "@/hooks/useChatStreaming";
-import { useSelectedCompany } from "@/hooks/useSelectedCompany";
+import { useSelectedCompany } from "@/hooks/useCustomConstants";
 import {
   Editor,
   EditorState,
@@ -427,7 +427,6 @@ export default function MessageInput({
     // Reset input
     setEditorState(EditorState.createEmpty(createDecorator()));
 
-    // Send message
     sendMessage.mutate(messageToSend);
   };
 

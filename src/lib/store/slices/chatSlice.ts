@@ -12,6 +12,7 @@ interface ChatState {
   selectedVariant: number;
   isSidebarOpen: boolean;
   responsePanelWidth: number;
+  activeMessageId: string | null; // Track the message whose tool responses are displayed
 }
 
 const initialState: ChatState = {
@@ -25,6 +26,7 @@ const initialState: ChatState = {
   selectedVariant: 1,
   isSidebarOpen: true,
   responsePanelWidth: PANEL_CLOSED_WIDTH, // Initially closed
+  activeMessageId: null, // Initially no message selected
 };
 
 export const chatSlice = createSlice({
@@ -64,6 +66,15 @@ export const chatSlice = createSlice({
     },
     closeResponsePanel: (state) => {
       state.responsePanelWidth = PANEL_CLOSED_WIDTH;
+      state.activeMessageId = null; // Reset active message when closing
+    },
+    setActiveMessageId: (state, action: PayloadAction<string | null>) => {
+      state.activeMessageId = action.payload;
+      if (action.payload) {
+        state.responsePanelWidth = PANEL_DEFAULT_WIDTH; // Open panel when setting active message
+      } else {
+        state.responsePanelWidth = PANEL_CLOSED_WIDTH; // Close panel when clearing active message
+      }
     },
   },
 });
@@ -77,6 +88,7 @@ export const {
   setResponsePanelWidth,
   openResponsePanel,
   closeResponsePanel,
+  setActiveMessageId,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

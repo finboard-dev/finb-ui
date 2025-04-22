@@ -1,83 +1,35 @@
+// hooks/useToolCallSelection.ts
 import { useCallback } from 'react';
-import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { 
-  addToolCallResponse, 
-  setActiveToolCallId,
-  ToolCallResponse
-} from '@/lib/store/slices/responsePanelSlice';
-import { 
-  setResponsePanelWidth,
-  openResponsePanel 
-} from '@/lib/store/slices/chatSlice';
-import { v4 as uuidv4 } from 'uuid';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { setActiveToolCallId } from '@/lib/store/slices/responsePanelSlice';
+import { setResponsePanelWidth } from '@/lib/store/slices/chatSlice';
 
-export const useToolCalls = () => {
+export const useToolCallSelection = () => {
   const dispatch = useAppDispatch();
-  const { toolCallResponses, activeToolCallId } = useAppSelector(state => state.responsePanel);
-  const { responsePanelWidth } = useAppSelector(state => state.chat);
 
-  // Find a tool call response by ID or name
-  const findToolCallResponse = useCallback((idOrName: string) => {
-    // First try to find by exact ID match
-    let response = toolCallResponses.find(res => res.tool_call_id === idOrName);
-    
-    // If not found by ID, try to find by tool name
-    if (!response) {
-      response = toolCallResponses.find(res => 
-        res.tool_name.toLowerCase() === idOrName.toLowerCase()
-      );
-    }
-    
-    return response;
-  }, [toolCallResponses]);
-
-  // Add a new tool call response
-  const addNewToolCallResponse = useCallback((toolCall: Omit<ToolCallResponse, 'id'>) => {
-    const response: ToolCallResponse = {
-      ...toolCall,
-      id: uuidv4(),
-      createdAt: new Date().toISOString()
-    };
-    
-    dispatch(addToolCallResponse(response));
-    dispatch(setActiveToolCallId(response.tool_call_id));
-    dispatch(openResponsePanel());
-    
-    return response;
-  }, [dispatch]);
-
-  // Activate a specific tool call tab
-  const activateToolCall = useCallback((toolCallId: string) => {
-    const response = findToolCallResponse(toolCallId);
-    
-    if (response) {
-      dispatch(setActiveToolCallId(response.tool_call_id));
+  /**
+   * Selects a tool call and opens the response panel
+   * @param toolCallId - The ID of the tool call to select
+   * @param messageId - The ID of the message containing the tool call
+   */
+  const selectToolCall = useCallback(
+    (toolCallId: string, messageId: string) => {
+      // Set the active tool call ID in the store
+      dispatch(setActiveToolCallId(toolCallId));
       
-      // Only open the panel if it's currently closed
-      if (responsePanelWidth === 0) {
-        dispatch(openResponsePanel());
-      }
-      return true;
-    }
-    return false;
-  }, [dispatch, findToolCallResponse, responsePanelWidth]);
+      // Open the response panel
+      dispatch(setResponsePanelWidth(550));
+      
+      // Dispatch a custom event to notify other components
+      const event = new CustomEvent('toolCallSelected', {
+        detail: { toolCallId, messageId }
+      });
+      window.dispatchEvent(event);
+    },
+    [dispatch]
+  );
 
-  // Toggle the response panel visibility
-  const toggleResponsePanel = useCallback(() => {
-    if (responsePanelWidth === 0) {
-      dispatch(openResponsePanel());
-    } else {
-      dispatch(setResponsePanelWidth(0));
-    }
-  }, [dispatch, responsePanelWidth]);
-
-  return {
-    toolCallResponses,
-    activeToolCallId,
-    findToolCallResponse,
-    addNewToolCallResponse,
-    activateToolCall,
-    toggleResponsePanel,
-    isPanelOpen: responsePanelWidth > 0
-  };
+  return { selectToolCall };
 };
+
+export default useToolCallSelection;

@@ -81,6 +81,7 @@ export const selectUserLoading = (state: { user: UserState }) => state.user.load
 export const selectUser = (state: { user: UserState }) => state.user.user;
 export const selectSelectedCompany = (state: { user: UserState }) => state.user.selectedCompany;
 export const selectUserCompanies = (state: { user: UserState }) => state.user.user?.companies || [];
-export const selectUserOrganization = (state: { user: UserState }) => state.user.user?.organizations[0] || null; // Updated to handle array
+export const selectUserOrganization = (state: { user: UserState }) => state.user.user?.organizations[0] || null; 
+export const selectSelectedCompanyId = (state: { user: UserState }) => state.user.selectedCompany?.id || null;
 
 export default userSlice.reducer;
