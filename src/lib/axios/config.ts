@@ -56,7 +56,7 @@ export const response_body = (response: AxiosResponse) => response.data;
 export const fetcher = {
   get: (url: string, params?: {}) =>
     finBoardAxios.get(url, { params }).then(response_body),
-  post: (url: string, body: {}) =>
+  post: (url: string, body?: {}) =>
     finBoardAxios.post(url, body).then(response_body),
   put: (url: string, body: {}) =>
     finBoardAxios.put(url, body).then(response_body),

@@ -4,7 +4,7 @@ import { ssoLogin } from "@/lib/api/sso/quickbooks";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function QuickbooksCallbackPage() {
+export default function Page() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [queryParams, setQueryParams] = useState({});

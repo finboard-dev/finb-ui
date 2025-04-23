@@ -11,7 +11,7 @@ const page = () => {
     try {
       const redirectUrl = await intuitSSOLogin(SSO_LOGIN);
       if (redirectUrl) {
-        window.open(redirectUrl, "_blank");
+        window.open(redirectUrl, "_self");
       } else {
         // Handle the case where no redirect URL is returned
         console.error("No redirect URL provided");

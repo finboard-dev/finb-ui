@@ -9,9 +9,9 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "frame-src https://docs.google.com/;"
-          }
-        ]
+            value: "frame-src https://docs.google.com/ https://*.codesandbox.io/;",
+          },
+        ],
       }
     ];
   }
