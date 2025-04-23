@@ -2,9 +2,10 @@
 
 import { ssoLogin } from "@/lib/api/sso/quickbooks";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function QuickbooksCallbackPage() {
+// Create a client component that uses useSearchParams
+function CallbackHandler() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [queryParams, setQueryParams] = useState({});
@@ -13,7 +14,7 @@ export default function QuickbooksCallbackPage() {
   const [countdown, setCountdown] = useState(3);
 
   useEffect(() => {
-    const params: Record<string, string> = {};
+    const params: any = {};
     searchParams.forEach((value, key) => {
       params[key] = value;
     });
@@ -28,7 +29,7 @@ export default function QuickbooksCallbackPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    let timer: string | number | NodeJS.Timeout | undefined;
+    let timer: any;
     if (status === "success" && countdown > 0) {
       timer = setTimeout(() => {
         setCountdown(countdown - 1);
@@ -156,5 +157,31 @@ export default function QuickbooksCallbackPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center text-gray-800">
+          QuickBooks Integration
+        </h1>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-16 h-16 border-4 border-t-blue-600 border-b-blue-600 border-l-transparent border-r-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function QuickbooksCallbackPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <CallbackHandler />
+    </Suspense>
   );
 }
