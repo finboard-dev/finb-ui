@@ -7,10 +7,10 @@ import {
   setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import ChatContainer from "./components/chat/ChatContainer";
-import NoChatBranding from "./components/notebook/NoChatBranding";
-import ResponsePanel from "./components/notebook/Responsepanel";
-import ChatSidebar from "./components/common/Sidebar";
+import ChatContainer from "./ChatContainer";
+import NoChatBranding from "./NoChatBranding";
+import ResponsePanel from "./ToolResponse/Responsepanel";
+import ChatSidebar from "./ChatSidebar";
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -99,9 +99,9 @@ export default function Home() {
 
   return (
     <main ref={containerRef} className="flex h-screen overflow-hidden bg-white">
-      <Suspense fallback={<div className="w-16 h-full bg-gray-50"></div>}>
-        <ChatSidebar />
-      </Suspense>
+      {/* <Suspense fallback={<div className="w-16 h-full bg-gray-50"></div>}> */}
+      <ChatSidebar />
+      {/* </Suspense> */}
 
       <div className="flex flex-1 w-full h-full flex-row-reverse">
         {showChat ? (

@@ -172,7 +172,7 @@ export const useChatStream = () => {
                       dataContent = sidePanelData.text;
                     } else if (sidePanelData.type === 'report') {
                       dataType = 'table';
-                      dataContent = sidePanelData.spreadsheet_url || sidePanelData;
+                      dataContent = sidePanelData || sidePanelData;
                     } else if (sidePanelData.type === 'graph') {
                       dataType = 'graph';
                       dataContent = sidePanelData.schema as VegaLiteSchema;

@@ -1,185 +1,80 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { PlusIcon, ChevronLeftIcon, PanelLeft, User } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  initializeComponent,
-  selectIsComponentOpen,
-  toggleComponent,
-} from "@/lib/store/slices/uiSlice";
-import {
-  CollapsedOrganizationDropdown,
-  OrganizationDropdown,
-} from "./OrganisationDropdown";
-import { useSelectedCompany } from "@/hooks/useCustomConstants";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import AddCompany from "./AddCompany";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Home, LayoutGrid, FileText, Grid, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// Client component - uses hooks
-const ChatSidebarClient = () => {
-  const dispatch = useAppDispatch();
-  const router = useRouter();
-  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
-    null
-  );
-  const componentId = "sidebar-chat";
+export default function Sidebar() {
+  const [activeItem, setActiveItem] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  // Get search params safely on client side
-  useEffect(() => {
-    setSearchParams(new URLSearchParams(window.location.search));
-  }, []);
+  // Navigation items matching the image
+  const navItems = [
+    { icon: Home, href: "/" },
+    { icon: LayoutGrid, href: "/dashboard" },
+    { icon: FileText, href: "/documents" },
+    { icon: Grid, href: "/apps" },
+    { icon: User, href: "/profile" },
+  ];
 
-  useEffect(() => {
-    if (!searchParams) return;
-
-    const isOpenFromUrl = searchParams.get(componentId) === "open";
-    dispatch(
-      initializeComponent({
-        type: "sidebar",
-        id: componentId,
-        isOpenFromUrl,
-      })
-    );
-  }, [dispatch, searchParams, componentId]);
-
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, componentId)
-  );
-  const userFirstName = useAppSelector((state) => state.user.user?.first_name);
-  const userLastName = useAppSelector((state) => state.user.user?.last_name);
-  const selectedCompany = useSelectedCompany();
-
-  const updateUrlParams = (isOpen: boolean) => {
-    if (!searchParams) return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    if (isOpen) {
-      params.set(componentId, "open");
-    } else {
-      params.delete(componentId);
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
+  // Handle mouse entering the left edge of the screen
+  const handleEdgeEnter = () => {
+    setIsExpanded(true);
   };
 
-  const handleToggle = () => {
-    const newState = !isSidebarOpen;
-    dispatch(toggleComponent({ id: componentId, forceState: newState }));
-    updateUrlParams(newState);
-  };
-
-  // Handle click on the sidebar when collapsed
-  const handleSidebarClick = () => {
-    if (!isSidebarOpen) {
-      handleToggle();
-    }
-  };
-
-  const handleNewCompanyClick = () => {
-    return localStorage.removeItem("thread_id");
+  // Handle mouse leaving the sidebar
+  const handleSidebarLeave = () => {
+    setIsExpanded(false);
   };
 
   return (
-    <div
-      onClick={handleSidebarClick}
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-300 ${
-        isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
-      }`}
-    >
-      <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
-        {isSidebarOpen ? (
-          <>
-            <h2 className="font-medium text-heading text-lg">FinB</h2>
-            <Button
-              onClick={handleToggle}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-200"
-            >
-              <ChevronLeftIcon className="h-4 w-4 logo-text" />
-            </Button>
-          </>
-        ) : (
-          <Button
-            onClick={handleToggle}
-            variant="ghost"
-            size="icon"
-            className="w-full h-8 hover:bg-gray-200 flex items-center justify-center"
-          >
-            <PanelLeft className="h-4 w-4 logo-text" />
-          </Button>
-        )}
-      </div>
+    <>
+      {/* Edge detection area */}
+      <div
+        className="fixed top-0 left-0 w-4 h-full z-40 pointer-events-auto"
+        onMouseEnter={handleEdgeEnter}
+      />
 
-      {selectedCompany && (
-        <div className="border-b border-gray-200">
-          {isSidebarOpen ? (
-            <div className="p-3">
-              <OrganizationDropdown />
-            </div>
-          ) : (
-            <CollapsedOrganizationDropdown />
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none p-3 z-50">
+        <div
+          className={cn(
+            "w-16 h-full bg-[#222327] rounded-lg shadow-lg flex flex-col items-center py-6 pointer-events-auto transition-transform duration-300 ease-in-out",
+            isExpanded ? "translate-x-0" : "-translate-x-20"
           )}
-        </div>
-      )}
+          onMouseLeave={handleSidebarLeave}
+        >
+          {/* Logo area */}
+          <div className="mb-12">
+            <div className="text-white font-bold text-2xl">N</div>
+          </div>
 
-      {/* New Chat Button */}
-      <div className="p-4">
-        {isSidebarOpen ? (
-          <Button
-            variant={"ghost"}
-            onClick={handleNewCompanyClick}
-            className="w-full flex justify-start text-light cursor-pointer items-center gap-2 bg-background-button-dark"
-          >
-            <PlusIcon className="h-4 w-4" />
-            New Chat
-          </Button>
-        ) : (
-          <Button className="w-full rounded-full flex items-center justify-center h-fit bg-background-button-dark text-light">
-            <PlusIcon className="h-5 w-5" />
-          </Button>
-        )}
-        <AddCompany />
-      </div>
+          {/* Navigation */}
+          <nav className="flex-1 flex flex-col items-center space-y-8">
+            {navItems.map((item, index) => (
+              <Link
+                key={index}
+                href={item.href}
+                target="_self"
+                className={cn(
+                  "text-gray-400 hover:text-white transition-colors p-2",
+                  activeItem === index && "text-white"
+                )}
+                onClick={() => setActiveItem(index)}
+              >
+                <item.icon className="h-6 w-6" />
+              </Link>
+            ))}
+          </nav>
 
-      {/* Chat History */}
-      <div className="flex-1 overflow-y-auto p-2"></div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-primary">
-        {isSidebarOpen ? (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {userFirstName} {userLastName}
+          {/* User profile at bottom */}
+          <div className="mt-auto">
+            <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
+              <User className="h-5 w-5 text-gray-300" />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-200"
-            >
-              <User className="h-4 w-4" />
-            </Button>
           </div>
-        ) : (
-          <div className="flex justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-200"
-            >
-              <User className="h-5 w-5" />
-            </Button>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
-};
-
-// Wrapper with Suspense boundary
-const ChatSidebar = () => {
-  return <ChatSidebarClient />;
-};
-
-export default ChatSidebar;
+}

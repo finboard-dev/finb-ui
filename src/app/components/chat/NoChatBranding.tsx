@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import MessageInput from "../chat/MessageInput";
+import MessageInput from "./MessageInput";
 import { Card } from "@/components/ui/card";
 import { ArrowUpRight, ChevronUp } from "lucide-react";
 import cardOne from "@/../public/cards/card-1.svg";

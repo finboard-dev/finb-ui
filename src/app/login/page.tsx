@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import LoginPage from "../components/common/SignInWithIntuit";
+import LoginPage from "../components/chat/ui/SignInWithIntuit";
 import { SSO_LOGIN } from "@/constants";
 import { intuitSSOLogin } from "@/lib/api/intuitService";
 

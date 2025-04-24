@@ -5,8 +5,8 @@ import { useAppSelector } from "@/lib/store/hooks";
 import { MessageType } from "@/types/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import ToolCallDisplay from "../ui/ToolCallDisplay";
-import CompactParticlesLoader from "../ui/ChatLoading";
+import ToolCallDisplay from "./ui/ToolCallDisplay";
+import CompactParticlesLoader from "./ui/ChatLoading";
 
 interface MessageItemProps {
   message: MessageType;

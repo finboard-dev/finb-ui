@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import Home from "./Home";
+import Home from "./components/chat/Home";
 import { useDispatch, useSelector } from "react-redux";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -10,6 +10,7 @@ import {
   fetchUserFailure,
 } from "@/lib/store/slices/userSlice";
 import { User } from "@/types/user";
+import Sidebar from "./components/common/Sidebar";
 
 interface RootState {
   user: {
@@ -42,7 +43,12 @@ const Page = () => {
     }
   }, [data, error, isLoading, user, loading, dispatch]);
 
-  return <Home />;
+  return (
+    <>
+      <Sidebar />
+      <Home />
+    </>
+  );
 };
 
 export default Page;
