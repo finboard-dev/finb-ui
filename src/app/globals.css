@@ -60,6 +60,12 @@
   to { height: 0; }
 }
 
+@media (max-width: 640px) {
+  .response-panel {
+    display: none; /* Or adjust minSize/maxSize */
+  }
+}
+
 /* Base styles */
 html, body {
   font-family: var(--font-sans);

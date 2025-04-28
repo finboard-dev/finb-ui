@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import StoreProvider from "@/lib/store/StoreProvider";
 import QueryProvider from "@/lib/react-query";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({
     <QueryProvider>
       <StoreProvider>
         <html lang="en">
+          {/* <Toaster position="top-right" /> */}
           <body className={`${inter.className} antialiased`}>{children}</body>
         </html>
       </StoreProvider>

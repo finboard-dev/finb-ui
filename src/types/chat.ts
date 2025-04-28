@@ -3,6 +3,14 @@ export interface MessageVariant {
   content: string;
 }
 
+export interface MentionType {
+  id: string;
+  name: string;
+  icon: string;
+  startPos: number;
+  endPos: number;
+}
+
 export interface MessageType {
   id: string;
   role: 'user' | 'assistant';
@@ -18,6 +26,7 @@ export interface MessageType {
     args: any;
     id?: string;
   }[];
+  mentions?: MentionType[];
 }
 
 export interface ToolCall {
@@ -30,4 +39,20 @@ export interface ToolResponse {
   id?: string;
   content: string;
   tool_calls?: ToolCall[];
+}
+
+export interface ChatState {
+  messages: MessageType[];
+  isResponding: boolean;
+  responseVariants: { id: number; title: string }[];
+  selectedVariant: number;
+  isSidebarOpen: boolean;
+  responsePanelWidth: number;
+  activeMessageId: string | null;
+}
+
+export interface ChatsHistory {
+  id: string;
+  name: string;
+  chats: ChatState[];
 }

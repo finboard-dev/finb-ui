@@ -1,23 +1,15 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+"use client";
+
+import type React from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, Search } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import { useChatStream } from "@/hooks/useChatStreaming";
 import { useSelectedCompany } from "@/hooks/useCustomConstants";
-import {
-  Editor,
-  EditorState,
-  CompositeDecorator,
-  ContentState,
-  Modifier,
-  convertToRaw,
-  getDefaultKeyBinding,
-  ContentBlock,
-  SelectionState,
-} from "draft-js";
-import "draft-js/dist/Draft.css";
 
+// Financial reports data
 const FINANCIAL_REPORTS = [
   {
     id: "profit-loss",
@@ -81,53 +73,43 @@ const FINANCIAL_REPORTS = [
   },
 ];
 
-type MessageInput = {
+type MessageInputProps = {
   placeholder?: string;
   showBorder?: boolean;
   className?: string;
 };
 
-// Entity types for mentions
-const MENTION_ENTITY = "MENTION";
-
-// Mention component to render mentions
-const Mention = (props: any) => {
-  const { report } = props.contentState.getEntity(props.entityKey).getData();
-  return (
-    <span
-      className="inline-flex items-center bg-blue-100 text-blue-800 rounded-md py-0.5 px-2 mx-0.5 font-medium text-sm"
-      data-mention-id={report.id}
-    >
-      <span className="mr-1">{report.icon}</span>@{report.name}
-    </span>
-  );
+type MentionType = {
+  id: string;
+  name: string;
+  command: string;
+  icon: string;
+  startPos: number;
+  endPos: number;
 };
 
 export default function MessageInput({
   placeholder = "Ask about your financial data...",
   showBorder = true,
-  className,
-}: MessageInput) {
-  //constants
+  className = "",
+}: MessageInputProps) {
+  // Constants
   const placeholderText =
     "Ask about your financial data... e.g., Revenue for last quarter";
 
-  // State for the editor
-  const decorator = useMemo(() => createDecorator(), []);
-  const [editorState, setEditorState] = useState(() =>
-    EditorState.createEmpty(decorator)
-  );
+  // State
+  const [inputValue, setInputValue] = useState("");
+  const [mentions, setMentions] = useState<MentionType[]>([]);
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
-  const [mentionSelection, setMentionSelection] = useState({
-    start: 0,
-    end: 0,
-  });
+  const [mentionStartPos, setMentionStartPos] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(0);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isComposing, setIsComposing] = useState(false);
 
   // References
-  const editorRef = useRef<Editor>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -135,31 +117,6 @@ export default function MessageInput({
   const { isResponding } = useAppSelector((state) => state.chat);
   const { sendMessage } = useChatStream();
   const selectedCompany = useSelectedCompany();
-
-  // Create decorator for mentions
-  function createDecorator() {
-    return new CompositeDecorator([
-      {
-        strategy: findMentionEntities,
-        component: Mention,
-      },
-    ]);
-  }
-
-  // Strategy to find mention entities
-  function findMentionEntities(
-    contentBlock: ContentBlock,
-    callback: (start: number, end: number) => void,
-    contentState: ContentState
-  ) {
-    contentBlock.findEntityRanges((character: { getEntity: () => any }) => {
-      const entityKey = character.getEntity();
-      return (
-        entityKey !== null &&
-        contentState.getEntity(entityKey).getType() === MENTION_ENTITY
-      );
-    }, callback);
-  }
 
   // Filter reports based on search term
   const filteredReports = FINANCIAL_REPORTS.filter((report) =>
@@ -193,245 +150,260 @@ export default function MessageInput({
     setActiveIndex(0);
   }, [filteredReports.length]);
 
-  // Position the menu based on cursor position
-  useEffect(() => {
-    if (showMentionSuggestions && editorRef.current) {
-      const editorRoot = editorRef.current.editor;
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const editorRect = editorRoot?.getBoundingClientRect();
-        if (!editorRect) return;
+  // Update cursor position and check for mentions
+  const updateCursorPosition = () => {
+    if (!inputRef.current) return;
 
-        setMenuPosition({
-          top: rect.bottom - editorRect.top,
-          left: Math.min(
-            rect.left - editorRect.left,
-            editorRoot ? editorRoot.clientWidth - 250 : 0
-          ),
-        });
-      }
-    }
-  }, [showMentionSuggestions]);
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
 
-  // Handle editor changes
-  const handleEditorChange = (newState: React.SetStateAction<EditorState>) => {
-    const selection = (newState as EditorState).getSelection();
-    const content = (newState as EditorState).getCurrentContent();
-    const currentBlock = content.getBlockForKey(selection.getStartKey());
-    const blockText = currentBlock.getText();
-    const cursorPosition = selection.getStartOffset();
+    const range = selection.getRangeAt(0);
+    if (!inputRef.current.contains(range.commonAncestorContainer)) return;
 
-    // Check if we're in a potential mention situation
-    if (blockText.length > 0) {
-      // Find the @ symbol before cursor
-      let mentionStartPos = -1;
-      for (let i = cursorPosition - 1; i >= 0; i--) {
-        if (blockText.charAt(i) === "@") {
-          // Make sure this @ is not inside an existing mention entity
-          const entityKey = currentBlock.getEntityAt(i);
-          if (!entityKey) {
-            mentionStartPos = i;
-            break;
-          }
-        } else if (/\s/.test(blockText.charAt(i))) {
-          // Stop at whitespace
+    // Get text content and cursor position
+    const text = inputRef.current.textContent || "";
+    const position = range.startOffset;
+    setCursorPosition(position);
+
+    // Check for @ symbol before cursor
+    let mentionStart = -1;
+    for (let i = position - 1; i >= 0; i--) {
+      if (text[i] === "@") {
+        // Check if this @ is not inside an existing mention
+        const insideExistingMention = mentions.some(
+          (mention) => i >= mention.startPos && i <= mention.endPos
+        );
+        if (!insideExistingMention) {
+          mentionStart = i;
           break;
         }
+      } else if (/\s/.test(text[i])) {
+        // Stop at whitespace
+        break;
       }
+    }
 
-      if (mentionStartPos >= 0) {
-        // Extract the current filter text
-        const filter = blockText.substring(mentionStartPos + 1, cursorPosition);
-        setMentionFilter(filter);
-        setMentionSelection({
-          start: mentionStartPos,
-          end: cursorPosition,
+    if (mentionStart >= 0) {
+      const filter = text.substring(mentionStart + 1, position);
+      setMentionFilter(filter);
+      setMentionStartPos(mentionStart);
+      setShowMentionSuggestions(true);
+
+      // Position the menu
+      if (inputRef.current) {
+        const rect = range.getBoundingClientRect();
+        const inputRect = inputRef.current.getBoundingClientRect();
+
+        setMenuPosition({
+          top: rect.bottom - inputRect.top,
+          left: Math.min(
+            rect.left - inputRect.left,
+            inputRef.current.clientWidth - 250
+          ),
         });
-        setShowMentionSuggestions(true);
-      } else {
-        setShowMentionSuggestions(false);
       }
     } else {
       setShowMentionSuggestions(false);
     }
+  };
 
-    setEditorState(newState);
+  // Handle input changes
+  const handleInputChange = () => {
+    if (!inputRef.current) return;
+
+    const text = inputRef.current.textContent || "";
+    setInputValue(text);
+
+    // Update mentions array by checking which mention spans still exist in the DOM
+    const currentMentionElements =
+      inputRef.current.querySelectorAll("[data-mention-id]");
+    const currentMentionIds = Array.from(currentMentionElements).map((el) =>
+      el.getAttribute("data-mention-id")
+    );
+
+    // Filter out mentions that no longer exist in the DOM
+    const updatedMentions = mentions.filter((mention) =>
+      currentMentionIds.includes(mention.id)
+    );
+
+    // Update mentions state if it changed
+    if (updatedMentions.length !== mentions.length) {
+      setMentions(updatedMentions);
+    }
+
+    if (!isComposing) {
+      updateCursorPosition();
+    }
   };
 
   // Handle selecting a report from dropdown
   const handleSelectReport = (report: {
-    id?: string;
-    name: any;
-    command?: string;
-    icon?: string;
+    id: string;
+    name: string;
+    command: string;
+    icon: string;
   }) => {
-    // Get current selection and content
-    const selectionState = editorState.getSelection();
-    const contentState = editorState.getCurrentContent();
+    if (!inputRef.current) return;
 
-    // Create a selection for the entire mention text including @
-    const mentionRange: SelectionState = selectionState.merge({
-      anchorOffset: mentionSelection.start,
-      focusOffset: mentionSelection.end,
-    });
+    // Get current text
+    const text = inputRef.current.textContent || "";
 
-    // Create the entity for the mention
-    const contentStateWithEntity = contentState.createEntity(
-      MENTION_ENTITY,
-      "IMMUTABLE",
-      { report }
-    );
-    const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
+    // Create a new mention object
+    const newMention: MentionType = {
+      ...report,
+      startPos: mentionStartPos,
+      endPos: mentionStartPos + report.name.length + 1, // +1 for the @ symbol
+    };
 
-    // Replace the selection with mention text and apply the entity
-    const mentionText = `@${report.name}`;
-    const contentStateWithMention = Modifier.replaceText(
-      contentStateWithEntity,
-      mentionRange,
-      mentionText,
-      undefined,
-      entityKey
-    );
+    // Add to mentions array
+    setMentions([...mentions, newMention]);
 
-    // Add a space after the mention
-    const spaceOffset = mentionSelection.start + mentionText.length;
-    const selectionAfterMention = contentStateWithMention
-      .getSelectionAfter()
-      .merge({
-        anchorOffset: spaceOffset,
-        focusOffset: spaceOffset,
-      });
+    // Replace the @filter with the mention in the text
+    const beforeMention = text.substring(0, mentionStartPos);
+    const afterMention = text.substring(cursorPosition);
 
-    const contentStateWithSpace = Modifier.insertText(
-      contentStateWithMention,
-      selectionAfterMention,
-      " "
-    );
+    // Create mention span
+    const mentionSpan = document.createElement("span");
+    mentionSpan.className =
+      "inline-flex items-center bg-blue-100 text-blue-800 rounded-md py-0.5 px-2 mx-0.5 font-medium text-sm";
+    mentionSpan.setAttribute("data-mention-id", report.id);
+    mentionSpan.setAttribute("contenteditable", "false");
+    mentionSpan.innerHTML = `@${report.name}`;
 
-    // Create new editor state
-    const newEditorState = EditorState.push(
-      editorState,
-      contentStateWithSpace,
-      "insert-characters"
-    );
+    // Clear the input content
+    inputRef.current.innerHTML = "";
 
-    // Move cursor after the space
-    const newSelection = newEditorState.getSelection().merge({
-      anchorOffset: spaceOffset + 1,
-      focusOffset: spaceOffset + 1,
-    });
+    // Add text before mention
+    if (beforeMention) {
+      const beforeTextNode = document.createTextNode(beforeMention);
+      inputRef.current.appendChild(beforeTextNode);
+    }
 
-    const editorStateWithNewSelection = EditorState.forceSelection(
-      newEditorState,
-      newSelection
-    );
+    // Add mention span
+    inputRef.current.appendChild(mentionSpan);
 
-    // Update state
-    setEditorState(editorStateWithNewSelection);
+    // Add space after mention
+    const spaceNode = document.createTextNode(" ");
+    inputRef.current.appendChild(spaceNode);
+
+    // Add text after mention
+    if (afterMention) {
+      const afterTextNode = document.createTextNode(afterMention);
+      inputRef.current.appendChild(afterTextNode);
+    }
+
+    // Close suggestions
     setShowMentionSuggestions(false);
 
-    // Focus editor
+    // Set cursor after the mention and space
+    const newPosition = mentionStartPos + report.name.length + 2; // +2 for @ and space
+    setCursorPosition(newPosition);
+
+    // Focus and set cursor position
     setTimeout(() => {
-      if (editorRef.current) {
-        editorRef.current.focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
+
+        const selection = window.getSelection();
+        if (selection) {
+          // Find the position after the mention span and space
+          let nodeIndex = 0;
+          let offset = 0;
+          let found = false;
+
+          for (let i = 0; i < inputRef.current.childNodes.length; i++) {
+            const node = inputRef.current.childNodes[i];
+            if (node === mentionSpan) {
+              // The next node should be the space
+              if (i + 1 < inputRef.current.childNodes.length) {
+                nodeIndex = i + 1;
+                offset = 1; // After the space
+                found = true;
+                break;
+              }
+            }
+          }
+
+          if (found) {
+            const range = document.createRange();
+            range.setStart(inputRef.current.childNodes[nodeIndex], offset);
+            range.collapse(true);
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
       }
     }, 0);
+
+    // Update input value
+    handleInputChange();
   };
 
-  // Handle key commands
-  const handleKeyCommand = (command: string, editorState: any) => {
-    if (command === "submit") {
-      handleSubmit();
-      return "handled";
-    }
-    return "not-handled";
-  };
-
-  // Custom key binding for Enter to submit
-  const keyBindingFn = (e: React.KeyboardEvent<{}>) => {
+  // Handle key events
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showMentionSuggestions && filteredReports.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((activeIndex + 1) % filteredReports.length);
-        return null;
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setActiveIndex(
           (activeIndex - 1 + filteredReports.length) % filteredReports.length
         );
-        return null;
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         handleSelectReport(filteredReports[activeIndex]);
-        return null;
       } else if (e.key === "Escape") {
         e.preventDefault();
         setShowMentionSuggestions(false);
-        return null;
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      return "submit";
+      handleSubmit();
     }
-
-    return getDefaultKeyBinding(e);
   };
 
-  // Extract mentions from content
-  const extractMentionsFromContent = (contentState: ContentState) => {
-    const mentions: any[] = [];
-    const blocks = convertToRaw(contentState).blocks;
-
-    // Go through all blocks
-    blocks.forEach((block) => {
-      // Check for entity ranges
-      if (block.entityRanges.length > 0) {
-        const entityMap = convertToRaw(contentState).entityMap;
-
-        // Process each entity
-        block.entityRanges.forEach((range) => {
-          const entity = entityMap[range.key];
-          if (entity.type === MENTION_ENTITY) {
-            mentions.push(entity.data.report);
-          }
-        });
-      }
-    });
-
-    return mentions;
+  // Update extractMentionsFromContent to ensure all fields are included
+  const extractMentionsFromContent = () => {
+    return mentions.map((mention) => ({
+      id: mention.id,
+      name: mention.name,
+      icon: mention.icon,
+      startPos: mention.startPos,
+      endPos: mention.endPos,
+    }));
   };
 
-  // Submit the message
+  // Update handleSubmit
   const handleSubmit = () => {
-    const contentState = editorState.getCurrentContent();
-    if (!contentState.hasText() || isResponding) {
+    if (!inputValue.trim() || isResponding) {
       return;
     }
 
-    // Get plain text
-    const blocks = convertToRaw(contentState).blocks;
-    const messageText = blocks.map((block) => block.text).join("\n");
+    // Get plain text and mentions
+    const plainText = inputValue.trim();
+    const extractedMentions = extractMentionsFromContent();
 
-    // Extract mentions
-    const mentions = extractMentionsFromContent(contentState);
-
-    // Prepare the message with mentions appended as commands
-    let messageToSend = messageText.trim();
-    if (mentions.length > 0) {
-      messageToSend +=
-        "\n" + mentions.map((mention) => `[${mention.command}]`).join("\n");
-    }
+    // Create a structured message payload
+    const messagePayload = {
+      text: plainText,
+      mentions: extractedMentions,
+    };
 
     // Reset input
-    setEditorState(EditorState.createEmpty(createDecorator()));
+    if (inputRef.current) {
+      inputRef.current.innerHTML = "";
+    }
+    setInputValue("");
+    setMentions([]);
 
-    sendMessage.mutate(messageToSend);
+    // Send the structured message
+    sendMessage.mutate(messagePayload);
   };
 
   return (
-    <div className={`${className}w-full max-w-4xl mx-auto px-4 py-8`}>
+    <div className={`${className} w-full max-w-4xl mx-auto px-4 py-8`}>
       <Card
         className={`${
           !showBorder
@@ -441,25 +413,28 @@ export default function MessageInput({
       >
         <Card className="rounded-xl bg-white border-primary p-6">
           <div className="relative" ref={containerRef}>
-            {/* Editor */}
+            {/* Input Area */}
             <div
+              ref={inputRef}
+              contentEditable={!isResponding && validSelectedCompany()}
+              onInput={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => {
+                setIsComposing(false);
+                updateCursorPosition();
+              }}
+              onBlur={() => setTimeout(() => updateCursorPosition(), 100)}
+              onFocus={updateCursorPosition}
+              onClick={updateCursorPosition}
               className={`${
                 showBorder ? "min-h-[40px]" : "min-h-[48px]"
-              } px-2 py-2 text-base text-gray-800 focus:outline-none w-full`}
-            >
-              <Editor
-                ref={editorRef}
-                editorState={editorState}
-                onChange={handleEditorChange}
-                placeholder={
-                  isResponding ? "Waiting for response..." : placeholderText
-                }
-                readOnly={isResponding || !validSelectedCompany()}
-                handleKeyCommand={handleKeyCommand}
-                keyBindingFn={keyBindingFn}
-                stripPastedStyles={true}
-              />
-            </div>
+              } px-2 py-2 text-base text-gray-800 focus:outline-none w-full empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none`}
+              data-placeholder={
+                isResponding ? "Waiting for response..." : placeholderText
+              }
+              suppressContentEditableWarning={true}
+            ></div>
 
             {/* Mention suggestions dropdown */}
             {showMentionSuggestions && filteredReports.length > 0 && (
@@ -552,11 +527,9 @@ export default function MessageInput({
 
             <Button
               onClick={handleSubmit}
-              disabled={
-                !editorState.getCurrentContent().hasText() || isResponding
-              }
+              disabled={!inputValue.trim() || isResponding}
               className={`rounded-full h-12 w-12 p-0 flex items-center justify-center ${
-                !editorState.getCurrentContent().hasText() || isResponding
+                !inputValue.trim() || isResponding
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gray-900 hover:bg-gray-800"
               }`}
@@ -567,7 +540,7 @@ export default function MessageInput({
 
           {/* Hint for @ mention */}
           {!showBorder && (
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-400 mt-2">
               Type <span className="font-medium">@</span> to mention a financial
               report
             </div>

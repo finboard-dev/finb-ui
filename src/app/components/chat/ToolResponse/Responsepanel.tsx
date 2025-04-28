@@ -12,6 +12,9 @@ import {
   RefreshCw,
   Eye,
   FileJson,
+  Maximize2,
+  Minimize2,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -24,21 +27,97 @@ import {
 import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
 import VisualizationView from "../../visualization/VisualizationView";
 import GoogleSheet from "./GoogleSheetsEmbeded";
+import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { v4 as uuidv4 } from "uuid";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 interface ResponsePanelProps {
   activeMessageId?: string;
+  isOpen?: boolean;
+  onSaveComponent?: (component: any) => void;
 }
 
-const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
+// Enhanced function to save components to localStorage with proper processing
+const saveComponentToLocalStorage = (response: ToolCallResponse) => {
+  try {
+    // Determine the component type
+    const componentType =
+      response.type === "graph"
+        ? "Visualization"
+        : response.type === "table"
+        ? "SQL"
+        : "Python";
+
+    // Format the content based on the component type
+    let content: any;
+    if (typeof response.data === "string") {
+      content = response.data;
+    } else {
+      content = JSON.stringify(response.data);
+    }
+
+    // Create the block object
+    const newBlockId = uuidv4();
+    const componentData = {
+      id: newBlockId,
+      type: componentType,
+      title:
+        response.tool_name?.split("/").pop() || `${componentType} Component`,
+      content: content,
+      timestamp: new Date().toISOString(),
+      originalType: response.type, // Store original type for rendering
+      metadata: {
+        messageId: response.messageId,
+        toolCallId: response.tool_call_id,
+      },
+    };
+
+    // Get existing saved components
+    const savedComponents = JSON.parse(
+      localStorage.getItem("dashboardBlocks") || "[]"
+    );
+
+    // Add new component
+    savedComponents.push(componentData);
+
+    // Save back to localStorage
+    localStorage.setItem("dashboardBlocks", JSON.stringify(savedComponents));
+
+    return {
+      success: true,
+      blockId: newBlockId,
+    };
+  } catch (error) {
+    console.error("Error saving component to localStorage:", error);
+    return {
+      success: false,
+      error,
+    };
+  }
+};
+
+const ResponsePanel = ({
+  activeMessageId,
+  isOpen = true,
+  onSaveComponent,
+}: ResponsePanelProps) => {
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [viewMode, setViewMode] = useState<Record<string, "view" | "json">>({});
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const { code, toolCallResponses, activeToolCallId } = useAppSelector(
     (state) => state.responsePanel
   );
+  const { responsePanelWidth } = useAppSelector((state) => state.chat);
 
   const filteredResponses = activeMessageId
     ? toolCallResponses.filter(
@@ -66,35 +145,7 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
       }
       resizeObserver.disconnect();
     };
-  }, []);
-
-  const handleClosePanel = () => {
-    if (toolCallResponses.length > 0) {
-      dispatch(saveToLocalStorage());
-      toast.success("Changes saved to local storage");
-    }
-    dispatch(setResponsePanelWidth(0));
-  };
-
-  const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined) {
-      dispatch(setCodeData(value));
-    }
-  };
-
-  useEffect(() => {
-    if (
-      filteredResponses.length > 0 &&
-      (!activeToolCallId ||
-        !filteredResponses.some((r) => r.tool_call_id === activeToolCallId))
-    ) {
-      dispatch(
-        setActiveToolCallId(
-          filteredResponses[filteredResponses.length - 1].tool_call_id
-        )
-      );
-    }
-  }, [filteredResponses, activeToolCallId, dispatch]);
+  }, [isOpen]);
 
   // Initialize view mode for each tool call
   useEffect(() => {
@@ -109,6 +160,42 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
       setViewMode((prev) => ({ ...prev, ...initialViewModes }));
     }
   }, [filteredResponses]);
+
+  // Set active tool call when filtered responses change
+  useEffect(() => {
+    if (
+      filteredResponses.length > 0 &&
+      (!activeToolCallId ||
+        !filteredResponses.some((r) => r.tool_call_id === activeToolCallId))
+    ) {
+      dispatch(
+        setActiveToolCallId(
+          filteredResponses[filteredResponses.length - 1].tool_call_id
+        )
+      );
+    }
+  }, [filteredResponses, activeToolCallId, dispatch]);
+
+  const handleClosePanel = () => {
+    if (toolCallResponses.length > 0) {
+      dispatch(saveToLocalStorage());
+      toast.success("Changes saved to local storage");
+    }
+    dispatch(setResponsePanelWidth(0));
+    setIsExpanded(false);
+    setIsSheetOpen(false);
+  };
+
+  const handleEditorChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      dispatch(setCodeData(value));
+    }
+  };
+
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+    setIsSheetOpen(!isSheetOpen);
+  };
 
   // Map tool call types to icons
   const getTabIcon = (type: string) => {
@@ -128,9 +215,23 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
   };
 
   const handleRefreshTable = (sheetId: string) => {
-    // Implement refresh logic here
-    toast.success("Refreshing table data...");
-    // You might want to call an API or dispatch an action to refresh the data
+    setViewMode((prev) => ({ ...prev }));
+    toast.success("Table data refreshed!");
+  };
+
+  // Enhanced function to handle saving a component to dashboard
+  const handleSaveComponent = (response: ToolCallResponse) => {
+    const result = saveComponentToLocalStorage(response);
+
+    if (result.success) {
+      toast.success(`Component saved to dashboard!`, {
+        description: "You can now drag it onto your dashboard",
+      });
+    } else {
+      toast.error("Failed to save component", {
+        description: "Please try again or check console for errors",
+      });
+    }
   };
 
   const renderContent = (response: ToolCallResponse, mode: "view" | "json") => {
@@ -158,17 +259,16 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
     switch (response.type) {
       case "graph":
         return response.data ? (
-          <VisualizationView
-            charts={response.data}
-            title="Business Analytics Overview"
-          />
+          <VisualizationView charts={response.data} title="" />
         ) : (
           <p className="text-gray-500">No visualization data available</p>
         );
       case "table":
         return response.data ? (
           <div className="w-full h-full overflow-x-auto relative">
-            <GoogleSheet sheetId={response.data.spreadsheet_url} />
+            <GoogleSheet
+              sheetId={response.data.spreadsheet_url || response.data}
+            />
           </div>
         ) : (
           <p className="text-gray-500">No table data available</p>
@@ -179,7 +279,7 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
             <Editor
               height="100%"
               width="100%"
-              language="json"
+              language={response.type === "code" ? "javascript" : "javascript"}
               theme="vs-light"
               value={
                 typeof response.data === "string"
@@ -194,21 +294,35 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
     }
   };
 
-  return (
+  const panelContent = (
     <div
       ref={panelRef}
-      className="flex flex-col h-full bg-white relative"
+      className={cn(
+        "flex flex-col h-full bg-white relative transition-all duration-300 ease-in-out",
+        isExpanded && "fixed inset-0 z-50"
+      )}
       key={`panel-${panelSize.width}-${panelSize.height}-${activeMessageId}`}
     >
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 z-10 hover:bg-gray-100 rounded-full"
-        onClick={handleClosePanel}
-        aria-label="Close panel"
-      >
-        <X size={18} />
-      </Button>
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-gray-100 rounded-full"
+          onClick={toggleExpand}
+          aria-label={isExpanded ? "Minimize panel" : "Maximize panel"}
+        >
+          {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-gray-100 rounded-full"
+          onClick={handleClosePanel}
+          aria-label="Close panel"
+        >
+          <X size={18} />
+        </Button>
+      </div>
 
       <Tabs
         value={activeToolCallId || undefined}
@@ -234,22 +348,9 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
           <TabsContent
             key={response.tool_call_id}
             value={response.tool_call_id}
-            className="flex-1 p-4 overflow-auto relative h-full"
+            className="flex-1 p-4 overflow-auto relative h-full max-w-full"
+            style={{ overflowX: "hidden" }}
           >
-            {response.type === "table" &&
-              viewMode[response.tool_call_id] === "view" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute top-6 cursor-pointer right-6 z-10 bg-white shadow-sm"
-                  onClick={() => handleRefreshTable(response.data as string)}
-                  aria-label="Refresh table"
-                >
-                  <RefreshCw size={16} className="mr-1" />
-                  Refresh
-                </Button>
-              )}
-
             <Tabs
               value={viewMode[response.tool_call_id] || "view"}
               onValueChange={(value) =>
@@ -271,7 +372,36 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="view" className="mt-0 flex-1 h-full">
+              <TabsContent value="view" className="mt-0 flex-1 h-full relative">
+                {/* Only show Save button on View tab */}
+                <div className="absolute top-0 right-0 z-10 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                    onClick={() => handleSaveComponent(response)}
+                    aria-label="Save to dashboard"
+                  >
+                    <Save size={16} />
+                    Save to Dashboard
+                  </Button>
+
+                  {response.type === "table" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                      onClick={() =>
+                        handleRefreshTable(response.data as string)
+                      }
+                      aria-label="Refresh table"
+                    >
+                      <RefreshCw size={16} />
+                      Refresh
+                    </Button>
+                  )}
+                </div>
+
                 {renderContent(response, "view")}
               </TabsContent>
 
@@ -284,6 +414,23 @@ const ResponsePanel = ({ activeMessageId }: ResponsePanelProps) => {
       </Tabs>
     </div>
   );
+
+  if (isExpanded) {
+    return (
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-full md:max-w-4xl p-0 border-l"
+        >
+          <SheetTitle className="sr-only">Response Panel</SheetTitle>
+          {panelContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Normal mode
+  return panelContent;
 };
 
 export default ResponsePanel;

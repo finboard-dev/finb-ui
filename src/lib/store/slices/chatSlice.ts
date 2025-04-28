@@ -1,33 +1,24 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { MessageType } from "@/types/chat";
+import { ChatState, MessageType } from "@/types/chat";
 
-// Define constants for reuse
 export const PANEL_CLOSED_WIDTH = 0;
-export const PANEL_DEFAULT_WIDTH = 550;
+export const PANEL_DEFAULT_WIDTH = 30;
 
-interface ChatState {
-  messages: MessageType[];
-  isResponding: boolean;
-  responseVariants: { id: number; title: string }[];
-  selectedVariant: number;
-  isSidebarOpen: boolean;
-  responsePanelWidth: number;
-  activeMessageId: string | null; // Track the message whose tool responses are displayed
-}
-
-const initialState: ChatState = {
+export const initialState: ChatState = {
   messages: [],
   isResponding: false,
-  responseVariants: [
-    { id: 1, title: "Default Response" },
-    { id: 2, title: "Alternative 1" },
-    { id: 3, title: "Alternative 2" },
-  ],
+  responseVariants: [],
   selectedVariant: 1,
   isSidebarOpen: true,
-  responsePanelWidth: PANEL_CLOSED_WIDTH, // Initially closed
-  activeMessageId: null, // Initially no message selected
+  responsePanelWidth: PANEL_CLOSED_WIDTH,
+  activeMessageId: null,
 };
+
+export interface ChatsHistory {
+  id: string;
+  name: string;
+  chats: ChatState[];
+}
 
 export const chatSlice = createSlice({
   name: "chat",
@@ -44,7 +35,7 @@ export const chatSlice = createSlice({
       }
     },
     updateMessage: (state, action: PayloadAction<MessageType>) => {
-      const index = state.messages.findIndex(msg => msg.id === action.payload.id);
+      const index = state.messages.findIndex((msg) => msg.id === action.payload.id);
       if (index !== -1) {
         state.messages[index] = action.payload;
       }
@@ -59,21 +50,21 @@ export const chatSlice = createSlice({
       state.isSidebarOpen = !state.isSidebarOpen;
     },
     setResponsePanelWidth: (state, action: PayloadAction<number>) => {
-      state.responsePanelWidth = action.payload;
+      state.responsePanelWidth = Math.max(0, Math.min(100, action.payload));
     },
     openResponsePanel: (state) => {
       state.responsePanelWidth = PANEL_DEFAULT_WIDTH;
     },
     closeResponsePanel: (state) => {
       state.responsePanelWidth = PANEL_CLOSED_WIDTH;
-      state.activeMessageId = null; // Reset active message when closing
+      state.activeMessageId = null;
     },
     setActiveMessageId: (state, action: PayloadAction<string | null>) => {
       state.activeMessageId = action.payload;
       if (action.payload) {
-        state.responsePanelWidth = PANEL_DEFAULT_WIDTH; // Open panel when setting active message
+        state.responsePanelWidth = PANEL_DEFAULT_WIDTH; 
       } else {
-        state.responsePanelWidth = PANEL_CLOSED_WIDTH; // Close panel when clearing active message
+        state.responsePanelWidth = PANEL_CLOSED_WIDTH;
       }
     },
   },
