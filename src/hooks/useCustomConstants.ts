@@ -1,6 +1,6 @@
 // hooks/useSelectedCompany.ts
 import { useSelector } from 'react-redux';
-import { selectSelectedCompany, selectSelectedCompanyId } from '@/lib/store/slices/userSlice';
+import { selectSelectedCompany} from '@/lib/store/slices/userSlice';
 import type { Company } from '@/lib/store/slices/userSlice';
 
 export const useSelectedCompany = (): Company | null => {
