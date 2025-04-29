@@ -6,9 +6,14 @@ import MessageItem from "./MessageItem";
 import MessageInput from "./MessageInput";
 
 const ChatContainer = () => {
-  const { messages, isResponding, isSidebarOpen } = useAppSelector(
-    (state) => state.chat
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const activeChat = useAppSelector((state) =>
+    state.chat.chats.find((chat) => chat.id === activeChatId)
   );
+
+  // Get messages and states from the active chat
+  const messages = activeChat?.chats[0]?.messages || [];
+  const isResponding = activeChat?.chats[0]?.isResponding || false;
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

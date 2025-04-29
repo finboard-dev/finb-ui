@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,13 +30,7 @@ import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
 import VisualizationView from "../../visualization/VisualizationView";
 import GoogleSheet from "./GoogleSheetsEmbeded";
 import { cn } from "@/lib/utils";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { v4 as uuidv4 } from "uuid";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -64,7 +60,7 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
     }
 
     // Create the block object
-    const newBlockId = uuidv4();
+    const newBlockId = `block-${Date.now()}`;
     const componentData = {
       id: newBlockId,
       type: componentType,
@@ -103,11 +99,11 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
   }
 };
 
-const ResponsePanel = ({
+const ResponsePanel: React.FC<ResponsePanelProps> = ({
   activeMessageId,
   isOpen = true,
   onSaveComponent,
-}: ResponsePanelProps) => {
+}) => {
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [viewMode, setViewMode] = useState<Record<string, "view" | "json">>({});
   const [isExpanded, setIsExpanded] = useState(false);
@@ -117,7 +113,13 @@ const ResponsePanel = ({
   const { code, toolCallResponses, activeToolCallId } = useAppSelector(
     (state) => state.responsePanel
   );
-  const { responsePanelWidth } = useAppSelector((state) => state.chat);
+
+  // Get active chat and its responsePanelWidth
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const activeChat = useAppSelector((state) =>
+    state.chat.chats.find((chat) => chat.id === activeChatId)
+  );
+  const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
 
   const filteredResponses = activeMessageId
     ? toolCallResponses.filter(
@@ -207,11 +209,6 @@ const ResponsePanel = ({
       default:
         return <Code className="w-4 h-4" />;
     }
-  };
-
-  const getTabLabel = (response: ToolCallResponse) => {
-    const toolName = response.tool_name?.split("/").pop() || "";
-    return toolName || response.type;
   };
 
   const handleRefreshTable = (sheetId: string) => {
@@ -308,6 +305,7 @@ const ResponsePanel = ({
           variant="ghost"
           size="icon"
           className="hover:bg-gray-100 rounded-full"
+          id="sidepanel-maximize-button"
           onClick={toggleExpand}
           aria-label={isExpanded ? "Minimize panel" : "Maximize panel"}
         >
@@ -316,6 +314,7 @@ const ResponsePanel = ({
         <Button
           variant="ghost"
           size="icon"
+          id="sidepanel-close-button"
           className="hover:bg-gray-100 rounded-full"
           onClick={handleClosePanel}
           aria-label="Close panel"
@@ -370,38 +369,83 @@ const ResponsePanel = ({
                   <FileJson size={16} />
                   JSON
                 </TabsTrigger>
+
+                {/* Only show Save button on View tab */}
+                <div className="absolute top-5 right-5 z-10 flex gap-2">
+                  {panelSize.width > 300 ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        id="save-component-button"
+                        className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                        onClick={() => handleSaveComponent(response)}
+                        aria-label="Save to dashboard"
+                      >
+                        <Save size={16} />
+                      </Button>
+
+                      {response.type === "table" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          id="refresh-table-button"
+                          className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                          onClick={() =>
+                            handleRefreshTable(response.data as string)
+                          }
+                          aria-label="Refresh table"
+                        >
+                          <RefreshCw size={16} />
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        id="more-options-button"
+                        className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                        aria-label="More options"
+                      >
+                        <span className="sr-only">More options</span>
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <span className="block w-1 h-1 bg-black rounded-full"></span>
+                          <span className="block w-1 h-1 bg-black rounded-full mx-1"></span>
+                          <span className="block w-1 h-1 bg-black rounded-full"></span>
+                        </div>
+                      </Button>
+                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                        <ul className="py-1">
+                          <li>
+                            <button
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={() => handleSaveComponent(response)}
+                            >
+                              Save to Dashboard
+                            </button>
+                          </li>
+                          {response.type === "table" && (
+                            <li>
+                              <button
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                onClick={() =>
+                                  handleRefreshTable(response.data as string)
+                                }
+                              >
+                                Refresh Table
+                              </button>
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </TabsList>
 
               <TabsContent value="view" className="mt-0 flex-1 h-full relative">
-                {/* Only show Save button on View tab */}
-                <div className="absolute top-0 right-0 z-10 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                    onClick={() => handleSaveComponent(response)}
-                    aria-label="Save to dashboard"
-                  >
-                    <Save size={16} />
-                    Save to Dashboard
-                  </Button>
-
-                  {response.type === "table" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                      onClick={() =>
-                        handleRefreshTable(response.data as string)
-                      }
-                      aria-label="Refresh table"
-                    >
-                      <RefreshCw size={16} />
-                      Refresh
-                    </Button>
-                  )}
-                </div>
-
                 {renderContent(response, "view")}
               </TabsContent>
 

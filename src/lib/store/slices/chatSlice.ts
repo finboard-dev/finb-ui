@@ -1,10 +1,12 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ChatState, MessageType } from "@/types/chat";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
+import type { ChatState, MessageType } from "@/types/chat"
+import { v4 as uuidv4 } from "uuid"
+import type { AllChats } from "@/types/chat"
 
-export const PANEL_CLOSED_WIDTH = 0;
-export const PANEL_DEFAULT_WIDTH = 30;
+export const PANEL_CLOSED_WIDTH = 0
+export const PANEL_DEFAULT_WIDTH = 30
 
-export const initialState: ChatState = {
+const initialChatState: ChatState = {
   messages: [],
   isResponding: false,
   responseVariants: [],
@@ -12,74 +14,174 @@ export const initialState: ChatState = {
   isSidebarOpen: true,
   responsePanelWidth: PANEL_CLOSED_WIDTH,
   activeMessageId: null,
-};
+}
 
-export interface ChatsHistory {
-  id: string;
-  name: string;
-  chats: ChatState[];
+interface MultiChatState {
+  chats: AllChats[]
+  activeChatId: string | null
+}
+
+const defaultChatId = uuidv4()
+
+const initialState: MultiChatState = {
+  chats: [
+    {
+      id: defaultChatId,
+      name: "New Chat",
+      thread_id: uuidv4(),
+      chats: [{ ...initialChatState }],
+    },
+  ],
+  activeChatId: defaultChatId,
 }
 
 export const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
-    addMessage: (state, action: PayloadAction<MessageType>) => {
-      const existingIndex = state.messages.findIndex(
-        (msg) => msg.id === action.payload.id
-      );
-      if (existingIndex >= 0) {
-        state.messages[existingIndex] = action.payload;
-      } else {
-        state.messages.push(action.payload);
+    addChat(state) {
+      const newChat: AllChats = {
+        id: uuidv4(),
+        name: "New Chat",
+        thread_id: uuidv4(),
+        chats: [
+          {
+            messages: [],
+            isResponding: false,
+            responseVariants: [],
+            selectedVariant: 1,
+            isSidebarOpen: true,
+            responsePanelWidth: PANEL_CLOSED_WIDTH,
+            activeMessageId: null,
+          },
+        ],
+      }
+      state.chats.push(newChat)
+      state.activeChatId = newChat.id
+    },
+
+    removeChat(state, action: PayloadAction<string>) {
+      const chatIdToRemove = action.payload
+      state.chats = state.chats.filter((chat) => chat.id !== chatIdToRemove)
+
+      // If we removed the active chat, select another one
+      if (state.activeChatId === chatIdToRemove && state.chats.length > 0) {
+        state.activeChatId = state.chats[0].id
+      } else if (state.chats.length === 0) {
+        state.activeChatId = null
       }
     },
-    updateMessage: (state, action: PayloadAction<MessageType>) => {
-      const index = state.messages.findIndex((msg) => msg.id === action.payload.id);
-      if (index !== -1) {
-        state.messages[index] = action.payload;
+
+    setActiveChatId(state, action: PayloadAction<string>) {
+      state.activeChatId = action.payload
+    },
+
+    renameChatById(state, action: PayloadAction<{ chatId: string; name: string }>) {
+      const { chatId, name } = action.payload
+      const chat = state.chats.find((c) => c.id === chatId)
+      if (chat) {
+        chat.name = name
       }
     },
-    setIsResponding: (state, action: PayloadAction<boolean>) => {
-      state.isResponding = action.payload;
+
+    // Individual chat actions
+    addMessage(state, action: PayloadAction<{ chatId: string; message: MessageType }>) {
+      const chat = state.chats.find((c) => c.id === action.payload.chatId)
+      if (chat && chat.chats[0]) {
+        chat.chats[0].messages.push(action.payload.message)
+      }
     },
-    setSelectedVariant: (state, action: PayloadAction<number>) => {
-      state.selectedVariant = action.payload;
+
+    updateMessage(state, action: PayloadAction<{ chatId: string; message: MessageType }>) {
+      const chat = state.chats.find((c) => c.id === action.payload.chatId)
+      if (chat && chat.chats[0]) {
+        const messageIndex = chat.chats[0].messages.findIndex((m) => m.id === action.payload.message.id)
+        if (messageIndex !== -1) {
+          chat.chats[0].messages[messageIndex] = action.payload.message
+        }
+      }
     },
-    toggleSidebar: (state) => {
-      state.isSidebarOpen = !state.isSidebarOpen;
+
+    setIsResponding(state, action: PayloadAction<boolean>) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].isResponding = action.payload
+      }
     },
-    setResponsePanelWidth: (state, action: PayloadAction<number>) => {
-      state.responsePanelWidth = Math.max(0, Math.min(100, action.payload));
+
+    setSelectedVariant(state, action: PayloadAction<number>) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].selectedVariant = action.payload
+      }
     },
-    openResponsePanel: (state) => {
-      state.responsePanelWidth = PANEL_DEFAULT_WIDTH;
+
+    toggleSidebar(state) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].isSidebarOpen = !activeChat.chats[0].isSidebarOpen
+      }
     },
-    closeResponsePanel: (state) => {
-      state.responsePanelWidth = PANEL_CLOSED_WIDTH;
-      state.activeMessageId = null;
+
+    setResponsePanelWidth(state, action: PayloadAction<number>) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].responsePanelWidth = Math.max(0, Math.min(100, action.payload))
+      }
     },
-    setActiveMessageId: (state, action: PayloadAction<string | null>) => {
-      state.activeMessageId = action.payload;
-      if (action.payload) {
-        state.responsePanelWidth = PANEL_DEFAULT_WIDTH; 
-      } else {
-        state.responsePanelWidth = PANEL_CLOSED_WIDTH;
+
+    openResponsePanel(state) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].responsePanelWidth = PANEL_DEFAULT_WIDTH
+      }
+    },
+
+    closeResponsePanel(state) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].responsePanelWidth = PANEL_CLOSED_WIDTH
+        activeChat.chats[0].activeMessageId = null
+      }
+    },
+
+    setActiveMessageId(state, action: PayloadAction<string | null>) {
+      const activeChat = state.chats.find((c) => c.id === state.activeChatId)
+      if (activeChat && activeChat.chats[0]) {
+        activeChat.chats[0].activeMessageId = action.payload
+        if (action.payload) {
+          activeChat.chats[0].responsePanelWidth = PANEL_DEFAULT_WIDTH
+        } else {
+          activeChat.chats[0].responsePanelWidth = PANEL_CLOSED_WIDTH
+        }
+      }
+    },
+
+    clearMessages(state, action: PayloadAction<string>) {
+      const chatId = action.payload
+      const chat = state.chats.find((c) => c.id === chatId)
+      if (chat && chat.chats[0]) {
+        chat.chats[0].messages = []
       }
     },
   },
-});
+})
 
 export const {
+  addChat,
+  removeChat,
+  setActiveChatId,
+  renameChatById,
   addMessage,
-  setIsResponding,
   updateMessage,
+  setIsResponding,
   setSelectedVariant,
   toggleSidebar,
   setResponsePanelWidth,
   openResponsePanel,
   closeResponsePanel,
   setActiveMessageId,
-} = chatSlice.actions;
+  clearMessages,
+} = chatSlice.actions
 
-export default chatSlice.reducer;
+export default chatSlice.reducer

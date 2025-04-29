@@ -1,10 +1,10 @@
 "use client"
 
-import { useAppDispatch } from "@/lib/store/hooks"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { addMessage, setIsResponding, updateMessage } from "@/lib/store/slices/chatSlice"
 import { v4 as uuidv4 } from "uuid"
 import type { MentionType, MessageType } from "@/types/chat"
-import { getThreadId, parseStreamChunk, processStreamResponse } from "@/lib/api/chatService"
+import { parseStreamChunk, processStreamResponse } from "@/lib/api/chatService"
 import { getSavedSelectedCompanyId } from "./useSelectedCompanyId"
 import { setToolCallLoading } from "@/lib/store/slices/loadingSlice"
 import { addToolCallResponse, setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
@@ -12,9 +12,20 @@ import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice"
 
 export const useChatStream = () => {
   const dispatch = useAppDispatch()
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId)
+  const activeChat = useAppSelector((state) => state.chat.chats.find((chat) => chat.id === activeChatId))
+
+  const getThreadId = () => {
+    return activeChat?.thread_id || ""
+  }
 
   const sendMessage = {
     mutate: async (payload: { text: string; mentions?: MentionType[] }) => {
+      if (!activeChatId || !activeChat) {
+        console.error("No active chat found")
+        return
+      }
+
       const { text, mentions = [] } = payload
 
       // Create user message with mentions
@@ -26,7 +37,7 @@ export const useChatStream = () => {
         mentions, // Store mentions in the message
       }
 
-      dispatch(addMessage(userMessage))
+      dispatch(addMessage({ chatId: activeChatId, message: userMessage }))
       dispatch(setIsResponding(true))
 
       // Create assistant message placeholder
@@ -38,7 +49,7 @@ export const useChatStream = () => {
         timestamp: new Date().toISOString(),
       }
 
-      dispatch(addMessage(assistantMessage))
+      dispatch(addMessage({ chatId: activeChatId, message: assistantMessage }))
 
       // Prepare request payload (send plain text to backend)
       const chatMessage: any = {
@@ -87,32 +98,23 @@ export const useChatStream = () => {
 
             const parsedResponse = parseStreamChunk(line)
             if (parsedResponse) {
-              // Handle token content
-              if (parsedResponse.type === "token" && parsedResponse.content) {
-                accumulatedContent += parsedResponse.content
-                const updatedMessage: MessageType = {
-                  id: assistantMessageId,
-                  role: "assistant",
-                  content: accumulatedContent,
-                  timestamp: new Date().toISOString(),
-                  toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-                }
-                dispatch(updateMessage(updatedMessage))
-                continue
-              }
-
+              // ONLY use processStreamResponse for token handling
+              // Removed duplicate token handling code
               processStreamResponse(
                 parsedResponse,
                 (token) => {
-                  accumulatedContent += token
-                  const updatedMessage: MessageType = {
-                    id: assistantMessageId,
-                    role: "assistant",
-                    content: accumulatedContent,
-                    timestamp: new Date().toISOString(),
-                    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                  // Check if token is already at the end to prevent duplication
+                  if (!accumulatedContent.endsWith(token)) {
+                    accumulatedContent += token
+                    const updatedMessage: MessageType = {
+                      id: assistantMessageId,
+                      role: "assistant",
+                      content: accumulatedContent,
+                      timestamp: new Date().toISOString(),
+                      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                    }
+                    dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
                   }
-                  dispatch(updateMessage(updatedMessage))
                 },
                 (toolCall) => {
                   if (!toolCalls.some((tc) => tc.id === toolCall.id)) {
@@ -131,7 +133,7 @@ export const useChatStream = () => {
                       timestamp: new Date().toISOString(),
                       toolCalls,
                     }
-                    dispatch(updateMessage(updatedMessage))
+                    dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
                   }
                 },
                 (sidePanelData) => {
@@ -172,7 +174,7 @@ export const useChatStream = () => {
                     )
 
                     dispatch(setActiveToolCallId(toolCallId))
-                    dispatch(setResponsePanelWidth(550))
+                    dispatch(setResponsePanelWidth(30))
                   } catch (error) {
                     console.error("Error processing side panel data:", error)
                     const toolCallId =
@@ -191,7 +193,7 @@ export const useChatStream = () => {
                     )
 
                     dispatch(setActiveToolCallId(toolCallId))
-                    dispatch(setResponsePanelWidth(550))
+                    dispatch(setResponsePanelWidth(30))
                   }
                 },
               )
@@ -218,7 +220,7 @@ export const useChatStream = () => {
           timestamp: new Date().toISOString(),
           isError: true,
         }
-        dispatch(updateMessage(updatedMessage))
+        dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
         dispatch(setIsResponding(false))
         dispatch(setToolCallLoading(false))
         throw error

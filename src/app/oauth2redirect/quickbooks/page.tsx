@@ -1,11 +1,14 @@
 "use client";
 
 import { ssoLogin } from "@/lib/api/sso/quickbooks";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { setUserData } from "@/lib/store/slices/userSlice";
+import { persistor } from "@/lib/store/store";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 
-// Create a client component that uses useSearchParams
 function CallbackHandler() {
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [queryParams, setQueryParams] = useState({});
@@ -40,35 +43,48 @@ function CallbackHandler() {
     return () => clearTimeout(timer);
   }, [status, countdown, router]);
 
+  // In the handleLogin function
   const handleLogin = async (params: any) => {
     try {
       const response = await ssoLogin(
-        params.state,
         params.code,
         params?.realmId === "null" ? null : params?.realmId
       );
 
-      switch (response.code) {
-        case "LOGIN_SUCCESS":
-          setStatus("success");
-          setMessage("Login successful!");
-          break;
+      if (response && response.token && response.user) {
+        dispatch(
+          setUserData({
+            token: {
+              accessToken: response.token.accessToken,
+              expiresIn: response.token.expiresIn,
+              tokenType: response.token.tokenType,
+            },
+            user: {
+              id: response.user.id,
+              email: response.user.email,
+              firstName: response.user.firstName,
+              lastName: response.user.lastName,
+              organizations: response.user.organizations,
+              lastLoginTime: response.user.lastLoginTime,
+            },
+          })
+        );
 
-        case "LOGIN_USER_NOT_VERIFIED":
-          setStatus("redirect");
-          setMessage("Account needs verification");
-          window.location.href = response.redirectUrl;
-          break;
+        await new Promise<void>((resolve) => {
+          const unsubscribe = persistor.subscribe(() => {
+            const persistState = persistor.getState();
+            if (persistState.bootstrapped) {
+              unsubscribe();
+              resolve();
+            }
+          });
+          persistor.persist();
+        });
 
-        case "LOGIN_FAILED":
-        case "LOGIN_ERROR":
-          setStatus("error");
-          setMessage(response.message || "Login failed");
-          break;
-
-        default:
-          setStatus("error");
-          setMessage("Unknown response from server");
+        setStatus("success");
+        setMessage("Login successful!");
+      } else {
+        throw new Error("Invalid response format");
       }
     } catch (error) {
       setStatus("error");

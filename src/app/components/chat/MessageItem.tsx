@@ -33,14 +33,23 @@ const MessageMention: React.FC<MessageMentionProps> = ({ name }) => {
   );
 };
 
-const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
-  const { selectedVariant } = useAppSelector((state) => state.chat);
+const MessageItem: React.FC<MessageItemProps> = ({
+  message,
+  isLoading = false,
+}) => {
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const activeChat = useAppSelector((state) =>
+    state.chat.chats.find((chat) => chat.id === activeChatId)
+  );
+  const selectedVariant = activeChat?.chats[0]?.selectedVariant || 1;
+
   const [copied, setCopied] = useState(false);
   const [processedContent, setProcessedContent] = useState("");
   const [isHovering, setIsHovering] = useState(false);
 
   const isAssistant = message.role === "assistant";
 
+  // Get the content to display
   const displayContent =
     isAssistant && message.variants
       ? message.variants.find((v) => v.id === selectedVariant)?.content ||
@@ -57,13 +66,30 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
   };
 
   useEffect(() => {
+    // Skip processing if content is empty
+    if (!displayContent) {
+      setProcessedContent("");
+      return;
+    }
+
     let content = displayContent;
 
-    // Handle mentions and remove emojis before them
+    // Check for duplicated content
+    const halfLength = Math.floor(content.length / 2);
+    if (halfLength > 0) {
+      const firstHalf = content.substring(0, halfLength);
+      const secondHalf = content.substring(halfLength);
+
+      // If the two halves match exactly, we have a duplication
+      if (firstHalf === secondHalf) {
+        content = firstHalf;
+      }
+    }
+
+    // Now process mentions if any
     if (message.mentions && message.mentions.length > 0) {
       message.mentions.forEach((mention) => {
         // Look for emoji + @mention pattern
-        // This regex matches any emoji character followed by @ and the mention name
         const emojiMentionRegex = new RegExp(
           `[\\p{Emoji}]\\s*@${mention.name}`,
           "gu"
@@ -75,7 +101,7 @@ const MessageItem = ({ message, isLoading = false }: MessageItemProps) => {
         // Then handle the mention formatting
         const mentionText = `@${mention.name}`;
         const mentionTag = `<mention data-name="${mention.name}"></mention>`;
-        content = content.replace(mentionText, mentionTag);
+        content = content.replace(new RegExp(mentionText, "g"), mentionTag);
       });
     }
 

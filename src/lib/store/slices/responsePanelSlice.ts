@@ -1,4 +1,3 @@
-import { BlockType } from '@/app/dashboard/page';
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,12 +17,6 @@ export interface ToolCallResponse {
 export interface SavedResponseData extends ResponsePanelState {
   id: string;
   savedAt: string;
-}
-
-interface SaveViewPayload {
-  title: string;
-  data: any;
-  type: BlockType;
 }
 
 export interface ResponsePanelState {
@@ -87,36 +80,20 @@ export const responsePanelSlice = createSlice({
       state.activeToolCallId = action.payload;
     },
     saveToLocalStorage: (state) => {
-      localStorage.setItem(
-        TOOL_CALL_RESPONSES_KEY,
-        JSON.stringify(state.toolCallResponses)
-      );
-    },
-    loadFromLocalStorage: (state) => {
-      const savedResponses = localStorage.getItem(TOOL_CALL_RESPONSES_KEY);
-      if (savedResponses) {
-        state.toolCallResponses = JSON.parse(savedResponses);
+      try {
+        const savedResponses = loadSavedResponses();
+        const responseWithId: SavedResponseData = {
+          ...state,
+          id: uuidv4(),
+          savedAt: new Date().toISOString(),
+        };
+
+        // Limit to most recent 50 saved responses to avoid storage issues
+        const updatedResponses = [responseWithId, ...savedResponses].slice(0, 50);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedResponses));
+      } catch (e) {
+        console.error("Error saving state to localStorage:", e);
       }
-    },
-    saveViewAsBlock: (state, action: PayloadAction<SaveViewPayload>) => {
-      const { title, data, type } = action.payload;
-      
-      // Get existing blocks from local storage
-      const savedBlocksJSON = localStorage.getItem(DASHBOARD_BLOCKS_KEY);
-      const savedBlocks = savedBlocksJSON ? JSON.parse(savedBlocksJSON) : [];
-      
-      // Create a new block
-      const newBlock = {
-        id: uuidv4(),
-        type,
-        title,
-        content: typeof data === 'string' ? data : JSON.stringify(data),
-        savedAt: new Date().toISOString(),
-      };
-      
-      // Add to blocks array and save back to localStorage
-      const updatedBlocks = [...savedBlocks, newBlock];
-      localStorage.setItem(DASHBOARD_BLOCKS_KEY, JSON.stringify(updatedBlocks));
     },
     resetToolCallResponses: (state) => {
       state.toolCallResponses = [];
@@ -148,9 +125,7 @@ export const {
   setActiveToolCallId, 
   saveToLocalStorage, 
   resetToolCallResponses,
-  removeToolCallResponse,
-  loadFromLocalStorage,
-  saveViewAsBlock
+  removeToolCallResponse
 } = responsePanelSlice.actions;
 
 export default responsePanelSlice.reducer;

@@ -11,24 +11,6 @@ export interface MentionType {
   endPos: number;
 }
 
-export interface MessageType {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  variants?: {
-    id: number;
-    content: string;
-  }[];
-  isError?: boolean;
-  toolCalls?: {
-    name: string;
-    args: any;
-    id?: string;
-  }[];
-  mentions?: MentionType[];
-}
-
 export interface ToolCall {
   name: string;
   args: Record<string, any>;
@@ -41,18 +23,38 @@ export interface ToolResponse {
   tool_calls?: ToolCall[];
 }
 
-export interface ChatState {
-  messages: MessageType[];
-  isResponding: boolean;
-  responseVariants: { id: number; title: string }[];
-  selectedVariant: number;
-  isSidebarOpen: boolean;
-  responsePanelWidth: number;
-  activeMessageId: string | null;
+export interface MentionType {
+  id: string
+  name: string
+  icon: string
+  startPos: number
+  endPos: number
 }
 
-export interface ChatsHistory {
-  id: string;
-  name: string;
-  chats: ChatState[];
+export interface MessageType {
+  id: string
+  role: "user" | "assistant" | "system"
+  content: string
+  timestamp: string
+  mentions?: MentionType[]
+  variants?: { id: number; content: string }[]
+  toolCalls?: { name: string; args: any; id?: string }[]
+  isError?: boolean
+}
+
+export interface ChatState {
+  messages: MessageType[]
+  isResponding: boolean
+  responseVariants: any[]
+  selectedVariant: number
+  isSidebarOpen: boolean
+  responsePanelWidth: number
+  activeMessageId: string | null
+}
+
+export interface AllChats {
+  id: string
+  name: string
+  thread_id: string
+  chats: ChatState[]
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import {
-  toggleSidebar,
   setResponsePanelWidth,
   setActiveMessageId,
 } from "@/lib/store/slices/chatSlice";
@@ -11,13 +10,22 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ChatContainer from "./ChatContainer";
 import NoChatBranding from "./NoChatBranding";
 import ResponsePanel from "./ToolResponse/Responsepanel";
+import debounce from "lodash/debounce";
 import ChatSidebar from "./ChatSidebar";
-import debounce from "lodash/debounce"; // Add lodash for debouncing
 
 export default function Home() {
   const dispatch = useAppDispatch();
-  const { isSidebarOpen, responsePanelWidth, messages, activeMessageId } =
-    useAppSelector((state) => state.chat);
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const activeChat = useAppSelector((state) =>
+    state.chat.chats.find((chat) => chat.id === activeChatId)
+  );
+
+  // Get states from the active chat
+  const isSidebarOpen = activeChat?.chats[0]?.isSidebarOpen || true;
+  const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
+  const activeMessageId = activeChat?.chats[0]?.activeMessageId || null;
+  const messages = activeChat?.chats[0]?.messages || [];
+
   const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
 
   const [containerWidth, setContainerWidth] = useState(0);
@@ -89,7 +97,10 @@ export default function Home() {
 
     const newWidthPercentage = sizes[1]; // Response panel size in percentage
     const clampedWidth = Math.max(20, Math.min(70, newWidthPercentage));
-    dispatch(setResponsePanelWidth(clampedWidth));
+
+    if (activeChatId) {
+      dispatch(setResponsePanelWidth(clampedWidth));
+    }
   };
 
   // Track panel resizing state
@@ -128,7 +139,7 @@ export default function Home() {
       <ChatSidebar />
 
       <div className="flex flex-1 w-full h-full flex-row">
-        {showChat ? (
+        {activeChatId && showChat ? (
           <PanelGroup
             direction="horizontal"
             onLayout={handlePanelLayout}

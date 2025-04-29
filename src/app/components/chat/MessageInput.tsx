@@ -114,7 +114,12 @@ export default function MessageInput({
   const menuRef = useRef<HTMLDivElement>(null);
 
   // App state
-  const { isResponding } = useAppSelector((state) => state.chat);
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const activeChat = useAppSelector((state) =>
+    state.chat.chats.find((chat) => chat.id === activeChatId)
+  );
+  const isResponding = activeChat?.chats[0]?.isResponding || false;
+
   const { sendMessage } = useChatStream();
   const selectedCompany = useSelectedCompany();
 
@@ -377,7 +382,7 @@ export default function MessageInput({
 
   // Update handleSubmit
   const handleSubmit = () => {
-    if (!inputValue.trim() || isResponding) {
+    if (!inputValue.trim() || isResponding || !activeChatId) {
       return;
     }
 
@@ -416,7 +421,9 @@ export default function MessageInput({
             {/* Input Area */}
             <div
               ref={inputRef}
-              contentEditable={!isResponding && validSelectedCompany()}
+              contentEditable={
+                !isResponding && validSelectedCompany() && !!activeChatId
+              }
               onInput={handleInputChange}
               onKeyDown={handleKeyDown}
               onCompositionStart={() => setIsComposing(true)}
@@ -527,9 +534,10 @@ export default function MessageInput({
 
             <Button
               onClick={handleSubmit}
-              disabled={!inputValue.trim() || isResponding}
+              id="send-chat-input-button"
+              disabled={!inputValue.trim() || isResponding || !activeChatId}
               className={`rounded-full h-12 w-12 p-0 flex items-center justify-center ${
-                !inputValue.trim() || isResponding
+                !inputValue.trim() || isResponding || !activeChatId
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gray-900 hover:bg-gray-800"
               }`}

@@ -1,87 +1,121 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-export interface Company {
-  id: string;
-  is_active: boolean;
+// Type definitions
+interface CompanyRole {
+  id: number;
   name: string;
-  roles?: string[];
-  permissions?: string[];
+  permissions: string[];
 }
 
-export interface Organization {
+interface Company {
   id: string;
-  is_active: boolean;
   name: string;
-  roles?: string[];
-  permissions?: string[];
+  status: string;
+  role: CompanyRole;
 }
 
-export interface User {
-  email: string;
-  first_name: string;
-  last_name: string;
+interface OrganizationRole {
+  id: number;
+  name: string;
+  permissions: string[];
+}
+
+interface Organization {
   id: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  name: string;
+  status: string;
   companies: Company[];
+  role: OrganizationRole;
+}
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
   organizations: Organization[];
+  lastLoginTime: string;
+}
+
+interface Token {
+  accessToken: string;
+  expiresIn: number;
+  tokenType: string;
 }
 
 interface UserState {
+  token: Token | null;
   user: User | null;
+  selectedOrganization: Organization | null;
   selectedCompany: Company | null;
-  loading: boolean;
-  error: string | null;
 }
 
+// Initial state
 const initialState: UserState = {
+  token: null,
   user: null,
+  selectedOrganization: null,
   selectedCompany: null,
-  loading: false,
-  error: null,
 };
 
+// Create the slice
 const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
-    fetchUserStart(state) {
-      state.loading = true;
-      state.error = null;
+    setUserData: (state, action: PayloadAction<{ token: Token; user: User }>) => {
+      state.token = action.payload.token;
+      state.user = action.payload.user;
+      state.selectedOrganization = action.payload.user.organizations[0] || null;
+      state.selectedCompany = action.payload.user.organizations[0]?.companies[0] || null;
     },
-    fetchUserSuccess(state, action: PayloadAction<User>) {
-      state.user = action.payload;
-      state.loading = false;
-      state.error = null;
-      
-      // Select the first company by default if available
-      if (action.payload.companies && action.payload.companies.length > 0 && !state.selectedCompany) {
-        state.selectedCompany = action.payload.companies[0];
-      }
+    setSelectedOrganization: (state, action: PayloadAction<Organization>) => {
+      state.selectedOrganization = action.payload;
+      state.selectedCompany = action.payload.companies[0] || null;
     },
-    fetchUserFailure(state, action: PayloadAction<string>) {
-      state.loading = false;
-      state.error = action.payload;
-    },
-    setSelectedCompany(state, action: PayloadAction<Company>) {
+    setSelectedCompany: (state, action: PayloadAction<Company>) => {
       state.selectedCompany = action.payload;
+    },
+    clearUserData: (state) => {
+      state.token = null;
+      state.user = null;
+      state.selectedOrganization = null;
+      state.selectedCompany = null;
     },
   },
 });
 
-export const { 
-  fetchUserStart, 
-  fetchUserSuccess, 
-  fetchUserFailure,
-  setSelectedCompany
+export const {
+  setUserData,
+  setSelectedOrganization,
+  setSelectedCompany,
+  clearUserData,
 } = userSlice.actions;
 
-export const selectUserLoading = (state: { user: UserState }) => state.user.loading;
+export const selectedCompanyId = (state: { user: UserState }) => state.user.selectedCompany?.id;
 export const selectUser = (state: { user: UserState }) => state.user.user;
-export const selectSelectedCompany = (state: { user: UserState }) => state.user.selectedCompany;
-export const selectUserCompanies = (state: { user: UserState }) => state.user.user?.companies || [];
-export const selectUserOrganization = (state: { user: UserState }) => state.user.user?.organizations[0] || null; 
-export const selectSelectedCompanyId = (state: { user: UserState }) => state.user.selectedCompany?.id || null;
+export const selectedUserId = (state: { user: UserState }) => state.user.user?.id;
+export const selectToken = (state: { user: UserState }) => state.user.token;
+export const userBearerToken = (state: { user: UserState }) => state.user.token?.accessToken;
+export const selectSelectedOrganization = (state: { user: UserState }) =>
+    state.user.selectedOrganization;
+export const selectSelectedCompany = (state: { user: UserState }) =>
+    state.user.selectedCompany;
+export const selectOrganizationPermissions = (state: { user: UserState }) =>
+    state.user.selectedOrganization?.role.permissions || [];
+export const selectCompanyPermissions = (state: { user: UserState }) =>
+    state.user.selectedCompany?.role.permissions || [];
+
+
+
+export type {
+  User,
+  Token,
+  Organization,
+  Company,
+  OrganizationRole,
+  CompanyRole,
+  UserState,
+};
 
 export default userSlice.reducer;
