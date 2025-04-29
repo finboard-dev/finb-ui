@@ -27,6 +27,19 @@ export const REPORT_MENTIONS = [
   },
 ]
 
+export const FINANCIAL_REPORTS = [
+  { id: "profit-loss", name: "Profit & Loss", icon: "📊" },
+  { id: "balance-sheet", name: "Balance Sheet", icon: "📑" },
+  { id: "cash-flow", name: "Cash Flow", icon: "💰" },
+  { id: "income-statement", name: "Income Statement", icon: "📈" },
+  { id: "annual-report", name: "Annual Report", icon: "📆" },
+  { id: "quarterly-report", name: "Quarterly Report", icon: "🗓️" },
+  { id: "expense-report", name: "Expense Report", icon: "💸" },
+  { id: "tax-report", name: "Tax Report", icon: "📝" },
+  { id: "budget-report", name: "Budget Analysis", icon: "🔍" },
+  { id: "forecast-report", name: "Financial Forecast", icon: "🔮" },
+];
+
 export const ACCESS_TOKEN = 'access_token';
 export const USER = 'user';
 export const EMAIL = 'email';

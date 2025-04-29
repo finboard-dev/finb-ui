@@ -3,6 +3,7 @@
 import { useState } from "react";
 import DashboardControls from "./components/DashBoardControls";
 import DashboardView from "./components/DashboardView";
+import Sidebar from "../components/common/Sidebar";
 
 export type BlockType =
   | "SQL"
@@ -67,6 +68,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen">
+      <Sidebar />
       <DashboardView
         className="flex-grow h-full"
         dashboardItems={dashboardItems}

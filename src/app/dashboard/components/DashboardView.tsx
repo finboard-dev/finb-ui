@@ -2,7 +2,7 @@
 
 import { range } from "ramda";
 import { v4 as uuidv4 } from "uuid";
-import { Responsive, WidthProvider } from "react-grid-layout";
+import { Layout, Responsive, WidthProvider } from "react-grid-layout";
 import { useCallback, useMemo, useState } from "react";
 import clsx from "clsx";
 import GridElement from "./GridElement";
@@ -220,6 +220,10 @@ export default function DashboardView(props: Props) {
             dashboardItem={dashboardItem}
             blocks={props.blocks}
             setBlocks={props.setBlocks}
+            layouts={[]}
+            setLayouts={function (layouts: Layout[]): void {
+              throw new Error("Function not implemented.");
+            }}
           />
         </div>
       </div>

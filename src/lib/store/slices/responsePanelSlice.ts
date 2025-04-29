@@ -31,6 +31,10 @@ const initialState: ResponsePanelState = {
   activeToolCallId: null,
 };
 
+// Local storage keys
+const TOOL_CALL_RESPONSES_KEY = "toolCallResponses";
+const DASHBOARD_BLOCKS_KEY = "dashboardBlocks";
+
 // Storage utility functions
 const STORAGE_KEY = 'savedResponses';
 

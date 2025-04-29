@@ -1,6 +1,72 @@
 
 import { ADD_APP, ADD_COMPANY, CSRF_TOKEN, REDIRECT_TYPE } from '@/constants';
 import { fetcher } from '../axios/config';
+import { store } from '@/lib/store/store';
+import { setUserData } from '@/lib/store/slices/userSlice';
+import { setCredentials } from '@/lib/store/slices/authSlice';
+
+export const ssoLogin = async (state: string, authCode: string, realmId: string | null) => {
+    try {
+        const response = await fetcher.post(realmId != null ? `/qb/add_app` : `/auth/login`, {
+            source: "QuickBooks",
+            metadata: {
+                auth_code: authCode,
+                realm_id: realmId
+            },
+            sso_provider: "INTUIT"
+        });
+
+        const { token, user, code, message } = response;
+
+        switch (code) {
+            case 'LOGIN_SUCCESS':
+                store.dispatch(setUserData({
+                    token: {
+                        accessToken: token.accessToken,
+                        expiresIn: token.expiresIn,
+                        tokenType: token.tokenType
+                    },
+                    user: user
+                }));
+
+                // Update auth slice
+                store.dispatch(setCredentials({
+                    bearerToken: token.accessToken,
+                    currentCompanyId: user.organizations[0]?.companies[0]?.id || null
+                }));
+
+                return {
+                    code,
+                    message: 'Login successful'
+                };
+
+            case 'LOGIN_USER_NOT_VERIFIED':
+                return {
+                    code,
+                    message,
+                    redirectUrl: '/verify/quickbooks'
+                };
+
+            case 'LOGIN_FAILED':
+                return {
+                    code,
+                    message
+                };
+
+            default:
+                return {
+                    code: 'LOGIN_ERROR',
+                    message: 'Unknown response from server'
+                };
+        }
+    } catch (error) {
+        console.error("SSO login error:", error);
+        return {
+            code: 'LOGIN_ERROR',
+            message: (error as any).response?.data?.message || 'An unexpected error occurred'
+        };
+    }
+};
 
 export const initAddQuickBookAccount = async () => {
     try {
@@ -17,7 +83,7 @@ export const initAddQuickBookAccount = async () => {
 
 export const intuitSSOLogin = async (redirectType: string) => {
   try {
-      const response = await fetcher.get('/auth/sso/login');
+      const response = await fetcher.get('/auth/sso?provider=INTUIT');
       if (!response) {
           console.error('Invalid response from SSO login endpoint:', response);
           throw new Error('Invalid response from server');

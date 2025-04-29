@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import {
   PencilIcon,
   TrashIcon,
@@ -8,6 +8,13 @@ import {
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { Block, BlockType, DashboardItem } from "../page";
+import dynamic from "next/dynamic";
+import GridResizeHandler, { ResizeDirection } from "./GridResizeHandler";
+import { Layout } from "react-grid-layout";
+import GoogleSheet from "@/app/components/chat/ToolResponse/GoogleSheetsEmbeded";
+import VisualizationView from "@/app/components/visualization/VisualizationView";
+
+const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 interface Props {
   item: any;
@@ -18,12 +25,17 @@ interface Props {
   dashboardItem?: DashboardItem;
   blocks: Block[];
   setBlocks: (blocks: Block[]) => void;
+  layouts: Layout[];
+  setLayouts: (layouts: Layout[]) => void;
 }
-
-const NO_TITLE_BLOCKS: BlockType[] = ["Input", "RichText", "DashboardHeader"];
 
 export default function GridElement(props: Props) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] =
+    useState<ResizeDirection | null>(null);
+  const elementRef = useRef<HTMLDivElement>(null);
+
   const onDelete = useCallback(() => {
     props.onDelete(props.item.i);
   }, [props.onDelete, props.item.i]);
@@ -32,16 +44,10 @@ export default function GridElement(props: Props) {
     (e: React.DragEvent) => {
       if (!props.block) return;
 
-      // Instead of changing the HTML drag ghost, set data for the parent component
       e.dataTransfer.setData("text/plain", props.block.id);
       e.dataTransfer.setData("application/dashboard-item", props.item.i);
       e.dataTransfer.effectAllowed = "move";
-
-      // Add visual cue
       setIsDragging(true);
-
-      // Let the event bubble up to the parent for handling the actual drag operation
-      // This prevents issues with react-grid-layout's drag handling
     },
     [props.block, props.item.i]
   );
@@ -50,42 +56,104 @@ export default function GridElement(props: Props) {
     setIsDragging(false);
   }, []);
 
-  const hasTitle =
-    props.block &&
-    !NO_TITLE_BLOCKS.includes(props.block.type) &&
-    props.block.title.trim() !== "";
+  const handleResizeStart = useCallback(
+    (id: string, direction: ResizeDirection) => {
+      setIsResizing(true);
+      setResizeDirection(direction);
+    },
+    []
+  );
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+    setResizeDirection(null);
+  }, []);
+
+  // Render component content based on the block type
+  const renderBlockContent = () => {
+    if (!props.block) return null;
+
+    try {
+      switch (props.block.type) {
+        case "Visualization":
+          // case "graph":
+          const chartData =
+            typeof props.block.content === "string"
+              ? JSON.parse(props.block.content)
+              : props.block.content;
+          return <VisualizationView charts={chartData} title="" />;
+        case "SQL":
+          // case "table":
+          const tableData =
+            typeof props.block.content === "string"
+              ? JSON.parse(props.block.content)
+              : props.block.content;
+          return (
+            <div className="w-full h-full overflow-auto">
+              <GoogleSheet sheetId={tableData.spreadsheet_url || tableData} />
+            </div>
+          );
+        case "Python":
+          // case "code":
+          return (
+            <Editor
+              height="100%"
+              width="100%"
+              language="python"
+              theme="vs-light"
+              value={props.block.content as string}
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+              }}
+            />
+          );
+        case "DashboardHeader":
+          return (
+            <h2 className="text-xl font-semibold text-gray-800">
+              {props.block.content || props.block.title}
+            </h2>
+          );
+        default:
+          return (
+            <div className="whitespace-pre-wrap break-words">
+              {props.block.content}
+            </div>
+          );
+      }
+    } catch (error) {
+      console.error("Error rendering block content:", error);
+      return (
+        <div className="text-red-500">
+          Error rendering content: {String(error)}
+        </div>
+      );
+    }
+  };
 
   return (
     <div
+      ref={elementRef}
       className={clsx(
-        "element-container relative group h-full w-full",
-        props.isEditingDashboard && "cursor-grab",
-        isDragging && "opacity-50"
+        "element-container h-full w-full relative group",
+        props.isEditingDashboard && "cursor-move",
+        isDragging && "opacity-50",
+        isResizing && `resizing-${resizeDirection}`
       )}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      {props.block ? (
-        <div className="w-full h-full rounded-md overflow-hidden flex flex-col border border-gray-200">
-          {hasTitle && (
-            <div className="element-header bg-gray-50 border-b border-gray-200">
-              <h2 className="text-gray-700 font-medium text-left text-sm px-3.5 py-2.5">
-                {props.block.title}
-              </h2>
-            </div>
-          )}
-          <div className="element-content flex-grow overflow-auto p-3">
-            <div className="bg-gray-50 h-full rounded p-2">
-              {props.block.content}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-gray-200 h-full w-full flex items-center justify-center">
-          Empty block ({props.item.i})
-        </div>
-      )}
+      <div
+        className={clsx(
+          "w-full h-full rounded-md overflow-hidden bg-white",
+          props.isEditingDashboard ? "shadow-sm" : "shadow-none"
+        )}
+      >
+        <div className="h-full overflow-auto p-2">{renderBlockContent()}</div>
+      </div>
 
+      {/* Editing controls */}
       {props.isEditingDashboard && (
         <div
           className="absolute -top-3 right-3 opacity-0 bg-white group-hover:opacity-100 z-20 border border-gray-200 py-1 rounded-md shadow-sm flex gap-x-3.5 items-center px-3.5 grid-element-button"
@@ -107,7 +175,6 @@ export default function GridElement(props: Props) {
           </button>
           <button
             className="flex items-center cursor-pointer text-gray-500 hover:text-green-600 h-4 w-4 grid-element-button"
-            onClick={onDelete}
             title="Move to sidebar"
           >
             <ArrowLeftIcon />
@@ -115,8 +182,15 @@ export default function GridElement(props: Props) {
         </div>
       )}
 
+      {/* Resize handlers for all directions */}
       {props.isEditingDashboard && (
-        <div className="absolute bottom-1 right-1 w-3 h-3 border-r-2 border-b-2 border-gray-400 opacity-50 group-hover:opacity-100 pointer-events-none" />
+        <GridResizeHandler
+          itemId={props.item.i}
+          onResizeStart={handleResizeStart}
+          onResizeEnd={handleResizeEnd}
+          layouts={props.layouts}
+          setLayouts={props.setLayouts}
+        />
       )}
     </div>
   );
