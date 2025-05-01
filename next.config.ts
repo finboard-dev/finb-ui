@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig = {
-    reactStrictMode: true,
+  reactStrictMode: true,
+  experimental: {
+    optimizeCss: false
+  },
   async headers() {
     return [
       {
