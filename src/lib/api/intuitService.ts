@@ -70,11 +70,19 @@ export const ssoLogin = async (state: string, authCode: string, realmId: string 
 
 export const initAddQuickBookAccount = async () => {
     try {
-        const response = await fetcher.get(`/qb/init_add_account`);
-        const { state, redirect_url } = response;
+        const response = await fetcher.get(`/datasource/add?provider=QUICKBOOKS`);
+        const { state, connection_url } = response;
+
+        // Store state in localStorage
         localStorage.setItem(CSRF_TOKEN, state);
         localStorage.setItem(REDIRECT_TYPE, ADD_COMPANY);
-        return redirect_url;
+
+        // Open the connection URL in a new tab
+        if (typeof window !== 'undefined') {
+            window.open(connection_url, '_blank');
+        }
+
+        return connection_url;
     } catch (error) {
         console.error('Failed to add QuickBook account:', error);
         throw error;

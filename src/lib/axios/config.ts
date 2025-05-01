@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import Router from 'next/router';
-import { store } from '../store/store';
+import { AUTH_CONFIG } from '../auth/authConfig';
+import { getBearerToken } from '../store/tokenUtils';
+
 
 export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance => {
   const axiosInstance = axios.create({
@@ -11,43 +12,40 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
     ...config,
   });
 
-  const excludedUrls = ['/auth/sso?provider=INTUIT', '/login'];
-
   axiosInstance.interceptors.request.use((config) => {
-    if (excludedUrls.some((url) => config.url?.includes(url))) {
+    if (AUTH_CONFIG.devApiWithAuthEndpoints.some((url) => config.url?.includes(url))) {
       config.baseURL = process.env.NEXT_PUBLIC_API_DEV;
-      
-      // For excluded URLs, remove any Authorization header
       if (config.headers) {
         delete config.headers.Authorization;
       }
-      
       return config;
     }
-    
-    // For other URLs, add auth token from store
-    if (config.headers && !excludedUrls.some(url => config.url?.includes(url))) {
-      const token = store.getState().user.token?.accessToken;
-      
+
+    if (AUTH_CONFIG.devApiWithAuthEndpoints.some((url) => config.url?.includes(url))) {
+      config.baseURL = process.env.NEXT_PUBLIC_API_DEV;
+    }
+
+    if (config.headers) {
+      const token = getBearerToken();
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      } else {
-        // Optional: Consider if you want to automatically redirect on missing token
-        console.log('No bearer token found');
+        config.headers.Authorization = token;
+      } else if (typeof window !== 'undefined' && !window.location.pathname.includes(AUTH_CONFIG.loginPath)) {
+        console.log('No bearer token found - redirecting to login');
+        sessionStorage.setItem(AUTH_CONFIG.redirectAfterLoginKey, window.location.pathname);
+        window.location.href = AUTH_CONFIG.loginPath;
       }
     }
-    
+
     return config;
   });
 
   axiosInstance.interceptors.response.use(
-    (response) => {
-      return response;
-    },
+    (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
+      if (error.response?.status === 401 && typeof window !== 'undefined') {
         console.log('Unauthorized - redirecting to login');
-        Router.push('/login'); // Redirect to /login on 401
+        sessionStorage.setItem(AUTH_CONFIG.redirectAfterLoginKey, window.location.pathname);
+        window.location.href = AUTH_CONFIG.loginPath;
       }
       return Promise.reject(error);
     }
@@ -56,33 +54,22 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
   return axiosInstance;
 };
 
-export const finBoardAxios = createAxiosInstance();
-
-export const handleApiError = (error: any): never => {
-  const message = error.response?.data?.message || 'Something went wrong';
-  throw new Error(message);
-};
+export const apiClient = createAxiosInstance();
 
 export const response_body = (response: AxiosResponse) => response.data;
 
 export const fetcher = {
-  get: (url: string, params?: {}) =>
-    finBoardAxios.get(url, { params }).then(response_body),
-  post: (url: string, body: {}) =>
-    finBoardAxios.post(url, body).then(response_body),
-  put: (url: string, body: {}) =>
-    finBoardAxios.put(url, body).then(response_body),
-  delete: (url: string, body: {}) =>
-    finBoardAxios.delete(url, { data: body }).then(response_body),
+  get: (url: string, params?: object) =>
+    apiClient.get(url, { params }).then(response_body),
+  post: (url: string, body: object) =>
+    apiClient.post(url, body).then(response_body),
+  put: (url: string, body: object) =>
+    apiClient.put(url, body).then(response_body),
+  delete: (url: string, body?: object) =>
+    apiClient.delete(url, { data: body }).then(response_body),
 };
 
-export const apiClient = {
-  get: <T>(url: string, params?: {}) =>
-    finBoardAxios.get<T>(url, { params }).then(response_body),
-  post: <T>(url: string, body: {}) =>
-    finBoardAxios.post<T>(url, body).then(response_body),
-  put: <T>(url: string, body: {}) =>
-    finBoardAxios.put<T>(url, body).then(response_body),
-  delete: <T>(url: string, body: {}) =>
-    finBoardAxios.delete<T>(url, { data: body }).then(response_body),
+export const handleApiError = (error: any): never => {
+  const message = error.response?.data?.message || 'Something went wrong';
+  throw new Error(message);
 };

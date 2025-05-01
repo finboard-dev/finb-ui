@@ -1,7 +1,5 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
-import StoreProvider from "@/lib/store/StoreProvider";
-import QueryProvider from "@/lib/react-query";
+import { Inter } from "next/font/google";
+import Providers from "@/providers/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,12 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <QueryProvider>
-      <StoreProvider>
-        <html lang="en">
-          <body className={`${inter.className} antialiased`}>{children}</body>
-        </html>
-      </StoreProvider>
-    </QueryProvider>
+    <html lang="en">
+      <body className={`${inter.className} antialiased`}>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
   );
 }

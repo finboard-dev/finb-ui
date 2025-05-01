@@ -1,31 +1,28 @@
 "use client";
 
 import React from "react";
-import LoginPage from "../components/chat/ui/SignInWithIntuit";
+import LoginPage from "./components/LoginPage";
 import { SSO_LOGIN } from "@/constants";
 import { intuitSSOLogin } from "@/lib/api/intuitService";
 
 const page = () => {
   const handleInuitLoginClick = async () => {
-    // setLoading(true);
     try {
       const redirectUrl = await intuitSSOLogin(SSO_LOGIN);
       if (redirectUrl) {
         window.open(redirectUrl, "_blank");
       } else {
-        // Handle the case where no redirect URL is returned
         console.error("No redirect URL provided");
-        // Optionally, show an error message to the user
       }
-      // Navigate to dashboard or perform other actions on success
     } catch (error) {
-      console.error(error); // Handle error
+      console.error(error);
     } finally {
-      // setLoading(false);
     }
   };
 
-  return <LoginPage handleIntuitLogin={handleInuitLoginClick} />;
+  return (
+    <LoginPage handleIntuitLogin={handleInuitLoginClick} isLoading={false} />
+  );
 };
 
 export default page;

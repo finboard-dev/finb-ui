@@ -1,37 +1,52 @@
-
+// src/lib/store/store.ts
 import chatReducer from './slices/chatSlice'
 import responsePanelReducer from './slices/responsePanelSlice'
 import uiReducer from './slices/uiSlice'
 import loadingReducer from './slices/loadingSlice'
-import { configureStore } from "@reduxjs/toolkit";
-import { persistStore, persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage";
+import { configureStore, combineReducers } from "@reduxjs/toolkit";
+import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist";
 import userReducer from "./slices/userSlice";
+import storage from 'redux-persist/lib/storage';
+
+// Combine all reducers
+const rootReducer = combineReducers({
+  chat: chatReducer,
+  responsePanel: responsePanelReducer,
+  ui: uiReducer,
+  loading: loadingReducer,
+  user: userReducer,
+});
 
 const persistConfig = {
   key: 'root',
+  version: 1,
   storage,
   whitelist: ['user'],
+  debug: process.env.NODE_ENV === 'development',
 };
 
-const persistedReducer = persistReducer(persistConfig, userReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
-  reducer: {
-    chat: chatReducer,
-    responsePanel: responsePanelReducer,
-    user: persistedReducer,
-    ui: uiReducer,
-    loading: loadingReducer,
-  },
+  reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
-})
+  devTools: process.env.NODE_ENV !== 'production',
+});
+
 export const persistor = persistStore(store);
+
+if (process.env.NODE_ENV === 'development') {
+  store.subscribe(() => {
+    const state = store.getState();
+    const hasToken = !!state.user?.token?.accessToken;
+    console.log('Redux state updated - Token exists:', hasToken);
+  });
+}
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
