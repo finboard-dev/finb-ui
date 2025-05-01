@@ -10,9 +10,6 @@
     "postinstall": "node node_modules/next/dist/bin/next telemetry disable",
     "lint": "next lint"
   },
-  "engines": {
-    "node": "23.7.0"
-  },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
     "@heroicons/react": "^2.2.0",
