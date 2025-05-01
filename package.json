@@ -6,8 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "vercel-build": "npm rebuild lightningcss --platform=linux --arch=x64 && next build",
     "postinstall": "node node_modules/next/dist/bin/next telemetry disable",
     "lint": "next lint"
+  },
+  "engines": {
+    "node": "23.7.0"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
