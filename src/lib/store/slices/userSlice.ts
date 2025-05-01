@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-// Type definitions
 interface CompanyRole {
   id: number;
   name: string;
@@ -64,19 +63,107 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     setUserData: (state, action: PayloadAction<{ token: Token; user: User }>) => {
-      state.token = action.payload.token;
+      if (!action.payload || !action.payload.token || !action.payload.user) {
+        console.error("Invalid user data provided to setUserData", action.payload);
+        return;
+      }
+
+      console.log("Setting user data in Redux:",
+          {
+            tokenPresent: !!action.payload.token,
+            accessToken: action.payload.token?.accessToken ? "exists" : "missing",
+            userPresent: !!action.payload.user
+          }
+      );
+
+      // Make sure the state is properly initialized before setting properties
+      if (state === null) {
+        console.error("State is null in setUserData reducer");
+        return initialState;
+      }
+
+      // Set token
+      state.token = {
+        accessToken: action.payload.token.accessToken,
+        expiresIn: action.payload.token.expiresIn,
+        tokenType: action.payload.token.tokenType,
+      };
+
+      // Set user
       state.user = action.payload.user;
-      state.selectedOrganization = action.payload.user.organizations[0] || null;
-      state.selectedCompany = action.payload.user.organizations[0]?.companies[0] || null;
+
+      if (action.payload.user.organizations && action.payload.user.organizations.length > 0) {
+        state.selectedOrganization = action.payload.user.organizations[0];
+
+        // Set default company if available
+        if (action.payload.user.organizations[0].companies &&
+            action.payload.user.organizations[0].companies.length > 0) {
+          state.selectedCompany = action.payload.user.organizations[0].companies[0];
+        } else {
+          state.selectedCompany = null;
+        }
+      } else {
+        state.selectedOrganization = null;
+        state.selectedCompany = null;
+      }
     },
+
+    setToken: (state, action: PayloadAction<Token>) => {
+      if (!action.payload) {
+        console.error("Invalid token provided to setToken");
+        return;
+      }
+
+      // Make sure state is initialized
+      if (state === null) {
+        console.error("State is null in setToken reducer");
+        return initialState;
+      }
+
+      state.token = action.payload;
+    },
+
     setSelectedOrganization: (state, action: PayloadAction<Organization>) => {
+      if (!action.payload) {
+        console.error("Invalid organization provided to setSelectedOrganization");
+        return;
+      }
+
+      // Make sure state is initialized
+      if (state === null) {
+        console.error("State is null in setSelectedOrganization reducer");
+        return initialState;
+      }
+
       state.selectedOrganization = action.payload;
-      state.selectedCompany = action.payload.companies[0] || null;
+
+      state.selectedCompany = action.payload.companies && action.payload.companies.length > 0
+          ? action.payload.companies[0]
+          : null;
     },
+
     setSelectedCompany: (state, action: PayloadAction<Company>) => {
+      if (!action.payload) {
+        console.error("Invalid company provided to setSelectedCompany");
+        return;
+      }
+
+      // Make sure state is initialized
+      if (state === null) {
+        console.error("State is null in setSelectedCompany reducer");
+        return initialState;
+      }
+
       state.selectedCompany = action.payload;
     },
+
     clearUserData: (state) => {
+      // Make sure state is initialized
+      if (state === null) {
+        console.error("State is null in clearUserData reducer");
+        return initialState;
+      }
+
       state.token = null;
       state.user = null;
       state.selectedOrganization = null;
@@ -85,28 +172,41 @@ const userSlice = createSlice({
   },
 });
 
+
 export const {
   setUserData,
+  setToken,
   setSelectedOrganization,
   setSelectedCompany,
   clearUserData,
 } = userSlice.actions;
 
-export const selectedCompanyId = (state: { user: UserState }) => state.user.selectedCompany?.id;
-export const selectUser = (state: { user: UserState }) => state.user.user;
-export const selectedUserId = (state: { user: UserState }) => state.user.user?.id;
-export const selectToken = (state: { user: UserState }) => state.user.token;
-export const userBearerToken = (state: { user: UserState }) => state.user.token?.accessToken;
+export const selectedCompanyId = (state: { user: UserState }) =>
+    state.user?.selectedCompany?.id;
+
+export const selectUser = (state: { user: UserState }) =>
+    state.user?.user;
+
+export const selectedUserId = (state: { user: UserState }) =>
+    state.user?.user?.id;
+
+export const selectToken = (state: { user: UserState }) =>
+    state.user?.token;
+
+export const userBearerToken = (state: { user: UserState }) =>
+    state.user?.token?.accessToken;
+
 export const selectSelectedOrganization = (state: { user: UserState }) =>
-    state.user.selectedOrganization;
+    state.user?.selectedOrganization;
+
 export const selectSelectedCompany = (state: { user: UserState }) =>
-    state.user.selectedCompany;
+    state.user?.selectedCompany;
+
 export const selectOrganizationPermissions = (state: { user: UserState }) =>
-    state.user.selectedOrganization?.role.permissions || [];
+    state.user?.selectedOrganization?.role?.permissions || [];
+
 export const selectCompanyPermissions = (state: { user: UserState }) =>
-    state.user.selectedCompany?.role.permissions || [];
-
-
+    state.user?.selectedCompany?.role?.permissions || [];
 
 export type {
   User,

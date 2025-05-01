@@ -1,54 +1,40 @@
-import { fetcher } from "@/lib/axios/config";
+import {fetcher} from "@/lib/axios/config";
+
 
 export interface SSOResponse {
-  token: {
-    accessToken: string;    
-    expiresIn: number;     
-    tokenType: string;    
+  token?: {
+    accessToken: string;
+    expiresIn: number;
+    tokenType: string;
   };
-  user: {
-    id: string;
-    email: string;
-    firstName: string;     
-    lastName: string;      
-    organizations: Array<{
-      id: string;
-      name: string;
-      status: string;
-      companies: Array<{
-        id: string;
-        name: string;
-        status: string;
-        role: {
-          id: number;
-          name: string;
-          permissions: string[];
-        };
-      }>;
-      role: {
-        id: number;
-        name: string;
-        permissions: string[];
-      };
-    }>;
-    lastLoginTime: string; 
-  };
+  user?: any;
+  code?: string;
+  message?: string;
+  redirectUrl?: string;
 }
 
-export const ssoLogin = async (authCode: any, realmId: null) : Promise<SSOResponse> => {
-  try {
-    const response = await fetcher.post(realmId != null ? `/qb/add_app` : `/auth/login`, {
-      source: "QuickBooks",
-      metadata: {
-        auth_code: authCode,
-        realm_id: realmId
-      },
-      sso_provider: "INTUIT"
-    });
-    const data = response
-    return data;
-  } catch (error) {
-    console.error("SSO login error:", error);
-    throw new Error("SSO login failed. Please check the error logs for more details.");
+class QuickbooksService {
+  async ssoLogin(authCode: string, realmId: string | null): Promise<SSOResponse> {
+    try {
+      const endpoint = realmId ? '/qb/add_app' : '/auth/login';
+      const response = await fetcher.post(endpoint, {
+        source: "QuickBooks",
+        metadata: {
+          auth_code: authCode,
+          realm_id: realmId
+        },
+        sso_provider: "INTUIT"
+      });
+
+      return response.data || response;
+    } catch (error) {
+      console.error("SSO login error:", error);
+      throw new Error(
+          (error as any).response?.data?.message ||
+          "SSO login failed. Please check the error logs for more details."
+      );
+    }
   }
-};
+}
+
+export const quickbooksService = new QuickbooksService();
