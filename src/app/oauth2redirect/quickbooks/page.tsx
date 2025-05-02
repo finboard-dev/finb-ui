@@ -7,6 +7,8 @@ import { useEffect, useState, Suspense } from "react";
 import { getAndClearRedirectPath } from "@/lib/auth/authUtils";
 import { AUTH_CONFIG } from "@/lib/auth/authConfig";
 import { quickbooksService } from "@/lib/api/sso/quickbooks";
+import { addCompany } from "@/lib/api/intuitService";
+import {store} from "@/lib/store/store";
 
 function CallbackHandler() {
   const dispatch = useAppDispatch();
@@ -18,12 +20,10 @@ function CallbackHandler() {
   const [apiResponse, setApiResponse] = useState(null);
   const [readyToRedirect, setReadyToRedirect] = useState(false);
 
-  // Get the current token from Redux to see if it's set - use optional chaining
   const currentToken = useAppSelector((state) => state?.user?.token || null);
   const currentUser = useAppSelector((state) => state?.user?.user || null);
 
-  // Force a longer delay before redirecting
-  const REDIRECT_DELAY_MS = 3000; // 3 seconds
+  const REDIRECT_DELAY_MS = 3000;
 
   useEffect(() => {
     const params: any = {};
@@ -32,7 +32,12 @@ function CallbackHandler() {
     });
 
     if (params.state && params.code) {
-      handleLogin(params);
+      // Check if realmId is null or not and call appropriate function
+      if (params.realmId && params.realmId !== "null") {
+        handleAddCompany(params);
+      } else {
+        handleLogin(params);
+      }
     } else {
       setStatus("error");
       setMessage("Missing required parameters for SSO login");
@@ -45,22 +50,22 @@ function CallbackHandler() {
     }
   }, [searchParams]);
 
-  // Effect to handle redirection after we've confirmed token is in Redux
   useEffect(() => {
-    if (readyToRedirect && currentToken?.accessToken) {
-      const redirectPath =
-          getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
-      console.log(
-          `Token verified in Redux store, redirecting to ${redirectPath}...`
-      );
-      router.push(redirectPath);
+    if (readyToRedirect) {
+      if ((status === 'add-company-success') ||
+          (status === 'success' && currentToken?.accessToken)) {
+        const redirectPath =
+            getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
+        console.log(
+            `Token verified in Redux store, redirecting to ${redirectPath}...`
+        );
+        router.push(redirectPath);
+      }
     }
-  }, [readyToRedirect, currentToken, router]);
+  }, [readyToRedirect, currentToken, router, status]);
 
-  // Add a new effect specifically for checking token status after delay
   useEffect(() => {
-    // Only run this effect if status is success
-    if (status === "success") {
+    if (status === "success" || status === "add-company-success") {
       const timer = setTimeout(() => {
         console.log("Checking if token is in Redux store...");
 
@@ -85,17 +90,11 @@ function CallbackHandler() {
       setStatus("loading");
       console.log("Starting login process...");
 
-      // Extract realmId properly
-      const realmId = params.realmId === "null" ? null : params.realmId;
-
-      // Call API for SSO login
-      const response : any = await quickbooksService.ssoLogin(params.code, realmId);
+      const response : any = await quickbooksService.ssoLogin(params.code, null);
       console.log("Received response from ssoLogin:", response);
 
-      // Save the full API response for display
       setApiResponse(response);
 
-      // Update debug information
       setDebug({
         ...debug,
         responseReceived: true,
@@ -108,7 +107,6 @@ function CallbackHandler() {
       });
 
       if (response && response.token && response.user) {
-        // Transform response data for Redux store - create new objects to avoid reference issues
         const userData = {
           token: {
             accessToken: response.token.accessToken,
@@ -121,10 +119,8 @@ function CallbackHandler() {
         console.log("Dispatching user data to Redux:", userData);
 
         try {
-          // Dispatch to Redux with clean data object
           dispatch(setUserData(userData));
 
-          // Verify the data was set in Redux after a short delay
           setTimeout(() => {
             const storeToken = currentToken;
             console.log("Verifying token in Redux after dispatch:",
@@ -138,7 +134,6 @@ function CallbackHandler() {
               }
             }));
 
-            // Update state to show success
             setStatus("success");
             setMessage("Login successful! Will redirect in a few seconds...");
           }, 500);
@@ -179,7 +174,77 @@ function CallbackHandler() {
     }
   };
 
-  // Function to manually trigger redirect
+  const handleAddCompany = async (params: { realmId: string; code: string; }) => {
+    try {
+      setStatus("loading");
+      console.log("Starting add company process...");
+      console.log("Using realmId:", params.realmId);
+
+      if (!currentToken?.accessToken) {
+        throw new Error("No active session found. Please log in first.");
+      }
+
+      const response = await addCompany(params.code, params.realmId);
+      console.log("Received response from addCompany:", response);
+
+      setApiResponse(response);
+
+      setDebug({
+        ...debug,
+        responseReceived: true,
+        addCompanyResponse: response,
+        params: params,
+        currentToken: currentToken ? "exists" : "missing"
+      });
+
+      if (response && response.success) {
+        const currentUserState = store.getState().user;
+
+        // Verify we have response data
+        if (response.id || response.email || response.firstName) {
+          const userData = {
+            token: currentUserState.token,
+            user: response
+          };
+
+          console.log("Dispatching updated user data to Redux:", {
+            tokenPreserved: !!userData.token,
+            userUpdated: !!userData.user
+          });
+
+          dispatch(setUserData(userData as any));
+
+          setStatus("add-company-success");
+          setMessage("Company added successfully! Will redirect in a few seconds...");
+          setReadyToRedirect(true);
+        } else {
+          console.warn("Add company succeeded but no user data returned", response);
+          setStatus("add-company-success");
+          setMessage("Company was added but user data may need to be refreshed.");
+          setReadyToRedirect(true);
+        }
+      } else if (response && !response.success) {
+        throw new Error(response.message || "Failed to add company");
+      } else {
+        throw new Error("Failed to add company: Invalid response format");
+      }
+    } catch (error) {
+      console.error("Add company error:", error);
+      setStatus("error");
+      setMessage(
+          error instanceof Error
+              ? error.message
+              : "An error occurred while adding the company"
+      );
+
+      setDebug(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : "Unknown error",
+        errorObject: error,
+      }));
+    }
+  };
+
   const manualRedirect = () => {
     const redirectPath =
         getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
@@ -197,11 +262,11 @@ function CallbackHandler() {
           {status === "loading" && (
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-16 h-16 border-4 border-t-blue-600 border-b-blue-600 border-l-transparent border-r-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-600">Processing your login...</p>
+                <p className="text-gray-600">Processing your request...</p>
               </div>
           )}
 
-          {status === "success" && (
+          {(status === "success" || status === "add-company-success") && (
               <div className="flex flex-col items-center space-y-4">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                   <svg
@@ -221,7 +286,7 @@ function CallbackHandler() {
                 </div>
                 <p className="text-green-600 font-medium">{message}</p>
 
-                {/* Current token status */}
+                {/* Current token status - Show for both login and add company flows */}
                 <div className="mt-4 p-3 bg-gray-50 rounded w-full">
                   <p className="font-medium">
                     Token in Redux: {currentToken?.accessToken ? "✅ Yes" : "❌ No"}
@@ -229,9 +294,11 @@ function CallbackHandler() {
                   <p className="font-medium">
                     User in Redux: {currentUser?.id ? "✅ Yes" : "❌ No"}
                   </p>
+                  <p className="font-medium">
+                    Operation: {status === "success" ? "Login" : "Add Company"}
+                  </p>
                 </div>
 
-                {/* Manual redirect button */}
                 <button
                     onClick={manualRedirect}
                     className="mt-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
@@ -259,7 +326,7 @@ function CallbackHandler() {
                     ></path>
                   </svg>
                 </div>
-                <p className="text-red-600 font-medium">Login failed</p>
+                <p className="text-red-600 font-medium">Operation failed</p>
                 <p className="text-gray-600 text-center">{message}</p>
                 <button
                     onClick={() => router.push("/login")}

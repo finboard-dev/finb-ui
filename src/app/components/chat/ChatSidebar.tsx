@@ -175,7 +175,7 @@ const ChatSidebarClient = () => {
       </div>
 
       {/* Organization Selection Section */}
-      {selectedCompany && (
+
         <div className="border-b border-gray-200">
           {isSidebarOpen ? (
             <div className="p-3">
@@ -185,7 +185,6 @@ const ChatSidebarClient = () => {
             <CollapsedOrganizationDropdown />
           )}
         </div>
-      )}
 
       {/* Action Buttons Section */}
       <div className="p-4 border-b border-gray-200">
@@ -275,30 +274,43 @@ const ChatSidebarClient = () => {
         )} */}
 
         <div
-          className={`p-3 ${isSidebarOpen ? "border-t border-gray-100" : ""}`}
+            className={`p-3 ${isSidebarOpen ? "border-t border-gray-100" : ""}`}
         >
-          {isSidebarOpen ? (
-            <div className="flex items-center p-2 rounded-md hover:bg-gray-200">
-              <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                <User className="h-4 w-4 text-gray-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
-                <p className="text-xs text-gray-500">View profile</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                id="user-profile-button"
-                className="h-8 w-8 hover:bg-gray-200"
-              >
-                <User className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            {isSidebarOpen ? (
+                <>
+                  <div className="flex items-center p-2 rounded-md hover:bg-gray-200 flex-1">
+                    <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                      <User className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
+                      <p className="text-xs text-gray-500">View profile</p>
+                    </div>
+                  </div>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      id="settings-button"
+                      className="h-8 w-8 hover:bg-gray-200"
+                      onClick={() => window.open("/settings", "_self")}
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </>
+            ) : (
+                <>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      id="user-profile-button"
+                      className="h-8 w-8 hover:bg-gray-200"
+                  >
+                    <User className="h-5 w-5" />
+                  </Button>
+                </>
+            )}
+          </div>
         </div>
       </div>
     </div>

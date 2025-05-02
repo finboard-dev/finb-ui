@@ -8,11 +8,21 @@ export const AUTH_CONFIG = {
   publicApiEndpoints: [
     '/auth/sso?provider=INTUIT',
   ],
+
+  privateDevApiEndpoints: [
+      'datasource/all?company',
+    '/companies/add',
+    'add?provider=QUICKBOOKS',
+      'datasource/disconnect?datasource'
+  ],
+
+  organizationIdInHeaders : [
+      'add?provider=QUICKBOOKS'
+  ],
   
   devApiWithAuthEndpoints: [
     '/auth/login',
     '/auth/sso?provider=INTUIT',
-    'add?provider=QUICKBOOKS'
   ],
 
   loginPath: '/login',
