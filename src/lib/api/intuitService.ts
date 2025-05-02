@@ -4,10 +4,10 @@ import { fetcher } from '../axios/config';
 import { store } from '@/lib/store/store';
 import { setUserData } from '@/lib/store/slices/userSlice';
 import { setCredentials } from '@/lib/store/slices/authSlice';
-
+import {useSelector} from "react-redux";
 export const ssoLogin = async (state: string, authCode: string, realmId: string | null) => {
     try {
-        const response = await fetcher.post(realmId != null ? `/qb/add_app` : `/auth/login`, {
+        const response = await fetcher.post(realmId != null ? `/auth/login` : `/auth/login`, {
             source: "QuickBooks",
             metadata: {
                 auth_code: authCode,
@@ -68,16 +68,63 @@ export const ssoLogin = async (state: string, authCode: string, realmId: string 
     }
 };
 
+export const addCompany = async (authCode: string, realmId: string | null) => {
+    const organisation = store.getState().user.selectedOrganization;
+
+    if (!organisation?.id) {
+        return {
+            success: false,
+            code: 'ORGANIZATION_ERROR',
+            message: 'No organization selected. Please select an organization first.'
+        };
+    }
+
+    const organisation_id = organisation.id;
+
+    try {
+        const response = await fetcher.post(`/companies/add`, {
+            "name": "QuickBooks",
+            "realm_id": realmId,
+            "auth_code": authCode,
+            "data_source": "QUICKBOOKS",
+            "organization_id": organisation_id.toString(),
+        });
+
+        return {
+            success: true,
+            ...response,
+
+        };
+    } catch (error: any) {
+        console.error("Add company error:", error);
+
+        if (error.name === 'CanceledError') {
+            return {
+                success: false,
+                code: 'REQUEST_CANCELED',
+                message: 'The request was canceled. Please try again.'
+            };
+        }
+
+        return {
+            success: false,
+            code: 'API_ERROR',
+            message: (error as any).response?.data?.message || 'An unexpected error occurred'
+        };
+    }
+};
+
 export const initAddQuickBookAccount = async () => {
+    const organisation: any = store.getState().user.selectedOrganization
+
+    const organisation_id = organisation?.id;
     try {
         const response = await fetcher.get(`/datasource/add?provider=QUICKBOOKS`);
         const { state, connection_url } = response;
 
-        // Store state in localStorage
         localStorage.setItem(CSRF_TOKEN, state);
         localStorage.setItem(REDIRECT_TYPE, ADD_COMPANY);
 
-        // Open the connection URL in a new tab
         if (typeof window !== 'undefined') {
             window.open(connection_url, '_blank');
         }
@@ -114,7 +161,6 @@ export const intuitSSOLogin = async (redirectType: string) => {
 
 export const addQuickBookAccount = async (authCode: any, realmId: any) => {
     try {
-        //check if token exists then add_account else add_app
         await fetcher.post('/qb/add_account', {
             code: authCode,
             realm_id: realmId
@@ -175,9 +221,9 @@ export const syncAllDraftOfTemplate = async (id: any, version: any) => {
     }
 };
 
-export const disconnectAccount = async (id: any) => {
+export const disconnectAccount = async (uuid: any) => {
     try {
-        const response = await fetcher.post(`/qb/disconnect/${id}`, {});
+        const response = await fetcher.post(`/datasource/disconnect?datasource=${uuid}`, {});
         return response.data;
     } catch (error) {
         console.error('Failed to disconnect account ', error);

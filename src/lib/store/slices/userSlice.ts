@@ -36,6 +36,14 @@ interface User {
   lastLoginTime: string;
 }
 
+// We'll define a separate interface for the payload
+interface SetUserDataPayload {
+  token?: Token;
+  user: User;
+  selectedOrganization?: Organization;
+  selectedCompany?: Company;
+}
+
 interface Token {
   accessToken: string;
   expiresIn: number;
@@ -62,43 +70,52 @@ const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
-    setUserData: (state, action: PayloadAction<{ token: Token; user: User }>) => {
-      if (!action.payload || !action.payload.token || !action.payload.user) {
+    setUserData: (state, action: PayloadAction<SetUserDataPayload>) => {
+      if (!action.payload || !action.payload.user) {
         console.error("Invalid user data provided to setUserData", action.payload);
         return;
       }
 
-      console.log("Setting user data in Redux:",
-          {
-            tokenPresent: !!action.payload.token,
-            accessToken: action.payload.token?.accessToken ? "exists" : "missing",
-            userPresent: !!action.payload.user
-          }
-      );
+      const token = action.payload.token || state.token;
+      const user = action.payload.user;
 
-      // Make sure the state is properly initialized before setting properties
+      console.log("Setting user data in Redux:", {
+        tokenPresent: !!token,
+        accessToken: token?.accessToken ? "exists" : "missing",
+        userPresent: !!user,
+        preservingToken: !action.payload.token
+      });
+
       if (state === null) {
         console.error("State is null in setUserData reducer");
         return initialState;
       }
 
-      // Set token
-      state.token = {
-        accessToken: action.payload.token.accessToken,
-        expiresIn: action.payload.token.expiresIn,
-        tokenType: action.payload.token.tokenType,
-      };
+      // Set token if it exists
+      if (token) {
+        state.token = token;
+      }
 
-      // Set user
-      state.user = action.payload.user;
+      // Set user data
+      state.user = user;
 
-      if (action.payload.user.organizations && action.payload.user.organizations.length > 0) {
-        state.selectedOrganization = action.payload.user.organizations[0];
+      if (user.organizations && user.organizations.length > 0) {
+        // If payload has a selectedOrganization explicitly set, use that
+        if (action.payload.selectedOrganization) {
+          state.selectedOrganization = action.payload.selectedOrganization;
+        } else {
+          // Otherwise use the first organization
+          state.selectedOrganization = user.organizations[0];
+        }
 
-        // Set default company if available
-        if (action.payload.user.organizations[0].companies &&
-            action.payload.user.organizations[0].companies.length > 0) {
-          state.selectedCompany = action.payload.user.organizations[0].companies[0];
+        // If payload has a selectedCompany explicitly set, use that
+        if (action.payload.selectedCompany) {
+          state.selectedCompany = action.payload.selectedCompany;
+        }
+        // Otherwise, set the first company from the selected organization
+        else if (state.selectedOrganization.companies &&
+            state.selectedOrganization.companies.length > 0) {
+          state.selectedCompany = state.selectedOrganization.companies[0];
         } else {
           state.selectedCompany = null;
         }
@@ -216,6 +233,7 @@ export type {
   OrganizationRole,
   CompanyRole,
   UserState,
+  SetUserDataPayload,
 };
 
 export default userSlice.reducer;

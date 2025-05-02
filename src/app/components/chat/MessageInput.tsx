@@ -511,14 +511,9 @@ export default function MessageInput({
             <div className="relative">
               <div className="flex items-center border border-primary rounded-lg px-2 py-1 cursor-pointer">
                 {!selectedCompany?.name ? (
-                  <div className="flex items-center gap-2 w-full">
-                    <div
-                      className={`w-3 h-3 rounded-full bg-gray-200 shimmer`}
-                    ></div>
-                    <div
-                      className={`h-5 w-24 bg-gray-200 rounded shimmer`}
-                    ></div>
-                  </div>
+                   <span>
+                     connect a company to proceed
+                   </span>
                 ) : (
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-gray-800 flex items-center justify-center"></div>
