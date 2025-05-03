@@ -8,7 +8,7 @@ const DataTablePage: NextPage = () => {
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6">Dynamic Data Table</h1>
       <DynamicTable
-        data={dummyJsonData as RowData[] | string}
+        data={dummyHtmlData as RowData[] | string}
         isLoading={false}
         error={null}
       />
