@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface CompanyRole {
-  id: number;
+  id: string;
   name: string;
   permissions: string[];
 }
@@ -10,11 +10,11 @@ interface Company {
   id: string;
   name: string;
   status: string;
-  role: CompanyRole;
+  role?: CompanyRole;
 }
 
 interface OrganizationRole {
-  id: number;
+  id: string;
   name: string;
   permissions: string[];
 }
@@ -24,7 +24,13 @@ interface Organization {
   name: string;
   status: string;
   companies: Company[];
-  role: OrganizationRole;
+  role?: OrganizationRole;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  permissions: string[];
 }
 
 interface User {
@@ -32,8 +38,11 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  organizations: Organization[];
   lastLoginTime: string;
+  selectedOrganization?: Organization;
+  selectedCompany?: Company;
+  role?: Role;
+  organizations?: Organization[];
 }
 
 // We'll define a separate interface for the payload
@@ -99,28 +108,28 @@ const userSlice = createSlice({
       // Set user data
       state.user = user;
 
-      if (user.organizations && user.organizations.length > 0) {
-        // If payload has a selectedOrganization explicitly set, use that
-        if (action.payload.selectedOrganization) {
-          state.selectedOrganization = action.payload.selectedOrganization;
-        } else {
-          // Otherwise use the first organization
-          state.selectedOrganization = user.organizations[0];
-        }
-
-        // If payload has a selectedCompany explicitly set, use that
-        if (action.payload.selectedCompany) {
-          state.selectedCompany = action.payload.selectedCompany;
-        }
-        // Otherwise, set the first company from the selected organization
-        else if (state.selectedOrganization.companies &&
-            state.selectedOrganization.companies.length > 0) {
-          state.selectedCompany = state.selectedOrganization.companies[0];
-        } else {
-          state.selectedCompany = null;
-        }
+      // Handle selectedOrganization - Auto-select from user.selectedOrganization if available
+      if (action.payload.selectedOrganization) {
+        state.selectedOrganization = action.payload.selectedOrganization;
+      } else if (user.selectedOrganization) {
+        state.selectedOrganization = user.selectedOrganization;
+      } else if (user.organizations && user.organizations.length > 0) {
+        state.selectedOrganization = user.organizations[0];
       } else {
         state.selectedOrganization = null;
+      }
+
+      // Handle selectedCompany - Auto-select from user.selectedCompany if available
+      if (action.payload.selectedCompany) {
+        state.selectedCompany = action.payload.selectedCompany;
+      } else if (user.selectedCompany) {
+        state.selectedCompany = user.selectedCompany;
+      } else if (
+          state.selectedOrganization?.companies &&
+          state.selectedOrganization.companies.length > 0
+      ) {
+        state.selectedCompany = state.selectedOrganization.companies[0];
+      } else {
         state.selectedCompany = null;
       }
     },
@@ -154,6 +163,7 @@ const userSlice = createSlice({
 
       state.selectedOrganization = action.payload;
 
+      // Auto-select first company when organization changes
       state.selectedCompany = action.payload.companies && action.payload.companies.length > 0
           ? action.payload.companies[0]
           : null;
@@ -175,7 +185,6 @@ const userSlice = createSlice({
     },
 
     clearUserData: (state) => {
-      // Make sure state is initialized
       if (state === null) {
         console.error("State is null in clearUserData reducer");
         return initialState;
@@ -225,6 +234,9 @@ export const selectOrganizationPermissions = (state: { user: UserState }) =>
 export const selectCompanyPermissions = (state: { user: UserState }) =>
     state.user?.selectedCompany?.role?.permissions || [];
 
+export const selectUserPermissions = (state: { user: UserState }) =>
+    state.user?.user?.role?.permissions || [];
+
 export type {
   User,
   Token,
@@ -232,6 +244,7 @@ export type {
   Company,
   OrganizationRole,
   CompanyRole,
+  Role,
   UserState,
   SetUserDataPayload,
 };

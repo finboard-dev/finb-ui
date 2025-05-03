@@ -125,9 +125,6 @@ export const initAddQuickBookAccount = async () => {
         localStorage.setItem(CSRF_TOKEN, state);
         localStorage.setItem(REDIRECT_TYPE, ADD_COMPANY);
 
-        if (typeof window !== 'undefined') {
-            window.open(connection_url, '_blank');
-        }
 
         return connection_url;
     } catch (error) {
