@@ -80,56 +80,27 @@ export const dummyJsonData: RowData[] = [
 // Dummy HTML table data
 export const dummyHtmlData = `
 <table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Product Name</th>
-      <th>Category</th>
-      <th>Price</th>
-      <th>Stock</th>
-      <th>Last Updated</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>101</td>
-      <td>Laptop Pro X</td>
-      <td>Electronics</td>
-      <td>$1299.99</td>
-      <td>45</td>
-      <td>2025-04-10</td>
-    </tr>
-    <tr>
-      <td>102</td>
-      <td>Wireless Headphones</td>
-      <td>Audio</td>
-      <td>$199.99</td>
-      <td>128</td>
-      <td>2025-04-15</td>
-    </tr>
-    <tr>
-      <td>103</td>
-      <td>Ergonomic Mouse</td>
-      <td>Accessories</td>
-      <td>$59.99</td>
-      <td>87</td>
-      <td>2025-04-18</td>
-    </tr>
-    <tr>
-      <td>104</td>
-      <td>Gaming Monitor 27"</td>
-      <td>Electronics</td>
-      <td>$349.99</td>
-      <td>23</td>
-      <td>2025-04-22</td>
-    </tr>
-    <tr>
-      <td>105</td>
-      <td>Mechanical Keyboard</td>
-      <td>Accessories</td>
-      <td>$129.99</td>
-      <td>65</td>
-      <td>2025-04-25</td>
-    </tr>
-  </tbody>
-</table>`
+  <caption>
+    Superheros and sidekicks
+  </caption>
+  <colgroup>
+    <col />
+    <col span="2" class="batman" />
+    <col span="2" class="flash" />
+  </colgroup>
+  <tr>
+    <td></td>
+    <th scope="col">Batman</th>
+    <th scope="col">Robin</th>
+    <th scope="col">The Flash</th>
+    <th scope="col">Kid Flash</th>
+  </tr>
+  <tr>
+    <th scope="row">Skill</th>
+    <td>Smarts, strong</td>
+    <td>Dex, acrobat</td>
+    <td>Super speed</td>
+    <td>Super speed</td>
+  </tr>
+</table>
+`

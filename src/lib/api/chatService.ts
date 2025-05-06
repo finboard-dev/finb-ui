@@ -25,10 +25,10 @@ export const parseStreamChunk = (chunk: string): any => {
     if (chunk.trim() === 'data: [DONE]') {
       return { type: 'done' };
     }
-    
+
     // Extract the JSON string from the chunk
-    const jsonString = chunk.startsWith('data: ') ? chunk.slice(5).trim() : chunk.trim();
-    
+    const jsonString = chunk.startsWith('data:') ? chunk.slice(5).trim() : chunk.trim();
+
     // Parse the JSON
     try {
       return JSON.parse(jsonString);
@@ -43,24 +43,24 @@ export const parseStreamChunk = (chunk: string): any => {
 };
 
 export const processStreamResponse = (
-  response: any,
-  onToken: (token: string) => void,
-  onToolCall: (toolCall: any) => void,
-  onSidePanelData?: (data: any) => void
+    response: any,
+    onToken: (token: string) => void,
+    onToolCall: (toolCall: any) => void,
+    onSidePanelData?: (data: any) => void
 ) => {
   if (!response) return;
-  
+
   // Handle done message
   if (response.type === 'done') {
     return;
   }
-  
+
   // Handle token response
   if (response.type === 'token' && response.content) {
     onToken(response.content);
     return;
   }
-  
+
   // Handle message response
   if (response.type === 'message') {
     const { content } = response;

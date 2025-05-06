@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { ChevronsUpDown, Building, Users, Check } from "lucide-react";
+import { ChevronsUpDown, Building, Users, Check, Loader2 } from "lucide-react";
 import {
   selectUser,
   selectSelectedOrganization,
@@ -19,8 +19,12 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import { toggleSidebar } from "@/lib/store/slices/chatSlice";
 import { initAddQuickBookAccount } from "@/lib/api/intuitService";
+import { fetcher } from "@/lib/axios/config";
+import { selectDropDownLoading, setDropDownLoading } from "@/lib/store/slices/loadingSlice";
+import { setCurrentCompany, setCompanyLoading, setCompanyError } from "@/lib/store/slices/companySlice";
 
 export const OrganizationDropdown: React.FC = () => {
+  const [error, setError] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -30,6 +34,7 @@ export const OrganizationDropdown: React.FC = () => {
   const user = useSelector(selectUser);
   const selectedOrganization = useSelector(selectSelectedOrganization);
   const selectedCompany = useSelector(selectSelectedCompany);
+  const isLoading = useAppSelector(selectDropDownLoading);
 
   useEffect(() => {
     const isOpenFromUrl = searchParams.get(componentId) === "open";
@@ -72,7 +77,6 @@ export const OrganizationDropdown: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-    } finally {
     }
   };
 
@@ -80,10 +84,38 @@ export const OrganizationDropdown: React.FC = () => {
     dispatch(setSelectedOrganization(organization));
   };
 
-  const handleCompanySelect = (company: Company) => {
-    dispatch(setSelectedCompany(company));
-    dispatch(toggleComponent({ id: componentId, forceState: false }));
-    updateUrlParams(false);
+  const handleCompanySelect = async (company: Company) => {
+    dispatch(setDropDownLoading(true));
+    dispatch(setCompanyLoading(true));
+    setError(null);
+
+    try {
+      const response = await fetcher.post("/companies/current", {
+        company_id: company?.id,
+      });
+
+      if(response.id === company.id) {
+        dispatch(setSelectedCompany(company));
+      }
+
+      if (response.id) {
+        dispatch(setCurrentCompany(response));
+      }
+      document.cookie = "has_selected_company=true; path=/";
+
+      dispatch(toggleComponent({ id: componentId, forceState: false }));
+      updateUrlParams(false);
+    } catch (err) {
+      dispatch(setCompanyLoading(true));
+      console.error("Error setting current company:", err);
+      setError("Failed to connect company");
+      // @ts-ignore
+      dispatch(setCompanyError(err.message || "Failed to connect company"));
+    } finally {
+      dispatch(setCompanyLoading(true));
+      dispatch(setDropDownLoading(false));
+      dispatch(setCompanyLoading(false));
+    }
   };
 
   useEffect(() => {
@@ -104,9 +136,6 @@ export const OrganizationDropdown: React.FC = () => {
   }, [dispatch, searchParams, router]);
 
   if (!selectedOrganization || !user) return null;
-
-  // Get list of organizations - if user has organizations array use that,
-  // otherwise create an array with just the selectedOrganization
   const organizations = user.organizations ||
       (selectedOrganization ? [selectedOrganization] : []);
 
@@ -117,6 +146,7 @@ export const OrganizationDropdown: React.FC = () => {
             className="flex w-full hover:cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left shadow-sm hover:bg-gray-50 focus:outline-none transition-all duration-200"
             onClick={handleToggle}
             id="dropdown-organization-button"
+            disabled={isLoading}
         >
           <div className="flex items-center gap-2.5">
             <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 text-white shadow-inner">
@@ -134,7 +164,11 @@ export const OrganizationDropdown: React.FC = () => {
             </span>
             </div>
           </div>
-          <ChevronsUpDown className="h-4 w-4 text-gray-500 shrink-0 ml-1.5" />
+          {isLoading ? (
+              <Loader2 className="h-4 w-4 text-gray-500 shrink-0 ml-1.5 animate-spin" />
+          ) : (
+              <ChevronsUpDown className="h-4 w-4 text-gray-500 shrink-0 ml-1.5" />
+          )}
         </button>
 
         {isOpen && (
@@ -158,10 +192,12 @@ export const OrganizationDropdown: React.FC = () => {
                                   company.id === selectedCompany?.id
                                       ? "bg-primary/10 text-primary"
                                       : "text-gray-700 hover:bg-gray-50"
-                              }`}
+                              } ${isLoading && company.id === selectedCompany?.id ? "opacity-50 cursor-not-allowed" : ""}`}
                               onClick={() => {
-                                handleOrganizationSelect(org);
-                                handleCompanySelect(company);
+                                if (!isLoading) {
+                                  handleOrganizationSelect(org);
+                                  handleCompanySelect(company);
+                                }
                               }}
                               id={`click-company-${company.id}`}
                           >
@@ -179,7 +215,11 @@ export const OrganizationDropdown: React.FC = () => {
                             </div>
                             <span className="flex-grow text-sm">{company.name}</span>
                             {company.id === selectedCompany?.id && (
-                                <Check className="h-4 w-4 text-primary" />
+                                isLoading ? (
+                                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                ) : (
+                                    <Check className="h-4 w-4 text-primary" />
+                                )
                             )}
                           </div>
                       ))}
@@ -198,11 +238,20 @@ export const OrganizationDropdown: React.FC = () => {
                       updateUrlParams(false);
                       handleAddQuickBooks();
                     }}
+                    disabled={isLoading}
                 >
                   <Building className="h-3.5 w-3.5" />
                   <span>New Company</span>
                 </button>
               </div>
+
+              {error && (
+                  <div className="p-2 bg-red-50 border-t border-red-100">
+                    <div className="text-xs text-red-600">
+                      {error}
+                    </div>
+                  </div>
+              )}
             </div>
         )}
       </div>
@@ -212,6 +261,7 @@ export const OrganizationDropdown: React.FC = () => {
 export const CollapsedOrganizationDropdown: React.FC = () => {
   const dispatch = useAppDispatch();
   const selectedCompany = useAppSelector(selectSelectedCompany);
+  const isLoading = useAppSelector(selectDropDownLoading);
 
   const handleClick = () => {
     dispatch(toggleSidebar());
@@ -224,10 +274,13 @@ export const CollapsedOrganizationDropdown: React.FC = () => {
             id="collapsed-organization-button"
             className="flex items-center justify-center w-8 h-8 rounded-md bg-white border border-gray-200 hover:bg-gray-50 shadow-sm transition-all duration-200"
             onClick={handleClick}
+            disabled={isLoading}
         >
-          {selectedCompany ? (
+          {isLoading ? (
+              <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
+          ) : selectedCompany ? (
               <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/80 text-white">
-            <span className="text-xs text-primary font-semibold">
+            <span className="text-xs text-white font-semibold">
               {selectedCompany.name.substring(0, 1).toUpperCase()}
             </span>
               </div>

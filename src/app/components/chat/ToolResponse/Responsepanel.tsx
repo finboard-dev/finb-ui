@@ -28,9 +28,10 @@ import {
 } from "@/lib/store/slices/responsePanelSlice";
 import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
 import VisualizationView from "../../visualization/VisualizationView";
-import GoogleSheet from "./GoogleSheetsEmbeded";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {dummyHtmlData} from "@/app/tests/data/dummy";
+import DynamicTable, {RowData} from "@/app/tests/components/DynamicTableRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -68,7 +69,7 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
         response.tool_name?.split("/").pop() || `${componentType} Component`,
       content: content,
       timestamp: new Date().toISOString(),
-      originalType: response.type, // Store original type for rendering
+      originalType: response.type,
       metadata: {
         messageId: response.messageId,
         toolCallId: response.tool_call_id,
@@ -256,15 +257,21 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     switch (response.type) {
       case "graph":
         return response.data ? (
-          <VisualizationView charts={response.data} title="" />
+          <VisualizationView charts={JSON.parse(response.data)} title="" />
         ) : (
           <p className="text-gray-500">No visualization data available</p>
         );
       case "table":
-        return response.data ? (
+        return response?.data ? (
           <div className="w-full h-full overflow-x-auto relative">
-            <GoogleSheet
-              sheetId={response.data.spreadsheet_url || response.data}
+            {/*<GoogleSheet*/}
+            {/*  sheetId={response.data.spreadsheet_url || response.data}*/}
+            {/*/>*/}
+            <DynamicTable
+                data={response?.data?.report_table as RowData[] | string}
+                title={response?.data?.report_name as string}
+                isLoading={false}
+                error={null}
             />
           </div>
         ) : (

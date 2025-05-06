@@ -4,7 +4,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@tailwindcss animate;
 
 /* globals.css - converted from Tailwind config */
 
@@ -42,22 +41,11 @@
   --text-selected: #3E5BF9;
   --text-light: #F1F1F1;
 
-  --input-border: #F5F7FB
+  --input-border: #F5F7FB;
 
   /* Container settings */
   --container-padding: 2rem;
   --container-max-width-2xl: 1400px;
-}
-
-/* Animation keyframes */
-@keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
-}
-
-@keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
 }
 
 @media (max-width: 640px) {

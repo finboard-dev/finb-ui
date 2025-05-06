@@ -3,9 +3,6 @@ import { AUTH_CONFIG } from '../auth/authConfig';
 import { getBearerToken } from '../store/tokenUtils';
 import { store } from "@/lib/store/store";
 
-const organisation: any = store.getState().user.selectedOrganization;
-const organisation_id = organisation?.id;
-
 const pendingRequests = new Map();
 
 export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance => {
@@ -13,12 +10,18 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
     baseURL: process.env.NEXT_PUBLIC_API_CHAT,
     headers: {
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': "69420"
+      'ngrok-skip-browser-warning': "69420",
     },
     ...config,
   });
 
   axiosInstance.interceptors.request.use((config) => {
+    const state = store.getState();
+    const organisation = state.user.selectedOrganization;
+    const organisation_id = organisation?.id;
+
+    const token = state.user.token?.accessToken;
+
     const requestId = `${config.method}:${config.url}`;
 
     if (pendingRequests.has(requestId)) {
@@ -47,10 +50,14 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
         config.headers["x-org-id"] = organisation_id;
       }
 
-      const token = getBearerToken();
-      if (token) {
+      const isPublicEndpoint = AUTH_CONFIG.publicApiEndpoints.some(
+          (url) => config.url?.includes(url)
+      );
+
+      if (token && !isPublicEndpoint) {
         config.headers.Authorization = `Bearer ${token}`;
-      } else if (typeof window !== 'undefined' && !window.location.pathname.includes(AUTH_CONFIG.loginPath)) {
+      } else if (!token && !isPublicEndpoint && typeof window !== 'undefined' &&
+          !window.location.pathname.includes(AUTH_CONFIG.loginPath)) {
         console.log('No bearer token found - redirecting to login');
         sessionStorage.setItem(AUTH_CONFIG.redirectAfterLoginKey, window.location.pathname);
         window.location.href = AUTH_CONFIG.loginPath;
@@ -59,6 +66,8 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
 
     return config;
   });
+
+
 
   axiosInstance.interceptors.response.use(
       (response) => {
@@ -71,12 +80,9 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
           const requestId = `${error.config.method}:${error.config.url}`;
           pendingRequests.delete(requestId);
         }
-
-        // Handle 401 errors
         if (error.response?.status === 401 && typeof window !== 'undefined') {
           console.log('Unauthorized - redirecting to login');
           sessionStorage.setItem(AUTH_CONFIG.redirectAfterLoginKey, window.location.pathname);
-          // window.location.href = AUTH_CONFIG.loginPath;
         }
 
         return Promise.reject(error);
