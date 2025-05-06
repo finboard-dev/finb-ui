@@ -1,30 +1,13 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
-
-interface Tool {
-    id: string
-    name: string
-    description: string
-    category: string
-}
-
-interface Chat {
-    id: string
-    name: string
-}
-
-interface CompanyRole {
-    id: string
-    name: string
-    permissions: string[]
-}
+import type { Tool, Assistant, CompanyRole, ChatConversation } from "@/types/chat"
 
 interface CurrentCompany {
     id: string
     name: string
     status: string
-    tools: Tool[]
-    chats: Chat[]
+    assistants: Assistant[] | null | undefined;
     role: CompanyRole
+    chatConversations: ChatConversation[]
 }
 
 interface CompanyState {
@@ -43,7 +26,7 @@ const companySlice = createSlice({
     name: "company",
     initialState,
     reducers: {
-        setCurrentCompany: (state, action: PayloadAction<CurrentCompany>) => {
+        setCurrentCompany: (state, action: PayloadAction<CurrentCompany | null>) => { // Allow null payload to clear company
             state.currentCompany = action.payload
             state.error = null
         },
@@ -65,8 +48,26 @@ export const { setCurrentCompany, setCompanyLoading, setCompanyError, clearCompa
 
 export const selectCurrentCompany = (state: { company: CompanyState }) => state.company.currentCompany
 
-export const selectCompanyTools = (state: { company: CompanyState }) => state.company.currentCompany?.tools || []
+export const selectAllCompanyAssistants = (state : {company : CompanyState}) => state?.company?.currentCompany?.assistants || [];
 
-export const selectCompanyChats = (state: { company: CompanyState }) => state.company.currentCompany?.chats || []
+// Selector to get all tools from all assistants (for mentions)
+export const selectAllCompanyTools = (state: { company: CompanyState }): Tool[] => {
+    const assistants = state?.company?.currentCompany?.assistants || [];
+
+    if (!Array.isArray(assistants)) {
+        return [];
+    }
+
+    return assistants.reduce((acc: Tool[], assistant: Assistant) => {
+        const tools = assistant?.tools || [];
+        if (!Array.isArray(tools)) {
+            return acc;
+        }
+        return acc.concat(tools);
+    }, []);
+};
+
+
+export const selectCompanyChatConversations = (state: { company: CompanyState }) => state.company.currentCompany?.chatConversations || []
 
 export default companySlice.reducer

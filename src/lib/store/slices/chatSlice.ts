@@ -14,6 +14,7 @@ const initialChatState: ChatState = {
   isSidebarOpen: true,
   responsePanelWidth: PANEL_CLOSED_WIDTH,
   activeMessageId: null,
+  selectedAssistantId: "",
 }
 
 interface MultiChatState {
@@ -53,6 +54,7 @@ export const chatSlice = createSlice({
             isSidebarOpen: true,
             responsePanelWidth: PANEL_CLOSED_WIDTH,
             activeMessageId: null,
+            selectedAssistantId: "", // Initialize with empty string
           },
         ],
       }
@@ -60,6 +62,16 @@ export const chatSlice = createSlice({
       state.activeChatId = newChat.id
     },
 
+    // Add a new action to set the selected assistant for a specific chat
+    setSelectedAssistantId(state, action: PayloadAction<{ chatId: string; assistantId: string }>) {
+      const { chatId, assistantId } = action.payload
+      const chat = state.chats.find((c) => c.id === chatId)
+      if (chat && chat.chats[0]) {
+        chat.chats[0].selectedAssistantId = assistantId
+      }
+    },
+
+    // Keep all the existing reducers...
     removeChat(state, action: PayloadAction<string>) {
       const chatIdToRemove = action.payload
       state.chats = state.chats.filter((chat) => chat.id !== chatIdToRemove)
@@ -182,6 +194,7 @@ export const {
   closeResponsePanel,
   setActiveMessageId,
   clearMessages,
+  setSelectedAssistantId, // Export the new action
 } = chatSlice.actions
 
 export default chatSlice.reducer

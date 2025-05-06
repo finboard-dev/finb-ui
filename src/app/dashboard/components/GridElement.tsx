@@ -11,8 +11,8 @@ import { Block, BlockType, DashboardItem } from "../page";
 import dynamic from "next/dynamic";
 import GridResizeHandler, { ResizeDirection } from "./GridResizeHandler";
 import { Layout } from "react-grid-layout";
-import GoogleSheet from "@/app/components/chat/ToolResponse/GoogleSheetsEmbeded";
 import VisualizationView from "@/app/components/visualization/VisualizationView";
+import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -90,11 +90,14 @@ export default function GridElement(props: Props) {
               : props.block.content;
           return (
             <div className="w-full h-full overflow-auto">
-              <GoogleSheet sheetId={tableData.spreadsheet_url || tableData} />
+              <DynamicTable
+                data={tableData}
+                isLoading={false}
+                error={null}
+                />
             </div>
           );
         case "Python":
-          // case "code":
           return (
             <Editor
               height="100%"

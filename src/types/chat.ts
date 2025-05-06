@@ -31,12 +31,26 @@ export interface MentionType {
   endPos: number
 }
 
+export type Tool = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+};
+
+export type Model = {
+  id: string;
+  name: string;
+};
+
 export interface MessageType {
   id: string
   role: "user" | "assistant" | "system"
   content: string
   timestamp: string
-  mentions?: MentionType[]
+  mentions?: Tool[]
+  model?: Model
+  messageId?: string
   variants?: { id: number; content: string }[]
   toolCalls?: { name: string; args: any; id?: string }[]
   isError?: boolean
@@ -50,6 +64,7 @@ export interface ChatState {
   isSidebarOpen: boolean
   responsePanelWidth: number
   activeMessageId: string | null
+  selectedAssistantId: string
 }
 
 export interface AllChats {
@@ -57,4 +72,22 @@ export interface AllChats {
   name: string
   thread_id: string
   chats: ChatState[]
+}
+
+export interface Assistant {
+    id: string
+    name: string
+    description: string
+    model: string
+    tools: Tool[]
+}
+
+export interface CompanyRole {
+    id: string
+    name: string
+    permissions: string[]
+}
+
+export interface ChatConversation {
+
 }

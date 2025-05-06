@@ -1,11 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface LoadingState {
-  isLoading: boolean;
+  isToolCallLoading: boolean;
+  isCompanyDropDownLoading: boolean;
 }
 
 const initialState: LoadingState = {
-  isLoading: false,
+  isToolCallLoading: false,
+  isCompanyDropDownLoading: false,
 };
 
 const loadingSlice = createSlice({
@@ -13,12 +15,16 @@ const loadingSlice = createSlice({
   initialState,
   reducers: {
     setToolCallLoading(state, action: PayloadAction<boolean>) {
-      state.isLoading = action.payload;
+      state.isToolCallLoading = action.payload;
     },
+    setDropDownLoading(state, action: PayloadAction<boolean>) {
+      state.isCompanyDropDownLoading = action.payload;
+    }
   },
 });
 
-export const { setToolCallLoading } = loadingSlice.actions;
-export const selectLoading = (state: { loading: LoadingState }) => state.loading.isLoading;
+export const { setToolCallLoading , setDropDownLoading } = loadingSlice.actions;
+export const selectLoading = (state: { loading: LoadingState }) => state.loading.isToolCallLoading;
+export const selectDropDownLoading = (state: { loading: LoadingState }) => state.loading.isCompanyDropDownLoading;
 
 export default loadingSlice.reducer;

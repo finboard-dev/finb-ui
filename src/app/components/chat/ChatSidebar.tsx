@@ -144,7 +144,7 @@ const ChatSidebarClient = () => {
   return (
     <div
       onClick={handleSidebarClick}
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-300 ${
+      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-75 ${
         isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
       }`}
     >
