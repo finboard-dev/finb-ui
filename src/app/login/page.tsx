@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect } from "react"
-import LoginPage from "./components/LoginPage"
+import { LoginPage } from "./components/LoginPage"
 import { SSO_LOGIN } from "@/constants"
 import { intuitSSOLogin } from "@/lib/api/intuitService"
 import { useRouter } from "next/navigation"
@@ -15,9 +15,7 @@ const LoginPageContainer = () => {
 
   useEffect(() => {
     if (token) {
-      // Check if company is selected via cookie
       const hasSelectedCompany = document.cookie.includes("has_selected_company=true")
-
       if (hasSelectedCompany) {
         router.push("/")
       } else {
@@ -31,7 +29,6 @@ const LoginPageContainer = () => {
       setIsLoading(true)
       const redirectUrl = await intuitSSOLogin(SSO_LOGIN)
       if (redirectUrl) {
-        // Open in same window instead of new tab
         window.location.href = redirectUrl
       } else {
         console.error("No redirect URL provided")

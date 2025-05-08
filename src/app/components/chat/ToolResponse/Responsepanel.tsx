@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,18 +40,15 @@ interface ResponsePanelProps {
   onSaveComponent?: (component: any) => void;
 }
 
-// Enhanced function to save components to localStorage with proper processing
 const saveComponentToLocalStorage = (response: ToolCallResponse) => {
   try {
-    // Determine the component type
     const componentType =
-      response.type === "graph"
-        ? "Visualization"
-        : response.type === "table"
-        ? "SQL"
-        : "Python";
+        response.type === "graph"
+            ? "Visualization"
+            : response.type === "table"
+                ? "SQL"
+                : "Python";
 
-    // Format the content based on the component type
     let content: any;
     if (typeof response.data === "string") {
       content = response.data;
@@ -60,13 +56,12 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
       content = JSON.stringify(response.data);
     }
 
-    // Create the block object
     const newBlockId = `block-${Date.now()}`;
     const componentData = {
       id: newBlockId,
       type: componentType,
       title:
-        response.tool_name?.split("/").pop() || `${componentType} Component`,
+          response.tool_name?.split("/").pop() || `${componentType} Component`,
       content: content,
       timestamp: new Date().toISOString(),
       originalType: response.type,
@@ -76,15 +71,11 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
       },
     };
 
-    // Get existing saved components
     const savedComponents = JSON.parse(
-      localStorage.getItem("dashboardBlocks") || "[]"
+        localStorage.getItem("dashboardBlocks") || "[]"
     );
 
-    // Add new component
     savedComponents.push(componentData);
-
-    // Save back to localStorage
     localStorage.setItem("dashboardBlocks", JSON.stringify(savedComponents));
 
     return {
@@ -101,10 +92,10 @@ const saveComponentToLocalStorage = (response: ToolCallResponse) => {
 };
 
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
-  activeMessageId,
-  isOpen = true,
-  onSaveComponent,
-}) => {
+                                                       activeMessageId,
+                                                       isOpen = true,
+                                                       onSaveComponent,
+                                                     }) => {
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [viewMode, setViewMode] = useState<Record<string, "view" | "json">>({});
   const [isExpanded, setIsExpanded] = useState(false);
@@ -112,21 +103,20 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const { code, toolCallResponses, activeToolCallId } = useAppSelector(
-    (state) => state.responsePanel
+      (state) => state.responsePanel
   );
 
-  // Get active chat and its responsePanelWidth
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const activeChat = useAppSelector((state) =>
-    state.chat.chats.find((chat) => chat.id === activeChatId)
+      state.chat.chats.find((chat) => chat.id === activeChatId)
   );
   const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
 
   const filteredResponses = activeMessageId
-    ? toolCallResponses.filter(
-        (response) => response.messageId === activeMessageId
+      ? toolCallResponses.filter(
+          (response) => response.messageId === activeMessageId
       )
-    : toolCallResponses;
+      : toolCallResponses;
 
   useEffect(() => {
     if (!panelRef.current || typeof ResizeObserver === "undefined") return;
@@ -150,7 +140,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     };
   }, [isOpen]);
 
-  // Initialize view mode for each tool call
   useEffect(() => {
     const initialViewModes: Record<string, "view" | "json"> = {};
     filteredResponses.forEach((response) => {
@@ -164,17 +153,16 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   }, [filteredResponses]);
 
-  // Set active tool call when filtered responses change
   useEffect(() => {
     if (
-      filteredResponses.length > 0 &&
-      (!activeToolCallId ||
-        !filteredResponses.some((r) => r.tool_call_id === activeToolCallId))
+        filteredResponses.length > 0 &&
+        (!activeToolCallId ||
+            !filteredResponses.some((r) => r.tool_call_id === activeToolCallId))
     ) {
       dispatch(
-        setActiveToolCallId(
-          filteredResponses[filteredResponses.length - 1].tool_call_id
-        )
+          setActiveToolCallId(
+              filteredResponses[filteredResponses.length - 1].tool_call_id
+          )
       );
     }
   }, [filteredResponses, activeToolCallId, dispatch]);
@@ -200,7 +188,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     setIsSheetOpen(!isSheetOpen);
   };
 
-  // Map tool call types to icons
   const getTabIcon = (type: string) => {
     switch (type) {
       case "graph":
@@ -217,7 +204,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     toast.success("Table data refreshed!");
   };
 
-  // Enhanced function to handle saving a component to dashboard
   const handleSaveComponent = (response: ToolCallResponse) => {
     const result = saveComponentToLocalStorage(response);
 
@@ -235,252 +221,246 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const renderContent = (response: ToolCallResponse, mode: "view" | "json") => {
     if (mode === "json") {
       return (
-        <div className="h-[calc(100vh-200px)] w-full">
-          <Editor
-            height="100%"
-            width="100%"
-            language="json"
-            theme="vs-light"
-            value={
-              typeof response.data === "string"
-                ? response.data
-                : JSON.stringify(response.data, null, 2)
-            }
-            onChange={handleEditorChange}
-            options={{ minimap: { enabled: false } }}
-          />
-        </div>
+          <div className="h-[calc(100vh-200px)] w-full">
+            <Editor
+                height="100%"
+                width="100%"
+                language="json"
+                theme="vs-light"
+                value={
+                  typeof response.data === "string"
+                      ? response.data
+                      : JSON.stringify(response.data, null, 2)
+                }
+                onChange={handleEditorChange}
+                options={{ minimap: { enabled: false } }}
+            />
+          </div>
       );
     }
 
-    // View mode
     switch (response.type) {
       case "graph":
         return response.data ? (
-          <VisualizationView charts={JSON.parse(response.data)} title="" />
+            <VisualizationView charts={response.data} title="" />
         ) : (
-          <p className="text-gray-500">No visualization data available</p>
+            <p className="text-gray-500">No visualization data available</p>
         );
       case "table":
         return response?.data ? (
-          <div className="w-full h-full overflow-x-auto relative">
-            {/*<GoogleSheet*/}
-            {/*  sheetId={response.data.spreadsheet_url || response.data}*/}
-            {/*/>*/}
-            <DynamicTable
-                data={response?.data?.report_table as RowData[] | string}
-                title={response?.data?.report_name as string}
-                isLoading={false}
-                error={null}
-            />
-          </div>
+            <div className="w-full h-full overflow-x-auto relative">
+              <DynamicTable
+                  data={response?.data?.report_table as RowData[] | string}
+                  title={response?.data?.report_name as string}
+                  isLoading={false}
+                  error={null}
+              />
+            </div>
         ) : (
-          <p className="text-gray-500">No table data available</p>
+            <p className="text-gray-500">No table data available</p>
         );
       default:
         return (
-          <div className="h-[calc(100vh-200px)] w-full">
-            <Editor
-              height="100%"
-              width="100%"
-              language={response.type === "code" ? "javascript" : "javascript"}
-              theme="vs-light"
-              value={
-                typeof response.data === "string"
-                  ? response.data
-                  : JSON.stringify(response.data, null, 2)
-              }
-              onChange={handleEditorChange}
-              options={{ minimap: { enabled: false } }}
-            />
-          </div>
+            <div className="h-[calc(100vh-200px)] w-full">
+              <Editor
+                  height="100%"
+                  width="100%"
+                  language={response.type === "code" ? "javascript" : "javascript"}
+                  theme="vs-light"
+                  value={
+                    typeof response.data === "string"
+                        ? response.data
+                        : JSON.stringify(response.data, null, 2)
+                  }
+                  onChange={handleEditorChange}
+                  options={{ minimap: { enabled: false } }}
+              />
+            </div>
         );
     }
   };
 
   const panelContent = (
-    <div
-      ref={panelRef}
-      className={cn(
-        "flex flex-col h-full bg-white relative transition-all duration-300 ease-in-out",
-        isExpanded && "fixed inset-0 z-50"
-      )}
-      key={`panel-${panelSize.width}-${panelSize.height}-${activeMessageId}`}
-    >
-      <div className="absolute top-2 right-2 z-10 flex gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-gray-100 rounded-full"
-          id="sidepanel-maximize-button"
-          onClick={toggleExpand}
-          aria-label={isExpanded ? "Minimize panel" : "Maximize panel"}
-        >
-          {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          id="sidepanel-close-button"
-          className="hover:bg-gray-100 rounded-full"
-          onClick={handleClosePanel}
-          aria-label="Close panel"
-        >
-          <X size={18} />
-        </Button>
-      </div>
-
-      <Tabs
-        value={activeToolCallId || undefined}
-        onValueChange={(value) => dispatch(setActiveToolCallId(value))}
-        className="flex-1 flex flex-col"
+      <div
+          ref={panelRef}
+          className={cn(
+              "flex flex-col h-full bg-white relative transition-all duration-300 ease-in-out",
+              isExpanded && "fixed inset-0 z-50"
+          )}
+          key={`panel-${panelSize.width}-${panelSize.height}-${activeMessageId}`}
       >
-        <div className="flex items-center p-4 border-b border-gray-200">
-          <TabsList className="bg-transparent h-auto border-gray-600 rounded-md flex flex-nowrap overflow-x-auto w-fit pr-8">
-            {filteredResponses.map((response) => (
-              <TabsTrigger
-                key={response.tool_call_id}
-                value={response.tool_call_id}
-                className="px-3 py-2 cursor-pointer data-[state=active]:bg-white min-w-[40px] flex-shrink-0 flex items-center gap-1"
-                aria-label={response.type}
-              >
-                {getTabIcon(response.type)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          <Button
+              variant="ghost"
+              size="icon"
+              className="hover:bg-gray-100 rounded-full"
+              id="sidepanel-maximize-button"
+              onClick={toggleExpand}
+              aria-label={isExpanded ? "Minimize panel" : "Maximize panel"}
+          >
+            {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </Button>
+          <Button
+              variant="ghost"
+              size="icon"
+              id="sidepanel-close-button"
+              className="hover:bg-gray-100 rounded-full"
+              onClick={handleClosePanel}
+              aria-label="Close panel"
+          >
+            <X size={18} />
+          </Button>
         </div>
 
-        {filteredResponses.map((response) => (
-          <TabsContent
-            key={response.tool_call_id}
-            value={response.tool_call_id}
-            className="flex-1 p-4 overflow-auto relative h-full max-w-full"
-            style={{ overflowX: "hidden" }}
-          >
-            <Tabs
-              value={viewMode[response.tool_call_id] || "view"}
-              onValueChange={(value) =>
-                setViewMode((prev) => ({
-                  ...prev,
-                  [response.tool_call_id]: value as "view" | "json",
-                }))
-              }
-              className="w-full h-full flex flex-col"
-            >
-              <TabsList className="mb-4">
-                <TabsTrigger value="view" className="flex items-center gap-1">
-                  <Eye size={16} />
-                  View
-                </TabsTrigger>
-                <TabsTrigger value="json" className="flex items-center gap-1">
-                  <FileJson size={16} />
-                  JSON
-                </TabsTrigger>
+        <Tabs
+            value={activeToolCallId || undefined}
+            onValueChange={(value) => dispatch(setActiveToolCallId(value))}
+            className="flex-1 flex flex-col"
+        >
+          <div className="flex items-center p-4 border-b border-gray-200">
+            <TabsList className="bg-transparent h-auto border-gray-600 rounded-md flex flex-nowrap overflow-x-auto w-fit pr-8">
+              {filteredResponses.map((response) => (
+                  <TabsTrigger
+                      key={response.tool_call_id}
+                      value={response.tool_call_id}
+                      className="px-3 py-2 cursor-pointer data-[state=active]:bg-white min-w-[40px] flex-shrink-0 flex items-center gap-1"
+                      aria-label={response.type}
+                  >
+                    {getTabIcon(response.type)}
+                  </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-                {/* Only show Save button on View tab */}
-                <div className="absolute top-5 right-5 z-10 flex gap-2">
-                  {panelSize.width > 300 ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        id="save-component-button"
-                        className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                        onClick={() => handleSaveComponent(response)}
-                        aria-label="Save to dashboard"
-                      >
-                        <Save size={16} />
-                      </Button>
+          {filteredResponses.map((response) => (
+              <TabsContent
+                  key={response.tool_call_id}
+                  value={response.tool_call_id}
+                  className="flex-1 p-4 overflow-auto relative h-full max-w-full"
+                  style={{ overflowX: "hidden" }}
+              >
+                <Tabs
+                    value={viewMode[response.tool_call_id] || "view"}
+                    onValueChange={(value) =>
+                        setViewMode((prev) => ({
+                          ...prev,
+                          [response.tool_call_id]: value as "view" | "json",
+                        }))
+                    }
+                    className="w-full h-full flex flex-col"
+                >
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="view" className="flex items-center gap-1">
+                      <Eye size={16} />
+                      View
+                    </TabsTrigger>
+                    <TabsTrigger value="json" className="flex items-center gap-1">
+                      <FileJson size={16} />
+                      JSON
+                    </TabsTrigger>
 
-                      {response.type === "table" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          id="refresh-table-button"
-                          className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                          onClick={() =>
-                            handleRefreshTable(response.data as string)
-                          }
-                          aria-label="Refresh table"
-                        >
-                          <RefreshCw size={16} />
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <div className="relative">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        id="more-options-button"
-                        className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                        aria-label="More options"
-                      >
-                        <span className="sr-only">More options</span>
-                        <div className="w-4 h-4 flex items-center justify-center">
-                          <span className="block w-1 h-1 bg-black rounded-full"></span>
-                          <span className="block w-1 h-1 bg-black rounded-full mx-1"></span>
-                          <span className="block w-1 h-1 bg-black rounded-full"></span>
-                        </div>
-                      </Button>
-                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                        <ul className="py-1">
-                          <li>
-                            <button
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              onClick={() => handleSaveComponent(response)}
+                    <div className="absolute top-5 right-5 z-10 flex gap-2">
+                      {panelSize.width > 300 ? (
+                          <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                id="save-component-button"
+                                className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                                onClick={() => handleSaveComponent(response)}
+                                aria-label="Save to dashboard"
                             >
-                              Save to Dashboard
-                            </button>
-                          </li>
-                          {response.type === "table" && (
-                            <li>
-                              <button
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                onClick={() =>
-                                  handleRefreshTable(response.data as string)
-                                }
-                              >
-                                Refresh Table
-                              </button>
-                            </li>
-                          )}
-                        </ul>
-                      </div>
+                              <Save size={16} />
+                            </Button>
+
+                            {response.type === "table" && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    id="refresh-table-button"
+                                    className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                                    onClick={() =>
+                                        handleRefreshTable(response.data as string)
+                                    }
+                                    aria-label="Refresh table"
+                                >
+                                  <RefreshCw size={16} />
+                                </Button>
+                            )}
+                          </>
+                      ) : (
+                          <div className="relative">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                id="more-options-button"
+                                className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                                aria-label="More options"
+                            >
+                              <span className="sr-only">More options</span>
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <span className="block w-1 h-1 bg-black rounded-full"></span>
+                                <span className="block w-1 h-1 bg-black rounded-full mx-1"></span>
+                                <span className="block w-1 h-1 bg-black rounded-full"></span>
+                              </div>
+                            </Button>
+                            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                              <ul className="py-1">
+                                <li>
+                                  <button
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                      onClick={() => handleSaveComponent(response)}
+                                  >
+                                    Save to Dashboard
+                                  </button>
+                                </li>
+                                {response.type === "table" && (
+                                    <li>
+                                      <button
+                                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                          onClick={() =>
+                                              handleRefreshTable(response.data as string)
+                                          }
+                                      >
+                                        Refresh Table
+                                      </button>
+                                    </li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </TabsList>
+                  </TabsList>
 
-              <TabsContent value="view" className="mt-0 flex-1 h-full relative">
-                {renderContent(response, "view")}
-              </TabsContent>
+                  <TabsContent value="view" className="mt-0 flex-1 h-full relative">
+                    {renderContent(response, "view")}
+                  </TabsContent>
 
-              <TabsContent value="json" className="mt-0 flex-1 h-full">
-                {renderContent(response, "json")}
+                  <TabsContent value="json" className="mt-0 flex-1 h-full">
+                    {renderContent(response, "json")}
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
-            </Tabs>
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+          ))}
+        </Tabs>
+      </div>
   );
 
   if (isExpanded) {
     return (
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-full md:max-w-4xl p-0 border-l"
-        >
-          <SheetTitle className="sr-only">Response Panel</SheetTitle>
-          {panelContent}
-        </SheetContent>
-      </Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent
+              side="right"
+              className="w-full sm:max-w-full md:max-w-4xl p-0 border-l"
+          >
+            <SheetTitle className="sr-only">Response Panel</SheetTitle>
+            {panelContent}
+          </SheetContent>
+        </Sheet>
     );
   }
 
-  // Normal mode
   return panelContent;
 };
 

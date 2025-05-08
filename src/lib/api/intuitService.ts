@@ -134,27 +134,26 @@ export const initAddQuickBookAccount = async () => {
 };
 
 export const intuitSSOLogin = async (redirectType: string) => {
-  try {
-      const response = await fetcher.get('/auth/sso?provider=INTUIT');
-      if (!response) {
-          console.error('Invalid response from SSO login endpoint:', response);
-          throw new Error('Invalid response from server');
-      }
-      const { state, redirect_url } = response;
-      if (!state || !redirect_url) {
-          console.error('Missing required fields in response:', response);
-          throw new Error('Missing required authentication data');
-      }
-      localStorage.setItem(CSRF_TOKEN, state);
-      localStorage.setItem(REDIRECT_TYPE, redirectType);
-      console.log('Response from SSO login:', response);
-      
-      return response.redirect_url;
-  } catch (error) {
-      console.error('Failed to initiate QuickBooks login:', error);
-      throw error;
-  }
-};
+    try {
+        const response = await fetcher.get('/auth/sso?provider=INTUIT')
+        if (!response) {
+            console.error('Invalid response from SSO login endpoint:', response)
+            throw new Error('Invalid response from server')
+        }
+        const { state, redirect_url } = response
+        if (!state || !redirect_url) {
+            console.error('Missing required fields in response:', response)
+            throw new Error('Missing required authentication data')
+        }
+        localStorage.setItem(CSRF_TOKEN, state)
+        localStorage.setItem(REDIRECT_TYPE, redirectType)
+        console.log('Response from SSO login:', response)
+        return response.redirect_url
+    } catch (error) {
+        console.error('Failed to initiate QuickBooks login:', error)
+        throw error
+    }
+}
 
 export const addQuickBookAccount = async (authCode: any, realmId: any) => {
     try {

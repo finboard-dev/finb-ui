@@ -1,26 +1,16 @@
-export interface MessageVariant {
-  id: number;
-  content: string;
-}
-
-export interface MentionType {
-  id: string;
-  name: string;
-  icon: string;
-  startPos: number;
-  endPos: number;
-}
+import { v4 as uuidv4 } from "uuid"
 
 export interface ToolCall {
-  name: string;
-  args: Record<string, any>;
-  id?: string;
+  name: string
+  args: Record<string, any>
+  id?: string
+  position?: number
 }
 
 export interface ToolResponse {
-  id?: string;
-  content: string;
-  tool_calls?: ToolCall[];
+  id?: string
+  content: string
+  tool_calls?: ToolCall[]
 }
 
 export interface MentionType {
@@ -32,27 +22,32 @@ export interface MentionType {
 }
 
 export type Tool = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-};
+  id: string
+  name: string
+  description: string
+  category: string
+}
 
 export type Model = {
-  id: string;
-  name: string;
-};
+  id: string
+  name: string
+}
+
+// Define content part types for message content
+export type ContentPart =
+    | { type: "text"; content: string }
+    | { type: "toolCall"; toolCallId: string }
 
 export interface MessageType {
   id: string
   role: "user" | "assistant" | "system"
-  content: string
+  content: ContentPart[]
   timestamp: string
   mentions?: Tool[]
   model?: Model
   messageId?: string
-  variants?: { id: number; content: string }[]
-  toolCalls?: { name: string; args: any; id?: string }[]
+  variants?: { id: number; content: ContentPart[] }[]
+  toolCalls?: ToolCall[]
   isError?: boolean
 }
 
@@ -71,23 +66,28 @@ export interface AllChats {
   id: string
   name: string
   thread_id: string
+  assistantId: string
   chats: ChatState[]
 }
 
 export interface Assistant {
-    id: string
-    name: string
-    description: string
-    model: string
-    tools: Tool[]
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  tools: Tool[];
 }
 
 export interface CompanyRole {
-    id: string
-    name: string
-    permissions: string[]
+  id: string;
+  name: string;
+  permissions: string[];
 }
 
 export interface ChatConversation {
-
+  id: string;
+  name: string;
+  threadId: string;
+  lastMessageAt: string;
+  assistantId: string;
 }

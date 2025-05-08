@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { motion, useAnimation, useInView } from "framer-motion"
-import LoginButton from "./LoginButton"
-import DataVisualizer from './ui/DataVisualizer'
+import { LoginButton } from "./LoginButton"
+import { DataVisualizer } from "./ui/DataVisualizer"
 import { BarChartIcon, PieChartIcon, LineChartIcon, AreaChartIcon } from "lucide-react"
 
 interface LoginButtonProps {
@@ -11,7 +11,7 @@ interface LoginButtonProps {
     handleIntuitLogin: () => void
 }
 
-export default function LoginPage({ isLoading = false, handleIntuitLogin }: LoginButtonProps) {
+export function LoginPage({ isLoading = false, handleIntuitLogin }: LoginButtonProps) {
     const containerRef = useRef(null)
     const isInView = useInView(containerRef, { once: false, amount: 0.3 })
     const controls = useAnimation()

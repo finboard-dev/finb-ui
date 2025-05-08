@@ -1,7 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define response panel types for better type safety
 export type ToolCallResponseType = 'table' | 'graph' | 'code' | 'error' | 'text';
 
 export interface ToolCallResponse {
@@ -31,11 +30,6 @@ const initialState: ResponsePanelState = {
   activeToolCallId: null,
 };
 
-// Local storage keys
-const TOOL_CALL_RESPONSES_KEY = "toolCallResponses";
-const DASHBOARD_BLOCKS_KEY = "dashboardBlocks";
-
-// Storage utility functions
 const STORAGE_KEY = 'savedResponses';
 
 const loadSavedResponses = (): SavedResponseData[] => {
@@ -59,21 +53,20 @@ export const responsePanelSlice = createSlice({
     },
     addToolCallResponse: (state, action: PayloadAction<ToolCallResponse>) => {
       const existingIndex = state.toolCallResponses.findIndex(
-        (response) => response.tool_call_id === action.payload.tool_call_id
+          (response) => response.tool_call_id === action.payload.tool_call_id
       );
-      
+
       const responseWithTimestamp = {
         ...action.payload,
         createdAt: action.payload.createdAt || new Date().toISOString()
       };
-      
+
       if (existingIndex >= 0) {
         state.toolCallResponses[existingIndex] = responseWithTimestamp;
       } else {
         state.toolCallResponses.push(responseWithTimestamp);
       }
-      
-      // Set as active tab automatically when adding new response
+
       state.activeToolCallId = action.payload.tool_call_id;
     },
     setActiveToolCallId: (state, action: PayloadAction<string>) => {
@@ -88,7 +81,6 @@ export const responsePanelSlice = createSlice({
           savedAt: new Date().toISOString(),
         };
 
-        // Limit to most recent 50 saved responses to avoid storage issues
         const updatedResponses = [responseWithId, ...savedResponses].slice(0, 50);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedResponses));
       } catch (e) {
@@ -102,28 +94,26 @@ export const responsePanelSlice = createSlice({
     },
     removeToolCallResponse: (state, action: PayloadAction<string>) => {
       const indexToRemove = state.toolCallResponses.findIndex(
-        response => response.tool_call_id === action.payload
+          response => response.tool_call_id === action.payload
       );
-      
+
       if (indexToRemove !== -1) {
         state.toolCallResponses.splice(indexToRemove, 1);
-        
-        // If we removed the active tab, select another one
         if (state.activeToolCallId === action.payload) {
-          state.activeToolCallId = state.toolCallResponses.length > 0 
-            ? state.toolCallResponses[0].tool_call_id 
-            : null;
+          state.activeToolCallId = state.toolCallResponses.length > 0
+              ? state.toolCallResponses[0].tool_call_id
+              : null;
         }
       }
     }
   },
 });
 
-export const { 
-  setCodeData, 
-  addToolCallResponse, 
-  setActiveToolCallId, 
-  saveToLocalStorage, 
+export const {
+  setCodeData,
+  addToolCallResponse,
+  setActiveToolCallId,
+  saveToLocalStorage,
   resetToolCallResponses,
   removeToolCallResponse
 } = responsePanelSlice.actions;

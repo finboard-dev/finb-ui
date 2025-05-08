@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type React from "react";
 
@@ -10,10 +10,8 @@ import {
   ChevronLeftIcon,
   PanelLeft,
   User,
-  Trash2,
   MessageSquare,
   Settings,
-  LogOut,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -30,20 +28,19 @@ import {
   addChat,
   removeChat,
   setActiveChatId,
-  clearMessages,
+  setChatsFromAPI,
 } from "@/lib/store/slices/chatSlice";
-import AddCompany from "./ui/AddCompany";
+import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
+import type { MessageType, ContentPart, AllChats } from "@/types/chat";
 
-// Client component - uses hooks
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
-    null
-  );
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
   const componentId = "sidebar-chat";
 
-  // Get search params safely on client side
+  const chatListRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
@@ -53,23 +50,52 @@ const ChatSidebarClient = () => {
 
     const isOpenFromUrl = searchParams.get(componentId) === "open";
     dispatch(
-      initializeComponent({
-        type: "sidebar",
-        id: componentId,
-        isOpenFromUrl,
-      })
+        initializeComponent({
+          type: "sidebar",
+          id: componentId,
+          isOpenFromUrl,
+        })
     );
   }, [dispatch, searchParams, componentId]);
 
   const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, componentId)
+      selectIsComponentOpen(state, componentId)
   );
   const firstName = useAppSelector((state) => state.user.user?.firstName);
   const lastName = useAppSelector((state) => state.user.user?.lastName);
   const selectedCompany = useSelectedCompany();
-
-  // Get chats and active chat ID
+  const chatConversations = useAppSelector(selectCompanyChatConversations);
+  const availableAssistants = useAppSelector(selectAllCompanyAssistants);
   const { chats, activeChatId } = useAppSelector((state) => state.chat);
+
+  useEffect(() => {
+    if (chatConversations.length > 0) {
+      dispatch(setChatsFromAPI(chatConversations));
+    }
+  }, [dispatch, chatConversations]);
+
+  // Scroll to top when chats change or sidebar opens
+  useEffect(() => {
+    if (isSidebarOpen && chatListRef.current && chats.length > 0) {
+      chatListRef.current.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  }, [chats.length, isSidebarOpen]);
+
+  // Scroll to active chat when it changes
+  useEffect(() => {
+    if (!isSidebarOpen || !activeChatId) return;
+
+    const activeElement = document.getElementById(`chat-${activeChatId}`);
+    if (activeElement && chatListRef.current) {
+      activeElement.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [activeChatId, isSidebarOpen]);
 
   const updateUrlParams = (isOpen: boolean) => {
     if (!searchParams) return;
@@ -89,217 +115,179 @@ const ChatSidebarClient = () => {
     updateUrlParams(newState);
   };
 
-  // Handle click on the sidebar when collapsed
   const handleSidebarClick = () => {
     if (!isSidebarOpen) {
       handleToggle();
     }
   };
 
-  // Create a new chat
   const handleNewChat = (e: React.MouseEvent) => {
     e.stopPropagation();
-    dispatch(addChat());
+    const defaultAssistant = availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0];
+    if (defaultAssistant) {
+      dispatch(addChat({ assistantId: defaultAssistant.id }));
+    }
     localStorage.removeItem("thread_id");
   };
 
-  // Set active chat
   const handleSelectChat = (chatId: string) => {
     dispatch(setActiveChatId(chatId));
   };
 
-  // Delete a chat
-  const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
-    e.stopPropagation();
-    dispatch(removeChat(chatId));
-  };
-
-  // Clear messages in a chat
-  const handleClearChat = (e: React.MouseEvent, chatId: string) => {
-    e.stopPropagation();
-    dispatch(clearMessages(chatId));
-  };
-
-  // Generate chat name based on first user message or default to "Untitled Chat"
-  const getChatName = (chatIndex: number, chat: any) => {
+  const getChatName = (chatIndex: number, chat: AllChats) => {
     if (chat.name && chat.name !== "New Chat") {
       return chat.name;
     }
 
-    const firstUserMessage = chat.chats[0]?.messages.find(
-      (msg: any) => msg.role === "user"
+    const firstUserMessage: MessageType | undefined = chat.chats[0]?.messages.find(
+        (msg: MessageType) => msg.role === "user"
     );
 
     if (firstUserMessage) {
-      // Truncate message to first 20 chars
-      const truncatedContent = firstUserMessage.content.substring(0, 20);
-      return (
-        truncatedContent + (firstUserMessage.content.length > 20 ? "..." : "")
-      );
+      const textContent = firstUserMessage.content
+          .filter((part: ContentPart) => part.type === "text")
+          .map((part) => (part as { type: "text"; content: string }).content)
+          .join("");
+      const truncatedContent = textContent.substring(0, 20);
+      return truncatedContent + (textContent.length > 20 ? "..." : "");
     }
 
     return `Untitled Chat ${chatIndex + 1}`;
   };
 
   return (
-    <div
-      onClick={handleSidebarClick}
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-75 ${
-        isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
-      }`}
-    >
-      {/* Header Section */}
-      <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
-        {isSidebarOpen ? (
-          <>
-            <h2 className="font-medium text-heading text-lg">FinB</h2>
-            <Button
-              onClick={handleToggle}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 cursor-pointer hover:bg-gray-200"
-            >
-              <ChevronLeftIcon className="h-4 w-4 logo-text" />
-            </Button>
-          </>
-        ) : (
-          <Button
-            onClick={handleToggle}
-            variant="ghost"
-            size="icon"
-            className="w-full cursor-pointer h-8 hover:bg-gray-200 flex items-center justify-center"
-          >
-            <PanelLeft className="h-4 w-4 logo-text" />
-          </Button>
-        )}
-      </div>
-
-      {/* Organization Selection Section */}
+      <div
+          onClick={handleSidebarClick}
+          className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-75 ${
+              isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
+          }`}
+      >
+        <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
+          {isSidebarOpen ? (
+              <>
+                <h2 className="font-medium text-heading text-lg">FinB</h2>
+                <Button
+                    onClick={handleToggle}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 cursor-pointer hover:bg-gray-200"
+                >
+                  <ChevronLeftIcon className="h-4 w-4 logo-text" />
+                </Button>
+              </>
+          ) : (
+              <Button
+                  onClick={handleToggle}
+                  variant="ghost"
+                  size="icon"
+                  className="w-full cursor-pointer h-8 hover:bg-gray-200 flex items-center justify-center"
+              >
+                <PanelLeft className="h-4 w-4 logo-text" />
+              </Button>
+          )}
+        </div>
 
         <div className="border-b border-gray-200">
           {isSidebarOpen ? (
-            <div className="p-3">
-              <OrganizationDropdown />
-            </div>
-          ) : (
-            <CollapsedOrganizationDropdown />
-          )}
-        </div>
-
-      {/* Action Buttons Section */}
-      <div className="p-4 border-b border-gray-200">
-        {isSidebarOpen ? (
-          <Button
-            variant="default"
-            id="new-chat-button"
-            onClick={handleNewChat}
-            className="w-full flex cursor-pointer justify-start text-white items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
-          >
-            <PlusIcon className="h-4 w-4" />
-            New Chat
-          </Button>
-        ) : (
-          <Button
-            id="new-chat-button"
-            onClick={handleNewChat}
-            className="w-full rounded-full text-white cursor-pointer flex items-center justify-center h-fit bg-background-button-dark hover:bg-background-button-dark/90"
-          >
-            <PlusIcon className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
-
-      {/* Chat History Section */}
-      <div className="flex-1 overflow-y-auto py-2 border-b border-gray-200">
-        {isSidebarOpen && (
-          <div className="px-3 mb-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Recent Conversations
-            </h3>
-          </div>
-        )}
-
-        <div className={`${isSidebarOpen ? "px-3" : "hidden"} space-y-1 pt-3`}>
-          {chats.map((chat, index) => (
-            <div
-              key={chat.id}
-              onClick={() => handleSelectChat(chat.id)}
-              id={`chat-${chat.id}`}
-              className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                chat.id === activeChatId ? "bg-gray-200" : "hover:bg-gray-200"
-              }`}
-            >
-              <div className="flex items-center space-x-2 truncate flex-1">
-                {!isSidebarOpen && (
-                  <MessageSquare className="h-4 w-4 text-gray-500" />
-                )}
-                {isSidebarOpen && (
-                  <>
-                    <span className="truncate font-serif text-sm">
-                      {getChatName(index, chat)}
-                    </span>
-                  </>
-                )}
+              <div className="p-3">
+                <OrganizationDropdown />
               </div>
-              {/* {isSidebarOpen && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-50 hover:opacity-100"
-                  onClick={(e) => handleClearChat(e, chat.id)}
-                  title="Clear messages"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )} */}
-            </div>
-          ))}
-
-          {chats.length === 0 && isSidebarOpen && (
-            <div className="px-2 py-4 text-center text-sm text-gray-500">
-              No conversations yet. Start a new chat!
-            </div>
+          ) : (
+              <CollapsedOrganizationDropdown />
           )}
         </div>
-      </div>
 
-      {/* User Profile Section */}
-      <div className="mt-auto">
-        {/* {isSidebarOpen && (
-          <div className="px-3 pt-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Profile
-            </h3>
-          </div>
-        )} */}
+        <div className="p-4 border-b border-gray-200">
+          {isSidebarOpen ? (
+              <Button
+                  variant="default"
+                  id="new-chat-button"
+                  onClick={handleNewChat}
+                  className="w-full flex cursor-pointer justify-start text-white items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
+              >
+                <PlusIcon className="h-4 w-4" />
+                New Chat
+              </Button>
+          ) : (
+              <Button
+                  id="new-chat-button"
+                  onClick={handleNewChat}
+                  className="w-full rounded-full text-white cursor-pointer flex items-center justify-center h-fit bg-background-button-dark hover:bg-background-button-dark/90"
+              >
+                <PlusIcon className="h-5 w-5" />
+              </Button>
+          )}
+        </div>
 
         <div
-            className={`p-3 ${isSidebarOpen ? "border-t border-gray-100" : ""}`}
+            ref={chatListRef}
+            id="chat-history-container"
+            className="flex-1 relative overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
         >
-          <div className="flex items-center justify-between">
-            {isSidebarOpen ? (
-                <>
-                  <div className="flex items-center p-2 rounded-md hover:bg-gray-200 flex-1">
-                    <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                      <User className="h-4 w-4 text-gray-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
-                      <p className="text-xs text-gray-500">View profile</p>
-                    </div>
+          {isSidebarOpen && (
+              <div className="px-3 py-2  sticky top-0 left-0 right-0 bg-white z-10">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Recent
+                </h3>
+              </div>
+          )}
+
+          <div className={`${isSidebarOpen ? "px-3" : "hidden"} space-y-1 pt-3`}>
+            {chats.map((chat, index) => (
+                <div
+                    key={chat.id}
+                    onClick={() => handleSelectChat(chat.id)}
+                    id={`chat-${chat.id}`}
+                    className={`flex items-center justify-between select-none p-2 rounded-md cursor-pointer transition-colors ${
+                        chat.id === activeChatId ? "bg-gray-200" : "hover:bg-gray-200"
+                    }`}
+                >
+                  <div className="flex items-center space-x-2 truncate flex-1">
+                    {!isSidebarOpen && (
+                        <MessageSquare className="h-4 w-4 text-gray-500" />
+                    )}
+                    {isSidebarOpen && (
+                        <span className="truncate font-serif text-sm">
+                    {getChatName(index, chat)}
+                  </span>
+                    )}
                   </div>
-                  <Button
-                      variant="ghost"
-                      size="icon"
-                      id="settings-button"
-                      className="h-8 w-8 hover:bg-gray-200"
-                      onClick={() => window.open("/settings", "_self")}
-                  >
-                    <Settings className="h-5 w-5" />
-                  </Button>
-                </>
-            ) : (
-                <>
+                </div>
+            ))}
+
+            {chats.length === 0 && isSidebarOpen && (
+                <div className="px-2 py-4 text-center text-sm text-gray-500">
+                  No conversations yet. Start a new chat!
+                </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-auto">
+          <div className={`p-3 ${isSidebarOpen ? "border-t border-gray-100" : ""}`}>
+            <div className="flex items-center justify-between">
+              {isSidebarOpen ? (
+                  <>
+                    <div className="flex items-center p-2 rounded-md hover:bg-gray-200 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                        <User className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
+                        <p className="text-xs text-gray-500">View profile</p>
+                      </div>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        id="settings-button"
+                        className="h-8 w-8 hover:bg-gray-200"
+                        onClick={() => window.open("/settings", "_self")}
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
+                  </>
+              ) : (
                   <Button
                       variant="ghost"
                       size="icon"
@@ -308,16 +296,14 @@ const ChatSidebarClient = () => {
                   >
                     <User className="h-5 w-5" />
                   </Button>
-                </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
   );
 };
 
-// Wrapper with Suspense boundary
 const ChatSidebar = () => {
   return <ChatSidebarClient />;
 };

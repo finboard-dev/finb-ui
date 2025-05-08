@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 
-export default function DataVisualizer() {
+export function DataVisualizer() {
     const [mounted, setMounted] = useState(false)
 
     useEffect(() => {

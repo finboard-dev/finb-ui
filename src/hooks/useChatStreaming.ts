@@ -3,22 +3,21 @@
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { addMessage, setIsResponding, updateMessage } from "@/lib/store/slices/chatSlice"
 import { v4 as uuidv4 } from "uuid"
-import type { MentionType, MessageType, Model } from "@/types/chat"
+import type { MessageType, Model, ContentPart } from "@/types/chat"
 import { parseStreamChunk, processStreamResponse } from "@/lib/api/chatService"
-import { getSavedSelectedCompanyId } from "./useSelectedCompanyId"
+import { getSavedSelectedCompanyId } from "@/hooks/useSelectedCompanyId"
 import { setToolCallLoading } from "@/lib/store/slices/loadingSlice"
 import { addToolCallResponse, setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
 import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice"
-import { store } from "@/lib/store/store";
-import {editor} from "monaco-editor";
+import { store } from "@/lib/store/store"
 
 export type ToolMentionType = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  startPos: number;
-  endPos: number;
+  id: string
+  name: string
+  description: string
+  category: string
+  startPos: number
+  endPos: number
 }
 
 export const useChatStream = () => {
@@ -33,21 +32,21 @@ export const useChatStream = () => {
   }
 
   const sendMessage = {
-    mutate: async (payload: { text: string; mentions?: ToolMentionType[] , model?: Model}) => {
+    mutate: async (payload: { text: string; mentions?: ToolMentionType[]; model?: Model }) => {
       if (!activeChatId || !activeChat) {
         console.error("No active chat found")
         return
       }
 
-      const { text, mentions = [], model} = payload
+      const { text, mentions = [], model } = payload
 
       const userMessage: MessageType = {
         id: uuidv4(),
         role: "user",
-        content: text,
+        content: [{ type: "text", content: text }],
         timestamp: new Date().toISOString(),
         mentions,
-        model
+        model,
       }
 
       dispatch(addMessage({ chatId: activeChatId, message: userMessage }))
@@ -57,17 +56,18 @@ export const useChatStream = () => {
       const assistantMessage: MessageType = {
         id: assistantMessageId,
         role: "assistant",
-        content: "",
+        content: [],
         timestamp: new Date().toISOString(),
+        toolCalls: [],
       }
 
       dispatch(addMessage({ chatId: activeChatId, message: assistantMessage }))
 
-      const toolMentions = mentions.map(mention => ({
+      const toolMentions = mentions.map((mention) => ({
         id: mention.id,
         name: mention.name,
         description: mention.description,
-        category: mention.category
+        category: mention.category,
       }))
 
       const chatMessage: any = {
@@ -75,7 +75,7 @@ export const useChatStream = () => {
         threadId: getThreadId(),
         companyId: getSavedSelectedCompanyId(),
         toolMentions: toolMentions.length > 0 ? toolMentions : undefined,
-        assistantId: model ? model.id: undefined,
+        assistantId: model ? model.id : undefined,
       }
 
       try {
@@ -83,11 +83,10 @@ export const useChatStream = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(chatMessage),
         })
-
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}`)
@@ -99,13 +98,19 @@ export const useChatStream = () => {
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
-        let accumulatedContent = ""
-        let toolCalls: { name: string; args: any; id?: string }[] = []
+        let contentParts: ContentPart[] = []
+        let toolCalls: { name: string; args: any; id?: string; position?: number }[] = []
         let buffer = ""
+        let currentText = ""
 
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            if (currentText) {
+              contentParts = [...contentParts, { type: "text", content: currentText }]
+            }
+            break
+          }
 
           const chunk = decoder.decode(value, { stream: true })
           buffer += chunk
@@ -121,19 +126,13 @@ export const useChatStream = () => {
               processStreamResponse(
                   parsedResponse,
                   (token) => {
-                    if (!accumulatedContent.endsWith(token)) {
-                      accumulatedContent += token
-                      const updatedMessage: MessageType = {
-                        id: assistantMessageId,
-                        role: "assistant",
-                        content: accumulatedContent,
-                        timestamp: new Date().toISOString(),
-                        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-                      }
-                      dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
-                    }
+                    currentText += token
                   },
                   (toolCall) => {
+                    if (currentText) {
+                      contentParts = [...contentParts, { type: "text", content: currentText }]
+                      currentText = ""
+                    }
                     if (!toolCalls.some((tc) => tc.id === toolCall.id)) {
                       toolCalls = [
                         ...toolCalls,
@@ -141,20 +140,20 @@ export const useChatStream = () => {
                           name: toolCall.name,
                           args: toolCall.args,
                           id: toolCall.id,
+                          position: toolCall.position,
                         },
                       ]
-                      const updatedMessage: MessageType = {
-                        id: assistantMessageId,
-                        role: "assistant",
-                        content: accumulatedContent,
-                        timestamp: new Date().toISOString(),
-                        toolCalls,
+                      if (toolCall.id) {
+                        contentParts = [...contentParts, { type: "toolCall", toolCallId: toolCall.id }]
                       }
-                      dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
                     }
                   },
                   (sidePanelData) => {
                     try {
+                      if (currentText) {
+                        contentParts = [...contentParts, { type: "text", content: currentText }]
+                        currentText = ""
+                      }
                       let dataType: "code" | "table" | "graph" | "error" | "text" = "text"
                       let dataContent: any = sidePanelData
 
@@ -187,7 +186,7 @@ export const useChatStream = () => {
                             data: dataContent,
                             type: dataType,
                             messageId: assistantMessageId,
-                          }),
+                          })
                       )
 
                       dispatch(setActiveToolCallId(toolCallId))
@@ -206,14 +205,23 @@ export const useChatStream = () => {
                             data: `Error processing response: ${error instanceof Error ? error.message : "Unknown error"}`,
                             type: "error",
                             messageId: assistantMessageId,
-                          }),
+                          })
                       )
 
                       dispatch(setActiveToolCallId(toolCallId))
                       dispatch(setResponsePanelWidth(30))
                     }
-                  },
+                  }
               )
+
+              const updatedMessage: MessageType = {
+                id: assistantMessageId,
+                role: "assistant",
+                content: [...contentParts, ...(currentText ? [{ type: "text", content: currentText }] : [])] as ContentPart[],
+                timestamp: new Date().toISOString(),
+                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              }
+              dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
 
               if (parsedResponse.content?.type === "ai" && parsedResponse.content?.tool_calls?.length) {
                 dispatch(setToolCallLoading(true))
@@ -227,13 +235,13 @@ export const useChatStream = () => {
         }
 
         dispatch(setIsResponding(false))
-        return accumulatedContent
+        return contentParts
       } catch (error) {
         console.error("Error in chat stream:", error)
         const updatedMessage: MessageType = {
           id: assistantMessageId,
           role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
+          content: [{ type: "text", content: "Sorry, something went wrong. Please try again." }],
           timestamp: new Date().toISOString(),
           isError: true,
         }

@@ -119,6 +119,14 @@ export const LoadingAnimationChild = () => {
     )
 }
 
+const PRECOMPUTED_PATHS = Array.from({ length: 6 }, (_, i) => {
+    const angle = (Math.PI / 3) * (i + 1);
+    const x = 100 + 80 * Math.sin(angle);
+    const y = 100 - 80 * Math.cos(angle);
+    // Round to a fixed number of decimal places to avoid floating-point issues
+    return `M 100 100 L 100 20 A 80 80 0 0 1 ${x.toFixed(10)} ${y.toFixed(10)} Z`;
+});
+
 export const LoadingAnimationAlt = () => {
     return (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-white bg-opacity-95 z-50">
@@ -135,10 +143,10 @@ export const LoadingAnimationAlt = () => {
                         <motion.circle cx="100" cy="100" r="80" fill="none" stroke="#e2e8f0" strokeWidth="4" />
 
                         {/* Animated segments */}
-                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                        {PRECOMPUTED_PATHS.map((d, i) => (
                             <motion.path
                                 key={i}
-                                d={`M 100 100 L 100 20 A 80 80 0 0 1 ${100 + 80 * Math.sin((Math.PI / 3) * (i + 1))} ${100 - 80 * Math.cos((Math.PI / 3) * (i + 1))} Z`}
+                                d={d}
                                 fill="none"
                                 stroke={`hsl(${i * 40}, 70%, 60%)`}
                                 strokeWidth="3"
