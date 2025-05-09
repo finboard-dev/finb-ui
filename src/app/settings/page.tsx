@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import {
     Loader2, RefreshCw, Database, AlertCircle, CheckCircle2, XCircle,
     Clock, Trash2, ArrowLeft, Settings, LogOut, User, ShieldCheck,
-    ChevronLeft, ChevronRight, Menu
+    ChevronLeft, ChevronRight, Menu, Sliders, Building
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { disconnectAccount, initAddQuickBookAccount } from "@/lib/api/intuitService"
@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {logout} from "@/lib/api/logout";
 import {useAppDispatch} from "@/lib/store/hooks";
 import {clearUserData} from "@/lib/store/slices/userSlice";
+import { getConfigurationTemplate } from "@/lib/api/configService"
 
 interface DataSource {
     id: string
@@ -37,6 +38,19 @@ interface SidebarItem {
     content: React.ReactNode
 }
 
+interface ConfigItem {
+    key: string;
+    name: string;
+    type: string;
+    defaultValue?: any;
+    options?: string[];
+}
+
+interface ConfigSection {
+    organizationConfig: ConfigItem[];
+    companyConfig: ConfigItem[];
+}
+
 export default function SettingsPage() {
     const dispatch = useAppDispatch()
     const [dataSources, setDataSources] = useState<DataSource[]>([])
@@ -48,6 +62,9 @@ export default function SettingsPage() {
     const [sidebarExpanded, setSidebarExpanded] = useState(true)
     const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
     const router = useRouter()
+    const [configData, setConfigData] = useState<ConfigSection | null>(null);
+    const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+    const [configError, setConfigError] = useState<string | null>(null);
 
     const user = store?.getState()?.user?.selectedCompany
     const company_id = user?.id
@@ -414,12 +431,206 @@ export default function SettingsPage() {
         </Card>
     )
 
+    const renderConfigItem = (item: ConfigItem) => {
+        const renderInput = () => {
+            switch (item.type) {
+                case 'email':
+                case 'string':
+                    return (
+                        <input
+                            type={item.type === 'email' ? 'email' : 'text'}
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full max-w-md"
+                            defaultValue={item.defaultValue}
+                            placeholder={`Enter ${item.name.toLowerCase()}`}
+                        />
+                    );
+                case 'boolean':
+                    return (
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                                defaultChecked={item.defaultValue}
+                            />
+                        </div>
+                    );
+                case 'single-select':
+                    return (
+                        <select
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full max-w-md"
+                            defaultValue={item.defaultValue}
+                        >
+                            {item.options?.map((option) => (
+                                <option key={option} value={option}>
+                                    {option}
+                                </option>
+                            ))}
+                        </select>
+                    );
+                case 'multi-select':
+                    return (
+                        <select
+                            multiple
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full max-w-md"
+                            defaultValue={item.defaultValue}
+                        >
+                            {item.options?.map((option) => (
+                                <option key={option} value={option}>
+                                    {option}
+                                </option>
+                            ))}
+                        </select>
+                    );
+                default:
+                    return null;
+            }
+        };
+
+        return (
+            <Card key={item.key} className="border border-gray-200 mb-4">
+                <CardContent className="p-4">
+                    <div className="flex flex-col space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="font-medium text-gray-900">{item.name}</h4>
+                                <p className="text-sm text-gray-500">Key: {item.key}</p>
+                            </div>
+                        </div>
+                        <div className="mt-2">
+                            {renderInput()}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
+
+    const renderConfigurationContent = () => (
+        <Card className="shadow-lg border-gray-200 overflow-hidden mx-auto">
+            <CardHeader className="bg-white border-b border-gray-100 p-6">
+                <CardTitle className="text-2xl font-bold text-gray-900">Configuration Settings</CardTitle>
+                <CardDescription className="text-gray-500 mt-1">
+                    Configure system-wide settings and preferences
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+                {isLoadingConfig ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+                        <p className="text-gray-600">Loading configuration settings...</p>
+                    </div>
+                ) : configError ? (
+                    <div className="bg-red-50 p-4 rounded-md">
+                        <AlertCircle className="h-5 w-5 text-red-500 mb-2" />
+                        <p className="text-red-700">{configError}</p>
+                    </div>
+                ) : configData ? (
+                    <div className="space-y-8">
+                        {/* Organization Configuration */}
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Organization Settings</h3>
+                            <div className="space-y-4">
+                                {configData.organizationConfig.map((item) => renderConfigItem(item))}
+                            </div>
+                        </div>
+
+                        {/* Company Configuration */}
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Settings</h3>
+                            <div className="space-y-4">
+                                {configData.companyConfig.map((item) => renderConfigItem(item))}
+                            </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end mt-6">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                Save Changes
+                            </Button>
+                        </div>
+                    </div>
+                ) : null}
+            </CardContent>
+        </Card>
+    );
+
+    const renderCompanyConfigContent = () => {
+        const [configData, setConfigData] = useState<ConfigSection | null>(null);
+        const [isLoading, setIsLoading] = useState(true);
+        const [error, setError] = useState<string | null>(null);
+
+        useEffect(() => {
+            const fetchConfig = async () => {
+                try {
+                    setIsLoading(true);
+                    const data = await getConfigurationTemplate();
+                    setConfigData(data);
+                    setError(null);
+                } catch (err) {
+                    console.error("Error fetching configuration:", err);
+                    setError("Failed to load configuration settings");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            fetchConfig();
+        }, []);
+
+        return (
+            <Card className="shadow-lg border-gray-200 overflow-hidden mx-auto">
+                <CardHeader className="bg-white border-b border-gray-100 p-6">
+                    <CardTitle className="text-2xl font-bold text-gray-900">Company Settings</CardTitle>
+                    <CardDescription className="text-gray-500 mt-1">
+                        Configure your company settings and preferences
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+                            <p className="text-gray-600">Loading configuration settings...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="bg-red-50 p-4 rounded-md">
+                            <AlertCircle className="h-5 w-5 text-red-500 mb-2" />
+                            <p className="text-red-700">{error}</p>
+                        </div>
+                    ) : configData ? (
+                        <div className="space-y-6">
+                            {/* Company Configuration */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Settings</h3>
+                                <div className="space-y-4">
+                                    {configData.companyConfig.map((item) => renderConfigItem(item))}
+                                </div>
+                            </div>
+
+                            {/* Save Button */}
+                            <div className="flex justify-end mt-6">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                    Save Changes
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
+                </CardContent>
+            </Card>
+        );
+    };
+
     const sidebarItems: SidebarItem[] = [
         {
             id: "data-connections",
             label: "Data Connections",
             icon: <Database className="h-5 w-5" />,
             content: renderDataConnectionsContent()
+        },
+        {
+            id: "configuration",
+            label: "Configuration",
+            icon: <Building className="h-5 w-5" />,
+            content: renderCompanyConfigContent()
         },
         {
             id: "profile",
@@ -675,6 +886,7 @@ export default function SettingsPage() {
                                     {activeSidebarItem === "data-connections" && "Manage your data connections and account settings"}
                                     {activeSidebarItem === "profile" && "Update your personal information and preferences"}
                                     {activeSidebarItem === "security" && "Configure security settings and privacy options"}
+                                    {activeSidebarItem === "configuration" && "Configure system-wide settings and preferences"}
                                 </p>
                                 {activeSidebarItem === "data-connections" && (
                                     <Button
