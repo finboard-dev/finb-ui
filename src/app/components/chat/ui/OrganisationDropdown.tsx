@@ -23,7 +23,12 @@ import { fetcher } from "@/lib/axios/config";
 import { selectDropDownLoading, setDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { setCurrentCompany, setCompanyLoading, setCompanyError } from "@/lib/store/slices/companySlice";
 
-export const OrganizationDropdown: React.FC = () => {
+// Define the props interface for OrganizationDropdown
+interface OrganizationDropdownProps {
+  onCompanyChange?: () => void; // Optional callback for when company changes
+}
+
+export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCompanyChange }) => {
   const [error, setError] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
@@ -47,9 +52,7 @@ export const OrganizationDropdown: React.FC = () => {
     );
   }, [dispatch, searchParams]);
 
-  const isOpen = useAppSelector((state) =>
-      selectIsComponentOpen(state, componentId)
-  );
+  const isOpen = useAppSelector((state) => selectIsComponentOpen(state, componentId));
 
   const updateUrlParams = (isOpen: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -94,7 +97,7 @@ export const OrganizationDropdown: React.FC = () => {
         company_id: company?.id,
       });
 
-      if(response.id === company.id) {
+      if (response.id === company.id) {
         dispatch(setSelectedCompany(company));
       }
 
@@ -105,14 +108,17 @@ export const OrganizationDropdown: React.FC = () => {
 
       dispatch(toggleComponent({ id: componentId, forceState: false }));
       updateUrlParams(false);
+
+      // Trigger the onCompanyChange callback if provided
+      if (onCompanyChange) {
+        onCompanyChange();
+      }
     } catch (err) {
-      dispatch(setCompanyLoading(true));
       console.error("Error setting current company:", err);
       setError("Failed to connect company");
       // @ts-ignore
       dispatch(setCompanyError(err.message || "Failed to connect company"));
     } finally {
-      dispatch(setCompanyLoading(true));
       dispatch(setDropDownLoading(false));
       dispatch(setCompanyLoading(false));
     }
@@ -120,10 +126,7 @@ export const OrganizationDropdown: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-          dropdownRef.current &&
-          !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         dispatch(toggleComponent({ id: componentId, forceState: false }));
         updateUrlParams(false);
       }
@@ -136,8 +139,7 @@ export const OrganizationDropdown: React.FC = () => {
   }, [dispatch, searchParams, router]);
 
   if (!selectedOrganization || !user) return null;
-  const organizations = user.organizations ||
-      (selectedOrganization ? [selectedOrganization] : []);
+  const organizations = user.organizations || (selectedOrganization ? [selectedOrganization] : []);
 
   return (
       <div className="relative w-full" ref={dropdownRef}>
@@ -159,9 +161,7 @@ export const OrganizationDropdown: React.FC = () => {
             <span className="text-sm font-medium text-gray-900 line-clamp-1">
               {selectedCompany?.name || "Select Company"}
             </span>
-              <span className="text-xs text-gray-500 line-clamp-1">
-              {selectedOrganization.name}
-            </span>
+              <span className="text-xs text-gray-500 line-clamp-1">{selectedOrganization.name}</span>
             </div>
           </div>
           {isLoading ? (
@@ -178,51 +178,50 @@ export const OrganizationDropdown: React.FC = () => {
                     <div className="p-2.5 border-b border-gray-100">
                       <div className="flex items-center gap-2">
                         <Users className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-medium text-gray-700">
-                    {org.name}
-                  </span>
+                        <span className="text-xs font-medium text-gray-700">{org.name}</span>
                       </div>
                     </div>
 
                     <div className="max-h-64 overflow-y-auto py-1">
-                      {org.companies && org.companies.map((company) => (
-                          <div
-                              key={company.id}
-                              className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
-                                  company.id === selectedCompany?.id
-                                      ? "bg-primary/10 text-primary"
-                                      : "text-gray-700 hover:bg-gray-50"
-                              } ${isLoading && company.id === selectedCompany?.id ? "opacity-50 cursor-not-allowed" : ""}`}
-                              onClick={() => {
-                                if (!isLoading) {
-                                  handleOrganizationSelect(org);
-                                  handleCompanySelect(company);
-                                }
-                              }}
-                              id={`click-company-${company.id}`}
-                          >
-                            <div
-                                className={`flex h-6 w-6 items-center justify-center rounded-md 
-                      ${
-                                    company.id === selectedCompany?.id
-                                        ? "bg-primary/20 text-primary"
-                                        : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
-                                }`}
-                            >
-                      <span className="text-xs font-medium">
-                        {company.name.substring(0, 2).toUpperCase()}
-                      </span>
-                            </div>
-                            <span className="flex-grow text-sm">{company.name}</span>
-                            {company.id === selectedCompany?.id && (
-                                isLoading ? (
-                                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                                ) : (
-                                    <Check className="h-4 w-4 text-primary" />
-                                )
-                            )}
-                          </div>
-                      ))}
+                      {org.companies &&
+                          org.companies.map((company) => (
+                              <div
+                                  key={company.id}
+                                  className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
+                                      company.id === selectedCompany?.id
+                                          ? "bg-primary/10 text-primary"
+                                          : "text-gray-700 hover:bg-gray-50"
+                                  } ${isLoading && company.id === selectedCompany?.id ? "opacity-50 cursor-not-allowed" : ""}`}
+                                  onClick={() => {
+                                    if (!isLoading) {
+                                      handleOrganizationSelect(org);
+                                      handleCompanySelect(company);
+                                    }
+                                  }}
+                                  id={`click-company-${company.id}`}
+                              >
+                                <div
+                                    className={`flex h-6 w-6 items-center justify-center rounded-md 
+                        ${
+                                        company.id === selectedCompany?.id
+                                            ? "bg-primary/20 text-primary"
+                                            : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                                    }`}
+                                >
+                        <span className="text-xs font-medium">
+                          {company.name.substring(0, 2).toUpperCase()}
+                        </span>
+                                </div>
+                                <span className="flex-grow text-sm">{company.name}</span>
+                                {company.id === selectedCompany?.id && (
+                                    isLoading ? (
+                                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                    ) : (
+                                        <Check className="h-4 w-4 text-primary" />
+                                    )
+                                )}
+                              </div>
+                          ))}
                     </div>
                   </div>
               ))}
@@ -232,9 +231,7 @@ export const OrganizationDropdown: React.FC = () => {
                     id="new-company-button"
                     className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
                     onClick={() => {
-                      dispatch(
-                          toggleComponent({ id: componentId, forceState: false })
-                      );
+                      dispatch(toggleComponent({ id: componentId, forceState: false }));
                       updateUrlParams(false);
                       handleAddQuickBooks();
                     }}
@@ -247,9 +244,7 @@ export const OrganizationDropdown: React.FC = () => {
 
               {error && (
                   <div className="p-2 bg-red-50 border-t border-red-100">
-                    <div className="text-xs text-red-600">
-                      {error}
-                    </div>
+                    <div className="text-xs text-red-600">{error}</div>
                   </div>
               )}
             </div>

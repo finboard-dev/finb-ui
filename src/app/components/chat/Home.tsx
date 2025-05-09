@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
-import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "react-resizable-panels";
 import ChatContainer from "./ChatContainer";
 import NoChatBranding from "./NoChatBranding";
 import ResponsePanel from "./ToolResponse/Responsepanel";
 import ChatSidebar from "./ChatSidebar";
+import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
+import { loadChatMessages } from "@/lib/store/slices/chatSlice";
+import {getChatConversation} from "@/lib/api/ChatServices/getChatConversations";
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -23,6 +25,7 @@ export default function Home() {
   const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
 
   const responsePanelRef = useRef<ImperativePanelHandle>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   // Filter messages and responses
   const userMessages = messages.filter((msg) => msg.role === "user");
@@ -33,6 +36,30 @@ export default function Home() {
       : toolCallResponses;
 
   const isPanelVisible = visibleResponses.length > 0 && responsePanelWidth > 0;
+
+  // Fetch messages for the active chat
+  useEffect(() => {
+    if (!activeChatId || !activeChat?.thread_id) return;
+
+    const fetchMessages = async () => {
+      setIsLoadingMessages(true);
+      try {
+        const response = await getChatConversation(activeChat.thread_id);
+        dispatch(
+            loadChatMessages({
+              chatId: activeChatId,
+              messages: response.messages,
+            })
+        );
+      } catch (error) {
+        console.error("Failed to load chat messages:", error);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [activeChatId, activeChat?.thread_id, dispatch]);
 
   const handlePanelResize = (sizes: number[]) => {
     if (!activeChatId) return;
@@ -48,22 +75,17 @@ export default function Home() {
   };
 
   const ToolCallEventListener = () => {
-    React.useEffect(() => {
+    useEffect(() => {
       const handleToolCallClick = (event: CustomEvent) => {
         if (event.detail && event.detail.messageId) {
           dispatch(setActiveMessageId(event.detail.messageId));
         }
       };
 
-      window.addEventListener(
-          "toolCallSelected",
-          handleToolCallClick as EventListener
-      );
+      window.addEventListener("toolCallSelected", handleToolCallClick as EventListener);
 
-      return () => window.removeEventListener(
-          "toolCallSelected",
-          handleToolCallClick as EventListener
-      );
+      return () =>
+          window.removeEventListener("toolCallSelected", handleToolCallClick as EventListener);
     }, [dispatch]);
 
     return null;
@@ -75,17 +97,19 @@ export default function Home() {
         <ChatSidebar />
 
         <div className="flex flex-1 w-full h-full flex-row">
-          {activeChatId && showChat ? (
-              <PanelGroup
-                  direction="horizontal"
-                  onLayout={handlePanelResize}
-                  className="flex-1"
-              >
+          {activeChatId && (showChat || isLoadingMessages) ? (
+              <PanelGroup direction="horizontal" onLayout={handlePanelResize} className="flex-1">
                 <Panel
                     className="overflow-hidden"
                     defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
                 >
-                  <ChatContainer />
+                  {isLoadingMessages ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p>Loading messages...</p>
+                      </div>
+                  ) : (
+                      <ChatContainer />
+                  )}
                 </Panel>
 
                 {isPanelVisible && (
@@ -102,10 +126,7 @@ export default function Home() {
                           className="bg-white border-l border-gray-200 overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
                           style={{ overflowX: "hidden" }}
                       >
-                        <ResponsePanel
-                            activeMessageId={activeMessageId as any}
-                            isOpen={isPanelVisible}
-                        />
+                        <ResponsePanel activeMessageId={activeMessageId as any} isOpen={isPanelVisible} />
                       </Panel>
                     </>
                 )}
