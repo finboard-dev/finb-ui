@@ -56,7 +56,7 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
         }
 
         const toolType = toolName.toLowerCase();
-        if (toolType.includes("graph") || toolType.includes("chart") || toolType.includes("visualization")) {
+        if (toolType.includes("graph") || toolType.includes("chart") || toolType.includes("visualizationV1")) {
             return <BarChart2 className="w-4 h-4" />;
         } else if (toolType.includes("table") || toolType.includes("sheet") || toolType.includes("data")) {
             return <Table className="w-4 h-4" />;

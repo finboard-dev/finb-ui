@@ -1,84 +1,95 @@
-"use client"
-
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
-import { addMessage, setIsResponding, updateMessage } from "@/lib/store/slices/chatSlice"
+import { useMutation } from "@tanstack/react-query"
 import { v4 as uuidv4 } from "uuid"
-import type { MessageType, Model, ContentPart } from "@/types/chat"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import {addMessage, setIsResponding, setResponsePanelWidth, updateMessage} from "@/lib/store/slices/chatSlice"
+import type {MessageType, Model, Tool} from "@/types/chat"
+import { addToolCallResponse } from "@/lib/store/slices/responsePanelSlice"
 import { parseStreamChunk, processStreamResponse } from "@/lib/api/ChatServices/chatService"
 import { getSavedSelectedCompanyId } from "@/hooks/useSelectedCompanyId"
 import { setToolCallLoading } from "@/lib/store/slices/loadingSlice"
-import { addToolCallResponse, setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
-import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice"
+import {  setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
 import { store } from "@/lib/store/store"
-
-export type ToolMentionType = {
-  id: string
-  name: string
-  description: string
-  category: string
-  startPos: number
-  endPos: number
-}
 
 export const useChatStream = () => {
   const dispatch = useAppDispatch()
   const activeChatId = useAppSelector((state) => state.chat.activeChatId)
-  const activeChat = useAppSelector((state) => state.chat.chats.find((chat) => chat.id === activeChatId))
+
+  // Get the active chat, which could be either the pending chat or a regular chat
+  const activeChat = useAppSelector((state) => {
+    if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
+      return state.chat.pendingChat
+    }
+    return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId)
+  })
+
   const bearerToken = store.getState().user.token
   const token = bearerToken?.accessToken
 
-  const getThreadId = () => {
-    return activeChat?.thread_id || ""
-  }
+  const threadId = activeChat?.thread_id || ""
+  const selectedAssistantId = activeChat?.chats[0]?.selectedAssistantId || ""
 
-  const sendMessage = {
-    mutate: async (payload: { text: string; mentions?: ToolMentionType[]; model?: Model }) => {
-      if (!activeChatId || !activeChat) {
-        console.error("No active chat found")
-        return
+  const sendMessage = useMutation({
+    mutationFn: async (payload: { text: string; mentions?: Tool[]; model?: Model }) => {
+      if (!activeChatId || !threadId || !selectedAssistantId) {
+        throw new Error("Missing required chat information")
       }
 
-      const { text, mentions = [], model } = payload
-
+      // Add user message to the chat
+      const userMessageId = uuidv4()
       const userMessage: MessageType = {
-        id: uuidv4(),
+        id: userMessageId,
         role: "user",
-        content: [{ type: "text", content: text }],
+        content: [{ type: "text", content: payload.text }],
         timestamp: new Date().toISOString(),
-        mentions,
-        model,
+        mentions: payload.mentions,
+        model: payload.model,
       }
 
-      dispatch(addMessage({ chatId: activeChatId, message: userMessage }))
-      dispatch(setIsResponding(true))
+      dispatch(
+          addMessage({
+            chatId: activeChatId,
+            message: userMessage,
+          }),
+      )
 
+      // Create assistant message placeholder
       const assistantMessageId = uuidv4()
       const assistantMessage: MessageType = {
         id: assistantMessageId,
         role: "assistant",
-        content: [],
+        content: [{ type: "text", content: "" }],
         timestamp: new Date().toISOString(),
-        toolCalls: [],
+        model: payload.model,
       }
 
-      dispatch(addMessage({ chatId: activeChatId, message: assistantMessage }))
+      dispatch(
+          addMessage({
+            chatId: activeChatId,
+            message: assistantMessage,
+          }),
+      )
 
-      const toolMentions = mentions.map((mention) => ({
-        id: mention.id,
-        name: mention.name,
-        description: mention.description,
-        category: mention.category,
-      }))
-
-      const chatMessage: any = {
-        message: text,
-        threadId: getThreadId(),
-        companyId: getSavedSelectedCompanyId(),
-        toolMentions: toolMentions.length > 0 ? toolMentions : undefined,
-        assistantId: model ? model.id : undefined,
-      }
+      dispatch(setIsResponding(true))
 
       try {
+        // Prepare the chat message with the selected assistant ID
+        const chatMessage = {
+          message: payload.text,
+          threadId: threadId,
+          companyId: getSavedSelectedCompanyId(),
+          toolMentions:
+              payload.mentions && payload.mentions.length > 0
+                  ? payload.mentions.map((mention) => ({
+                    id: mention.id,
+                    name: mention.name,
+                    description: mention.description,
+                    category: mention.category,
+                  }))
+                  : undefined,
+          assistantId: selectedAssistantId, // Use the selected assistant ID
+        }
+
+        // Send the message to the API
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT}/chat/message`, {
           method: "POST",
           headers: {
@@ -89,19 +100,18 @@ export const useChatStream = () => {
         })
 
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}`)
+          const errorData = await response.json()
+          throw new Error(errorData.message || "Failed to send message")
         }
 
-        if (!response.body) {
-          throw new Error("Response body is null")
-        }
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error("Response body is null")
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
         let contentParts: ContentPart[] = []
         let toolCalls: { name: string; args: any; id?: string; position?: number }[] = []
         let buffer = ""
         let currentText = ""
+        const decoder = new TextDecoder()
 
         while (true) {
           const { done, value } = await reader.read()
@@ -186,7 +196,7 @@ export const useChatStream = () => {
                             data: dataContent,
                             type: dataType,
                             messageId: assistantMessageId,
-                          })
+                          }),
                       )
 
                       dispatch(setActiveToolCallId(toolCallId))
@@ -205,22 +215,27 @@ export const useChatStream = () => {
                             data: `Error processing response: ${error instanceof Error ? error.message : "Unknown error"}`,
                             type: "error",
                             messageId: assistantMessageId,
-                          })
+                          }),
                       )
 
                       dispatch(setActiveToolCallId(toolCallId))
                       dispatch(setResponsePanelWidth(30))
                     }
-                  }
+                  },
               )
 
               const updatedMessage: MessageType = {
                 id: assistantMessageId,
                 role: "assistant",
-                content: [...contentParts, ...(currentText ? [{ type: "text", content: currentText }] : [])] as ContentPart[],
+                content: [
+                  ...contentParts,
+                  ...(currentText ? [{ type: "text", content: currentText }] : []),
+                ] as ContentPart[],
                 timestamp: new Date().toISOString(),
                 toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                model: payload.model,
               }
+
               dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
 
               if (parsedResponse.content?.type === "ai" && parsedResponse.content?.tool_calls?.length) {
@@ -244,6 +259,7 @@ export const useChatStream = () => {
           content: [{ type: "text", content: "Sorry, something went wrong. Please try again." }],
           timestamp: new Date().toISOString(),
           isError: true,
+          model: payload.model,
         }
         dispatch(updateMessage({ chatId: activeChatId, message: updatedMessage }))
         dispatch(setIsResponding(false))
@@ -251,7 +267,9 @@ export const useChatStream = () => {
         throw error
       }
     },
-  }
+  })
 
   return { sendMessage }
 }
+
+type ContentPart = { type: "text"; content: string } | { type: "toolCall"; toolCallId: string }

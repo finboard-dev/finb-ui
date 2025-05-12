@@ -1,74 +1,56 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  PlusIcon,
-  ChevronLeftIcon,
-  PanelLeft,
-  User,
-  MessageSquare,
-  Settings,
-} from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  initializeComponent,
-  selectIsComponentOpen,
-  toggleComponent,
-} from "@/lib/store/slices/uiSlice";
-import {
-  CollapsedOrganizationDropdown,
-  OrganizationDropdown,
-} from "../chat/ui/OrganisationDropdown";
-import { useSelectedCompany } from "@/hooks/useCustomConstants";
-import {
-  addChat,
-  removeChat,
-  setActiveChatId,
-  setChatsFromAPI,
-} from "@/lib/store/slices/chatSlice";
-import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
-import type { MessageType, ContentPart, AllChats } from "@/types/chat";
+import type React from "react"
+
+import { useEffect, useState, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { PlusIcon, ChevronLeftIcon, PanelLeft, User, MessageSquare, Settings } from "lucide-react"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { initializeComponent, selectIsComponentOpen, toggleComponent } from "@/lib/store/slices/uiSlice"
+import { CollapsedOrganizationDropdown, OrganizationDropdown } from "../chat/ui/OrganisationDropdown"
+import { initializeNewChat, setActiveChatId, setChatsFromAPI } from "@/lib/store/slices/chatSlice"
+import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice"
+import type { MessageType, ContentPart, AllChats } from "@/types/chat"
 
 const ChatSidebarClient = () => {
-  const dispatch = useAppDispatch();
-  const router = useRouter();
-  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
-  const componentId = "sidebar-chat";
+  const dispatch = useAppDispatch()
+  const router = useRouter()
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null)
+  const componentId = "sidebar-chat"
 
-  const chatListRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSearchParams(new URLSearchParams(window.location.search));
-  }, []);
+  const chatListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!searchParams) return;
+    setSearchParams(new URLSearchParams(window.location.search))
+  }, [])
 
-    const isOpenFromUrl = searchParams.get(componentId) === "open";
+  useEffect(() => {
+    if (!searchParams) return
+
+    const isOpenFromUrl = searchParams.get(componentId) === "open"
     dispatch(
         initializeComponent({
           type: "sidebar",
           id: componentId,
           isOpenFromUrl,
-        })
-    );
-  }, [dispatch, searchParams, componentId]);
+        }),
+    )
+  }, [dispatch, searchParams, componentId])
 
-  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, componentId));
-  const firstName = useAppSelector((state) => state.user.user?.firstName);
-  const lastName = useAppSelector((state) => state.user.user?.lastName);
-  const selectedCompany = useAppSelector((state) => state.user.selectedCompany);
-  const chatConversations = useAppSelector(selectCompanyChatConversations);
-  const availableAssistants = useAppSelector(selectAllCompanyAssistants);
-  const { chats, activeChatId } = useAppSelector((state) => state.chat);
+  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, componentId))
+  const firstName = useAppSelector((state) => state.user.user?.firstName)
+  const lastName = useAppSelector((state) => state.user.user?.lastName)
+  const selectedCompany = useAppSelector((state) => state.user.selectedCompany)
+  const chatConversations = useAppSelector(selectCompanyChatConversations)
+  const availableAssistants = useAppSelector(selectAllCompanyAssistants)
+  const { chats, activeChatId, pendingChat } = useAppSelector((state) => state.chat)
 
   useEffect(() => {
     if (chatConversations.length > 0) {
-      dispatch(setChatsFromAPI(chatConversations));
+      dispatch(setChatsFromAPI(chatConversations))
     }
-  }, [dispatch, chatConversations]);
+  }, [dispatch, chatConversations])
 
   // Scroll to top when chats change or sidebar opens
   useEffect(() => {
@@ -76,95 +58,97 @@ const ChatSidebarClient = () => {
       chatListRef.current.scrollTo({
         top: 0,
         behavior: "smooth",
-      });
+      })
     }
-  }, [chats.length, isSidebarOpen]);
+  }, [chats.length, isSidebarOpen])
 
   // Scroll to active chat when it changes
   useEffect(() => {
-    if (!isSidebarOpen || !activeChatId) return;
+    if (!isSidebarOpen || !activeChatId) return
 
-    const activeElement = document.getElementById(`chat-${activeChatId}`);
+    const activeElement = document.getElementById(`chat-${activeChatId}`)
     if (activeElement && chatListRef.current) {
       activeElement.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
-      });
+      })
     }
-  }, [activeChatId, isSidebarOpen]);
+  }, [activeChatId, isSidebarOpen])
 
   const updateUrlParams = (isOpen: boolean) => {
-    if (!searchParams) return;
+    if (!searchParams) return
 
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams.toString())
     if (isOpen) {
-      params.set(componentId, "open");
+      params.set(componentId, "open")
     } else {
-      params.delete(componentId);
+      params.delete(componentId)
     }
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
 
   const handleToggle = () => {
-    const newState = !isSidebarOpen;
-    dispatch(toggleComponent({ id: componentId, forceState: newState }));
-    updateUrlParams(newState);
-  };
+    const newState = !isSidebarOpen
+    dispatch(toggleComponent({ id: componentId, forceState: newState }))
+    updateUrlParams(newState)
+  }
 
   const handleSidebarClick = () => {
     if (!isSidebarOpen) {
-      handleToggle();
+      handleToggle()
     }
-  };
+  }
 
   const handleNewChat = (e: React.MouseEvent, assistantId?: string) => {
-    e.stopPropagation();
+    e.stopPropagation()
     const selectedAssistant = assistantId
         ? availableAssistants.find((assist) => assist.id === assistantId)
-        : availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0];
+        : availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0]
+
     if (selectedAssistant) {
-      dispatch(addChat({ assistantId: selectedAssistant.id }));
+      dispatch(initializeNewChat({ assistantId: selectedAssistant.id }))
     }
-    localStorage.removeItem("thread_id");
-  };
+    localStorage.removeItem("thread_id")
+  }
 
   const handleAssistantChange = (assistantId: string) => {
-    dispatch(addChat({ assistantId }));
-    localStorage.removeItem("thread_id");
-  };
+    dispatch(initializeNewChat({ assistantId }))
+    localStorage.removeItem("thread_id")
+  }
 
   const handleCompanyChange = () => {
-    const defaultAssistant = availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0];
+    const defaultAssistant =
+        availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0]
     if (defaultAssistant) {
-      dispatch(addChat({ assistantId: defaultAssistant.id }));
+      dispatch(initializeNewChat({ assistantId: defaultAssistant.id }))
     }
-    localStorage.removeItem("thread_id");
-  };
+    localStorage.removeItem("thread_id")
+  }
 
   const handleSelectChat = (chatId: string) => {
-    dispatch(setActiveChatId(chatId));
-  };
+    dispatch(setActiveChatId(chatId))
+  }
 
   const getChatName = (chatIndex: number, chat: AllChats) => {
     if (chat.name && chat.name !== "New Chat") {
-      return chat.name;
+      return chat.name
     }
 
     const firstUserMessage: MessageType | undefined = chat.chats[0]?.messages.find(
-        (msg: MessageType) => msg.role === "user"
-    );
+        (msg: MessageType) => msg.role === "user",
+    )
 
     if (firstUserMessage) {
       const textContent = firstUserMessage.content
           .filter((part: ContentPart) => part.type === "text")
           .map((part) => (part as { type: "text"; content: string }).content)
-          .join("");
-      const truncatedContent = textContent.substring(0, 20);
-      return truncatedContent + (textContent.length > 20 ? "..." : "");
+          .join("")
+      const truncatedContent = textContent.substring(0, 20)
+      return truncatedContent + (textContent.length > 20 ? "..." : "")
     }
 
-    return `Untitled Chat ${chatIndex + 1}`;
-  };
+    return `Untitled Chat ${chatIndex + 1}`
+  }
 
   return (
       <div
@@ -235,11 +219,9 @@ const ChatSidebarClient = () => {
             id="chat-history-container"
             className="flex-1 overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
         >
-          {isSidebarOpen && (
+          {isSidebarOpen && chats.length > 0 && (
               <div className="px-3 mb-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Recent Conversations
-                </h3>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Recent Conversations</h3>
               </div>
           )}
 
@@ -254,22 +236,14 @@ const ChatSidebarClient = () => {
                     }`}
                 >
                   <div className="flex items-center space-x-2 truncate flex-1">
-                    {!isSidebarOpen && (
-                        <MessageSquare className="h-4 w-4 text-gray-500" />
-                    )}
-                    {isSidebarOpen && (
-                        <span className="truncate font-serif text-sm">
-                    {getChatName(index, chat)}
-                  </span>
-                    )}
+                    {!isSidebarOpen && <MessageSquare className="h-4 w-4 text-gray-500" />}
+                    {isSidebarOpen && <span className="truncate font-serif text-sm">{getChatName(index, chat)}</span>}
                   </div>
                 </div>
             ))}
 
             {chats.length === 0 && isSidebarOpen && (
-                <div className="px-2 py-4 text-center text-sm text-gray-500">
-                  No conversations yet. Start a new chat!
-                </div>
+                <div className="px-2 py-4 text-center text-sm text-gray-500">No conversations yet. Start a new chat!</div>
             )}
           </div>
         </div>
@@ -299,12 +273,7 @@ const ChatSidebarClient = () => {
                     </Button>
                   </>
               ) : (
-                  <Button
-                      variant="ghost"
-                      size="icon"
-                      id="user-profile-button"
-                      className="h-8 w-8 hover:bg-gray-200"
-                  >
+                  <Button variant="ghost" size="icon" id="user-profile-button" className="h-8 w-8 hover:bg-gray-200">
                     <User className="h-5 w-5" />
                   </Button>
               )}
@@ -312,11 +281,11 @@ const ChatSidebarClient = () => {
           </div>
         </div>
       </div>
-  );
-};
+  )
+}
 
 const ChatSidebar = () => {
-  return <ChatSidebarClient />;
-};
+  return <ChatSidebarClient />
+}
 
-export default ChatSidebar;
+export default ChatSidebar

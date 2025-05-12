@@ -34,7 +34,7 @@ export function LoginPage({ isLoading = false, handleIntuitLogin }: LoginButtonP
                 />
             </div>
 
-            {/* Floating data visualization elements */}
+            {/* Floating data visualizationV1 elements */}
             <DataVisualizer />
 
             <div

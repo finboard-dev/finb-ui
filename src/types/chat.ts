@@ -33,7 +33,6 @@ export type Model = {
   name: string
 }
 
-// Define content part types for message content
 export type ContentPart =
     | { type: "text"; content: string }
     | { type: "toolCall"; toolCallId: string }

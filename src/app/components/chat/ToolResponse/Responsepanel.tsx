@@ -26,11 +26,12 @@ import {
   type ToolCallResponse,
 } from "@/lib/store/slices/responsePanelSlice";
 import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
-import VisualizationView from "../../visualization/VisualizationView";
+import VisualizationView from "@/app/components/visualizationV1/VisualizationView";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {dummyHtmlData} from "@/app/tests/data/dummy";
 import DynamicTable, {RowData} from "@/app/tests/components/DynamicTableRenderer";
+import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -242,7 +243,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     switch (response.type) {
       case "graph":
         return response.data ? (
-            <VisualizationView charts={response.data} title="" />
+            <EChartsRenderer config={response.data}  />
         ) : (
             <p className="text-gray-500">No visualization data available</p>
         );
