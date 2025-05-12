@@ -10,13 +10,11 @@ interface SmartScrollProps {
     isResponding: boolean;
 }
 
-// Custom scroll behavior component that respects user scroll position
 const SmartScroll = ({ children, isResponding }: SmartScrollProps) => {
     const [userScrolledUp, setUserScrolledUp] = useState(false);
     const [atBottom, setAtBottom] = useState(true);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to bottom function
     const scrollToBottom = useCallback(() => {
         if (scrollContainerRef.current) {
             const { scrollHeight, clientHeight } = scrollContainerRef.current;
@@ -24,28 +22,22 @@ const SmartScroll = ({ children, isResponding }: SmartScrollProps) => {
         }
     }, []);
 
-    // Track scroll position changes
     const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-        // Check if user is at bottom (with small threshold for rounding issues)
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 30;
 
         setAtBottom(isAtBottom);
 
-        // If user scrolls up manually during a stream, remember this choice
         if (!isAtBottom && isResponding) {
             setUserScrolledUp(true);
         }
 
-        // If user manually scrolls to bottom, reset the flag
         if (isAtBottom && userScrolledUp) {
             setUserScrolledUp(false);
         }
     }, [isResponding, userScrolledUp]);
 
-    // Auto-scroll logic
     useEffect(() => {
-        // Only auto-scroll if we're responding AND user hasn't manually scrolled up
         if (isResponding && !userScrolledUp) {
             scrollToBottom();
         }
@@ -54,7 +46,7 @@ const SmartScroll = ({ children, isResponding }: SmartScrollProps) => {
     return (
         <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-6"
+            className="flex-1 overflow-y-auto p-4"
             onScroll={handleScroll}
         >
             {children}
