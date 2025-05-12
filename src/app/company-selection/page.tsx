@@ -8,6 +8,7 @@ import { fetcher } from "@/lib/axios/config"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Building, CheckCircle2, AlertCircle } from "lucide-react"
+import {initAddQuickBookAccount} from "@/lib/api/intuitService";
 
 const CompanySelectionPage = () => {
     const router = useRouter()
@@ -50,6 +51,19 @@ const CompanySelectionPage = () => {
         setSelectedCompanyId(companyId)
     }
 
+    const handleAddQuickBooks = async () => {
+        try {
+            const redirectUrl = await initAddQuickBookAccount();
+            if (redirectUrl) {
+                window.open(redirectUrl, "_self");
+            } else {
+                console.error("No redirect URL provided");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     const handleConnect = async () => {
         if (!selectedCompanyId) {
             setError("Please select a company to continue")
@@ -70,10 +84,7 @@ const CompanySelectionPage = () => {
                 company_id: selectedCompanyId,
             })
 
-            // Save the company data to Redux
             dispatch(setSelectedCompany(selectedCompany))
-
-            // Set cookie to indicate company selection
             document.cookie = "has_selected_company=true; path=/"
 
             // Redirect to dashboard
@@ -111,7 +122,7 @@ const CompanySelectionPage = () => {
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-2">No companies available</h3>
                             <p className="text-gray-600 mb-4">You don't have any companies in this organization.</p>
-                            <Button variant="outline" onClick={() => window.open("/oauth2redirect/quickbooks?add=true", "_blank")}>
+                            <Button variant="outline" onClick={handleAddQuickBooks}>
                                 Add QuickBooks Company
                             </Button>
                         </div>
@@ -155,7 +166,7 @@ const CompanySelectionPage = () => {
                     )}
 
                     <div className="flex justify-between">
-                        <Button variant="outline" onClick={() => window.open("/oauth2redirect/quickbooks?add=true", "_blank")}>
+                        <Button variant="outline" onClick={handleAddQuickBooks}>
                             Add New Company
                         </Button>
 

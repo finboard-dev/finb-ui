@@ -89,12 +89,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, isLoading = false })
   }, [displayContent, message.mentions])
 
   return (
-      <div className="flex w-full justify-start mb-6 items-start max-w-3xl mx-auto">
-        <div className="flex-shrink-0 w-8 h-8 mt-2 flex items-center justify-center"></div>
+      <div className="flex w-full justify-start items-start max-w-3xl mx-auto">
+        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center"></div>
 
         <div
             className={`py-3 relative ${
-                isAssistant ? "text-zinc-700 px-2" : "px-5 bg-background-card text-zinc-700 rounded-xl font-medium"
+                isAssistant ? "text-zinc-700 px-2" : "px-5 bg-background-card my-4  text-zinc-700 rounded-xl font-medium"
             } overflow-hidden`}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
