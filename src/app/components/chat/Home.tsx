@@ -1,110 +1,136 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { useAppSelector, useAppDispatch } from "@/lib/store/hooks"
-import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels"
-import ChatContainer from "./ChatContainer"
-import NoChatBranding from "./NoChatBranding"
-import ResponsePanel from "./ToolResponse/Responsepanel"
-import ChatSidebar from "./ChatSidebar"
-import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice"
-import { loadChatMessages } from "@/lib/store/slices/chatSlice"
-import { getChatConversation } from "@/lib/api/ChatServices/getChatConversations"
-import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer"
+import { FC, useEffect, useRef } from "react";
+import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
+import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
+import ChatContainer from "./ChatContainer";
+import NoChatBranding from "./NoChatBranding";
+import ResponsePanel from "./ToolResponse/Responsepanel";
+import ChatSidebar from "./ChatSidebar";
+import {
+  setResponsePanelWidth,
+  setActiveMessageId,
+  initializeNewChat,
+} from "@/lib/store/slices/chatSlice";
+import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer";
+import {
+  selectAllCompanyAssistants,
+  setCompanyError,
+  setCompanyLoading,
+  setCurrentCompany,
+} from "@/lib/store/slices/companySlice";
+import type { AllChats, MessageType } from "@/types/chat";
+import { Company, selectSelectedCompany, setSelectedCompany } from "@/lib/store/slices/userSlice";
+import { setDropDownLoading } from "@/lib/store/slices/loadingSlice";
+import { fetcher } from "@/lib/axios/config";
+import { toggleComponent } from "@/lib/store/slices/uiSlice";
+import { store } from "@/lib/store/store";
 
-export default function Home() {
-  const dispatch = useAppDispatch()
-  const activeChatId = useAppSelector((state) => state.chat.activeChatId)
-  const pendingChat = useAppSelector((state) => state.chat.pendingChat)
+interface ToolCallResponse {
+  messageId: string;
+  // Add other relevant fields
+}
 
-  // Get the active chat, which could be either the pending chat or a regular chat
-  const activeChat = useAppSelector((state) => {
+const Home: FC = () => {
+  const dispatch = useAppDispatch();
+  const activeChatId: string | null = useAppSelector((state) => state.chat.activeChatId);
+  const isLoadingMessages: boolean = useAppSelector((state) => state.chat.isLoadingMessages); // Added
+  const availableAssistants = useAppSelector(selectAllCompanyAssistants);
+  const pendingChat: AllChats | null = useAppSelector((state) => state.chat.pendingChat);
+  const selectedCompany = store.getState().user.selectedCompany;
+  const selectedCompanyId = selectedCompany?.id;
+
+  const activeChat: AllChats | undefined = useAppSelector((state) => {
     if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
-      return state.chat.pendingChat
+      return state.chat.pendingChat;
     }
-    return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId)
-  })
+    return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
+  });
 
-  const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0
-  const activeMessageId = activeChat?.chats[0]?.activeMessageId || null
-  const messages = activeChat?.chats[0]?.messages || []
+  const responsePanelWidth: number = activeChat?.chats[0]?.responsePanelWidth || 0;
+  const activeMessageId: string | null = activeChat?.chats[0]?.activeMessageId || null;
+  const messages: MessageType[] = activeChat?.chats[0]?.messages || [];
 
-  const { toolCallResponses } = useAppSelector((state) => state.responsePanel)
+  const responsePanelRef = useRef<ImperativePanelHandle>(null);
 
-  const responsePanelRef = useRef<ImperativePanelHandle>(null)
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const userMessages: MessageType[] = messages.filter((msg) => msg.role === "user");
+  const showChat: boolean = userMessages.length > 0;
 
-  // Filter messages and responses
-  const userMessages = messages.filter((msg) => msg.role === "user")
-  const showChat = userMessages.length > 0
+  // @ts-ignore
+  const { toolCallResponses }: { toolCallResponses: ToolCallResponse[] } = useAppSelector(
+      (state) => state.responsePanel
+  );
 
-  const visibleResponses = activeMessageId
+  const visibleResponses: ToolCallResponse[] = activeMessageId
       ? toolCallResponses.filter((response) => response.messageId === activeMessageId)
-      : toolCallResponses
+      : toolCallResponses;
 
-  const isPanelVisible = visibleResponses.length > 0 && responsePanelWidth > 0
+  const isPanelVisible: boolean = visibleResponses.length > 0 && responsePanelWidth > 0;
 
-  // Fetch messages for the active chat
+  // Initialize default assistant if no active chat
   useEffect(() => {
-    if (!activeChatId || !activeChat?.thread_id) return
-
-    // Don't fetch messages for the pending chat with no messages
-    if (
-        pendingChat &&
-        pendingChat.id === activeChatId &&
-        (!pendingChat.chats[0].messages || pendingChat.chats[0].messages.length === 0)
-    ) {
-      return
+    const defaultAssistant =
+        availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0];
+    if (defaultAssistant && !activeChatId) {
+      dispatch(initializeNewChat({ assistantId: defaultAssistant.id }));
     }
+  }, [dispatch, availableAssistants, activeChatId]);
 
-    const fetchMessages = async () => {
-      setIsLoadingMessages(true)
+  // Handle company selection
+  useEffect(() => {
+    const handleCompanySelect = async () => {
       try {
-        const response = await getChatConversation(activeChat.thread_id)
-        dispatch(
-            loadChatMessages({
-              chatId: activeChatId,
-              messages: response.messages,
-            }),
-        )
-      } catch (error) {
-        console.error("Failed to load chat messages:", error)
+        const response = await fetcher.post("/companies/current", {
+          company_id: selectedCompanyId,
+        });
+
+        if (response.id === selectedCompanyId) {
+          dispatch(setSelectedCompany(response));
+        }
+
+        if (response.id) {
+          dispatch(setCurrentCompany(response));
+        }
+        document.cookie = "has_selected_company=true; path=/";
+      } catch (err: any) {
+        console.error("Error setting current company:", err);
+        dispatch(setCompanyError(err.message || "Failed to connect company"));
       } finally {
-        setIsLoadingMessages(false)
+        dispatch(setDropDownLoading(false));
+        dispatch(setCompanyLoading(false));
       }
-    }
+    };
+    handleCompanySelect();
+  }, [dispatch, selectedCompanyId]);
 
-    fetchMessages()
-  }, [activeChatId, activeChat?.thread_id, dispatch, pendingChat])
+  const handlePanelResize = (sizes: number[]): void => {
+    if (!activeChatId) return;
 
-  const handlePanelResize = (sizes: number[]) => {
-    if (!activeChatId) return
-
-    const newWidthPercentage = sizes[1] // Response panel size
-    const viewportWidth = window.innerWidth
-    const maxWidthPercentage = ((viewportWidth * 0.6) / viewportWidth) * 100 // Limit to 60% of viewport
-    const clampedWidth = Math.max(20, Math.min(maxWidthPercentage, newWidthPercentage))
+    const newWidthPercentage: number = sizes[1];
+    const viewportWidth: number = window.innerWidth;
+    const maxWidthPercentage: number = ((viewportWidth * 0.6) / viewportWidth) * 100;
+    const clampedWidth: number = Math.max(20, Math.min(maxWidthPercentage, newWidthPercentage));
 
     if (clampedWidth !== responsePanelWidth) {
-      dispatch(setResponsePanelWidth(clampedWidth))
+      dispatch(setResponsePanelWidth(clampedWidth));
     }
-  }
+  };
 
-  const ToolCallEventListener = () => {
+  const ToolCallEventListener: FC = () => {
     useEffect(() => {
       const handleToolCallClick = (event: CustomEvent) => {
         if (event.detail && event.detail.messageId) {
-          dispatch(setActiveMessageId(event.detail.messageId))
+          dispatch(setActiveMessageId(event.detail.messageId));
         }
-      }
+      };
 
-      window.addEventListener("toolCallSelected", handleToolCallClick as EventListener)
+      window.addEventListener("toolCallSelected", handleToolCallClick as EventListener);
 
-      return () => window.removeEventListener("toolCallSelected", handleToolCallClick as EventListener)
-    }, [dispatch])
+      return () => window.removeEventListener("toolCallSelected", handleToolCallClick as EventListener);
+    }, []);
 
-    return null
-  }
+    return null;
+  };
 
   return (
       <main className="flex h-screen overflow-hidden bg-white" style={{ minWidth: 0, minHeight: 0 }}>
@@ -113,12 +139,14 @@ export default function Home() {
 
         <div className="flex flex-1 w-full h-full flex-row">
           {activeChatId ? (
-              // If there's an active chat but no messages yet, show NoChatBranding
               !showChat && pendingChat && pendingChat.id === activeChatId ? (
                   <NoChatBranding />
               ) : (
                   <PanelGroup direction="horizontal" onLayout={handlePanelResize} className="flex-1">
-                    <Panel className="overflow-hidden" defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}>
+                    <Panel
+                        className="overflow-hidden"
+                        defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
+                    >
                       {isLoadingMessages ? <FinancialReportShimmer /> : <ChatContainer />}
                     </Panel>
 
@@ -147,5 +175,7 @@ export default function Home() {
           )}
         </div>
       </main>
-  )
-}
+  );
+};
+
+export default Home;

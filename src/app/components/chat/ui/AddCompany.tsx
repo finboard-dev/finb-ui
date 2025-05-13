@@ -22,7 +22,6 @@ const AddCompany = () => {
     } catch (error) {
       console.error(error); // Handle error
     } finally {
-      // setLoading(false);
     }
   };
 
