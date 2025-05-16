@@ -11,7 +11,7 @@ import { Block, BlockType, DashboardItem } from "../page";
 import dynamic from "next/dynamic";
 import GridResizeHandler, { ResizeDirection } from "./GridResizeHandler";
 import { Layout } from "react-grid-layout";
-import VisualizationView from "@/app/components/visualization/VisualizationView";
+import VisualizationView from "@/app/components/visualizationV1/VisualizationView";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });

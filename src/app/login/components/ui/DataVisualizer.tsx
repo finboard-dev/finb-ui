@@ -70,7 +70,7 @@ export function DataVisualizer() {
                 )
             })}
 
-            {/* Larger data visualization elements */}
+            {/* Larger data visualizationV1 elements */}
             {Array.from({ length: 5 }).map((_, i) => {
                 const size = Math.random() * 200 + 100
                 return (

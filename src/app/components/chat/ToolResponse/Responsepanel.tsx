@@ -25,12 +25,12 @@ import {
   setActiveToolCallId,
   type ToolCallResponse,
 } from "@/lib/store/slices/responsePanelSlice";
-import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
-import VisualizationView from "../../visualization/VisualizationView";
+import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
+import VisualizationView from "@/app/components/visualizationV1/VisualizationView";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import {dummyHtmlData} from "@/app/tests/data/dummy";
-import DynamicTable, {RowData} from "@/app/tests/components/DynamicTableRenderer";
+import DynamicTable, { RowData } from "@/app/tests/components/DynamicTableRenderer";
+import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -112,11 +112,18 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   );
   const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
 
+  // Filter responses by activeMessageId and optionally by activeToolCallId
   const filteredResponses = activeMessageId
       ? toolCallResponses.filter(
           (response) => response.messageId === activeMessageId
       )
       : toolCallResponses;
+
+  const displayedResponses = activeToolCallId
+      ? filteredResponses.filter(
+          (response) => response.tool_call_id === activeToolCallId
+      )
+      : filteredResponses;
 
   useEffect(() => {
     if (!panelRef.current || typeof ResizeObserver === "undefined") return;
@@ -167,6 +174,21 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   }, [filteredResponses, activeToolCallId, dispatch]);
 
+  useEffect(() => {
+    const handleToolCallSelected = (event: Event) => {
+      const customEvent = event as CustomEvent<{ toolCallId: string; messageId: string }>;
+      const { toolCallId, messageId } = customEvent.detail;
+      console.log("toolCallSelected:", { toolCallId, messageId, currentActiveToolCallId: activeToolCallId });
+      dispatch(setActiveToolCallId(toolCallId));
+      dispatch(setResponsePanelWidth(500));
+      if (messageId !== activeMessageId) {
+        dispatch(setActiveMessageId(messageId));
+      }
+    };
+    window.addEventListener("toolCallSelected", handleToolCallSelected);
+    return () => window.removeEventListener("toolCallSelected", handleToolCallSelected);
+  }, [dispatch, activeMessageId]);
+
   const handleClosePanel = () => {
     if (toolCallResponses.length > 0) {
       dispatch(saveToLocalStorage());
@@ -185,7 +207,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
-    setIsSheetOpen(!isSheetOpen);
+    setIsSheetOpen(!isExpanded);
   };
 
   const getTabIcon = (type: string) => {
@@ -241,8 +263,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
 
     switch (response.type) {
       case "graph":
-        return response.data ? (
-            <VisualizationView charts={response.data} title="" />
+        return response.data?.schema ? (
+            <EChartsRenderer config={response.data.schema} />
         ) : (
             <p className="text-gray-500">No visualization data available</p>
         );
@@ -250,8 +272,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         return response?.data ? (
             <div className="w-full h-full overflow-x-auto relative">
               <DynamicTable
-                  data={response?.data?.report_table as RowData[] | string}
-                  title={response?.data?.report_name as string}
+                  data={Array.isArray(response.data) ? response.data : response.data.report_table}
+                  title={response.data.report_name || "Table Data"}
                   isLoading={false}
                   error={null}
               />
@@ -265,7 +287,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               <Editor
                   height="100%"
                   width="100%"
-                  language={response.type === "code" ? "javascript" : "javascript"}
+                  language={response.type === "code" ? "javascript" : "json"}
                   theme="vs-light"
                   value={
                     typeof response.data === "string"
@@ -279,6 +301,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         );
     }
   };
+
+  if (responsePanelWidth === 0) {
+    return null;
+  }
 
   const panelContent = (
       <div
@@ -313,13 +339,13 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         </div>
 
         <Tabs
-            value={activeToolCallId || undefined}
+            value={activeToolCallId || (displayedResponses[0]?.tool_call_id) || undefined}
             onValueChange={(value) => dispatch(setActiveToolCallId(value))}
             className="flex-1 flex flex-col"
         >
           <div className="flex items-center p-4 border-b border-gray-200">
             <TabsList className="bg-transparent h-auto border-gray-600 rounded-md flex flex-nowrap overflow-x-auto w-fit pr-8">
-              {filteredResponses.map((response) => (
+              {displayedResponses.map((response) => (
                   <TabsTrigger
                       key={response.tool_call_id}
                       value={response.tool_call_id}
@@ -332,7 +358,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             </TabsList>
           </div>
 
-          {filteredResponses.map((response) => (
+          {displayedResponses.map((response) => (
               <TabsContent
                   key={response.tool_call_id}
                   value={response.tool_call_id}
@@ -379,9 +405,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                                     size="sm"
                                     id="refresh-table-button"
                                     className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                                    onClick={() =>
-                                        handleRefreshTable(response.data as string)
-                                    }
+                                    onClick={() => handleRefreshTable(response.data as string)}
                                     aria-label="Refresh table"
                                 >
                                   <RefreshCw size={16} />
@@ -418,9 +442,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                                     <li>
                                       <button
                                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                          onClick={() =>
-                                              handleRefreshTable(response.data as string)
-                                          }
+                                          onClick={() => handleRefreshTable(response.data as string)}
                                       >
                                         Refresh Table
                                       </button>
@@ -450,10 +472,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   if (isExpanded) {
     return (
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent
-              side="right"
-              className="w-full sm:max-w-full md:max-w-4xl p-0 border-l"
-          >
+          <SheetContent side="right" className="w-full sm:max-w-full md:max-w-4xl p-0 border-l">
             <SheetTitle className="sr-only">Response Panel</SheetTitle>
             {panelContent}
           </SheetContent>

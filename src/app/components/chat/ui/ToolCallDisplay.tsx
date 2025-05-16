@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { setResponsePanelWidth } from "@/lib/store/slices/chatSlice";
+import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { Loader2, Code, BarChart2, Table, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
     const handleOpenPanel = (toolCallId: string) => {
         dispatch(setActiveToolCallId(toolCallId));
         dispatch(setResponsePanelWidth(500));
+        dispatch(setActiveMessageId(messageId));
         const event = new CustomEvent("toolCallSelected", {
             detail: { toolCallId, messageId },
         });
@@ -56,7 +57,7 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
         }
 
         const toolType = toolName.toLowerCase();
-        if (toolType.includes("graph") || toolType.includes("chart") || toolType.includes("visualization")) {
+        if (toolType.includes("graph") || toolType.includes("chart") || toolType.includes("visualizationV1")) {
             return <BarChart2 className="w-4 h-4" />;
         } else if (toolType.includes("table") || toolType.includes("sheet") || toolType.includes("data")) {
             return <Table className="w-4 h-4" />;
