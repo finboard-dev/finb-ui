@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
 import type { AllChats, ChatState, MessageType, ChatConversation, ContentPart, ToolCall } from "@/types/chat";
+import {addToolCallResponse, setActiveToolCallId} from "./responsePanelSlice";
 
 export const PANEL_CLOSED_WIDTH = 0;
 export const PANEL_DEFAULT_WIDTH = 30;
@@ -20,7 +21,7 @@ interface MultiChatState {
   chats: AllChats[];
   activeChatId: string | null;
   pendingChat: AllChats | null;
-  isLoadingMessages: boolean; // Added
+  isLoadingMessages: boolean;
 }
 
 const defaultChatId: string = uuidv4();
@@ -35,7 +36,7 @@ const initialState: MultiChatState = {
     assistantId: "",
     chats: [{ ...initialChatState }],
   },
-  isLoadingMessages: false, // Added
+  isLoadingMessages: false,
 };
 
 const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
@@ -43,6 +44,10 @@ const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
   let lastRole: "user" | "assistant" = "assistant";
 
   apiMessages.forEach((apiMessage) => {
+    if (apiMessage.type === "tool") {
+      return;
+    }
+
     const isHuman: boolean = apiMessage.type === "human";
     const role: "user" | "assistant" = isHuman ? "user" : "assistant";
 
@@ -62,7 +67,7 @@ const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
           name: tc.name,
           args: tc.args,
           id: tc.id,
-          position: tc.position,
+          position: tc.position || 0,
         })) || [];
 
     toolCalls.forEach((tc: ToolCall) => {
@@ -73,7 +78,7 @@ const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
       id: apiMessage.id || uuidv4(),
       role: lastRole,
       content: contentParts,
-      timestamp: new Date().toISOString(),
+      timestamp: apiMessage.timestamp || new Date().toISOString(),
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       mentions: apiMessage.mentions || [],
       model: apiMessage.response_metadata?.model_name
@@ -88,6 +93,57 @@ const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
   });
 
   return messages;
+};
+
+export const processToolResponses = (apiMessages: any[], dispatch: any) => {
+  let latestToolCallId: string | null = null;
+  apiMessages.forEach((msg) => {
+    if (msg.type === "tool" && msg.tool_call_id) {
+      try {
+        let responseType: "code" | "table" | "graph" | "error" | "text" = "text";
+        let parsedContent = msg.content;
+
+        if (typeof msg.content === "string") {
+          if (msg.content.trim().startsWith("Error:")) {
+            responseType = "error";
+          } else {
+            try {
+              parsedContent = JSON.parse(msg.content);
+              if (parsedContent.type === "report" || parsedContent.type === "report_table") {
+                responseType = "table";
+              } else if (parsedContent.type === "graph") {
+                responseType = "graph";
+              } else if (parsedContent.type === "code") {
+                responseType = "code";
+              } else if (parsedContent.type === "error") {
+                responseType = "error";
+              }
+            } catch (e) {
+              responseType = "text";
+            }
+          }
+        }
+
+        dispatch(
+            addToolCallResponse({
+              id: msg.id || uuidv4(),
+              tool_call_id: msg.tool_call_id,
+              tool_name: msg.name || "",
+              type: responseType,
+              data: parsedContent,
+              messageId: msg.id,
+              createdAt: msg.timestamp || new Date().toISOString(),
+            })
+        );
+        latestToolCallId = msg.tool_call_id;
+        if (latestToolCallId) {
+          dispatch(setActiveToolCallId(latestToolCallId));
+        }
+      } catch (error) {
+        console.error("Error processing tool response:", error);
+      }
+    }
+  });
 };
 
 export const chatSlice = createSlice({
@@ -115,19 +171,22 @@ export const chatSlice = createSlice({
     },
     loadChatMessages(state, action: PayloadAction<{ chatId: string; messages: any[] }>) {
       const { chatId, messages } = action.payload;
+      const processedMessages = mapApiMessagesToMessageType(messages);
+
       if (state.pendingChat && state.pendingChat.id === chatId) {
         if (state.pendingChat.chats[0]) {
-          state.pendingChat.chats[0].messages = mapApiMessagesToMessageType(messages);
+          state.pendingChat.chats[0].messages = processedMessages;
         }
       } else {
         const chat = state.chats.find((c) => c.id === chatId);
         if (chat && chat.chats[0]) {
-          chat.chats[0].messages = mapApiMessagesToMessageType(messages);
+          chat.chats[0].messages = processedMessages;
         }
       }
-      state.isLoadingMessages = false; // Added
+
+      state.isLoadingMessages = false;
     },
-    setIsLoadingMessages(state, action: PayloadAction<boolean>) { // Added
+    setIsLoadingMessages(state, action: PayloadAction<boolean>) {
       state.isLoadingMessages = action.payload;
     },
     initializeNewChat(state, action: PayloadAction<{ assistantId: string }>) {
@@ -369,7 +428,7 @@ export const chatSlice = createSlice({
 export const {
   setChatsFromAPI,
   loadChatMessages,
-  setIsLoadingMessages, // Added
+  setIsLoadingMessages,
   initializeNewChat,
   confirmPendingChat,
   setSelectedAssistantId,

@@ -13,11 +13,14 @@ import {
   loadChatMessages,
   setActiveChatId,
   setChatsFromAPI,
-  setIsLoadingMessages
+  setIsLoadingMessages,
+  processToolResponses,
+  setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
 import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
 import { getChatConversation } from "@/lib/api/ChatServices/getChatConversations";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
+import {setActiveToolCallId} from "@/lib/store/slices/responsePanelSlice";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
@@ -58,7 +61,6 @@ const ChatSidebarClient = () => {
     }
   }, [dispatch, chatConversations]);
 
-  // Scroll to top when chats change or sidebar opens
   useEffect(() => {
     if (isSidebarOpen && chatListRef.current && chats.length > 0) {
       chatListRef.current.scrollTo({
@@ -68,7 +70,6 @@ const ChatSidebarClient = () => {
     }
   }, [chats.length, isSidebarOpen]);
 
-  // Scroll to active chat when it changes
   useEffect(() => {
     if (!isSidebarOpen || !activeChatId) return;
 
@@ -133,22 +134,21 @@ const ChatSidebarClient = () => {
 
   const handleSelectChat = async (chatId: string) => {
     dispatch(setActiveChatId(chatId));
-
-    // Fetch messages for the selected chat
     const chat = chats.find((c) => c.id === chatId) || pendingChat;
-    if (chat && chat.thread_id && !(chat.id === pendingChat?.id && (!chat.chats[0].messages || chat.chats[0].messages.length === 0))) {
+    if (chat && chat.thread_id) {
       try {
         dispatch(setIsLoadingMessages(true));
         const response = await getChatConversation(chat.thread_id);
-        dispatch(
-            loadChatMessages({
-              chatId,
-              messages: response.messages,
-            })
-        );
+        dispatch(loadChatMessages({ chatId, messages: response.messages }));
+        processToolResponses(response.messages, dispatch);
+        const toolMessages = response.messages.filter((msg: { type: string; }) => msg.type === "tool");
+        if (toolMessages.length > 0) {
+          const latestToolCallId = toolMessages[toolMessages.length - 1].tool_call_id;
+          dispatch(setActiveToolCallId(latestToolCallId));
+          dispatch(setResponsePanelWidth(30));
+        }
       } catch (error) {
         console.error("Failed to load chat messages:", error);
-      } finally {
         dispatch(setIsLoadingMessages(false));
       }
     }

@@ -1,14 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { setSelectedCompany } from "@/lib/store/slices/userSlice"
 import { fetcher } from "@/lib/axios/config"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Building, CheckCircle2, AlertCircle } from "lucide-react"
-import {initAddQuickBookAccount} from "@/lib/api/intuitService";
+import { Building2, Plus, ArrowLeft } from "lucide-react"
+import { initAddQuickBookAccount } from "@/lib/api/intuitService"
+import connectToQuickbooksButton from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_default.svg"
+import connectToQuickBooksHover from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_hover.svg"
+import quickBooksLogo from "@/../public/images/icons/simple-icons_quickbooks.svg"
 
 const CompanySelectionPage = () => {
     const router = useRouter()
@@ -28,19 +30,25 @@ const CompanySelectionPage = () => {
 
     if (!user || !selectedOrganization) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <Card className="w-full max-w-md p-6">
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <div className="flex justify-center mb-4">
-                                <AlertCircle className="h-12 w-12 text-amber-500" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">No organization found</h2>
-                            <p className="text-gray-600 mb-4">Please log in to continue.</p>
-                            <Button onClick={() => router.push("/login")}>Go to Login</Button>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="flex min-h-screen items-center justify-center bg-white">
+                <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+                    <div className="mb-8 flex items-center">
+                        <button onClick={() => router.back()} className="mr-4">
+                            <ArrowLeft className="h-5 w-5 text-gray-500" />
+                        </button>
+                    </div>
+                    <div className="flex flex-col items-center justify-center space-y-4 py-12">
+                        <Building2 className="h-16 w-16 text-gray-400" />
+                        <h2 className="text-2xl font-semibold">No organization found</h2>
+                        <p className="text-gray-500">Please log in to continue</p>
+                        <button
+                            onClick={() => router.push("/login")}
+                            className="mt-6 flex items-center justify-center rounded-md bg-[#212529] px-6 py-3 font-medium text-white hover:bg-gray-800 focus:outline-none"
+                        >
+                            Go to Login
+                        </button>
+                    </div>
+                </div>
             </div>
         )
     }
@@ -48,21 +56,24 @@ const CompanySelectionPage = () => {
     const companies = selectedOrganization.companies || []
 
     const handleCompanySelect = (companyId: string) => {
-        setSelectedCompanyId(companyId)
+        const selectedCompany = companies.find(company => company.id === companyId)
+        if (selectedCompany && selectedCompany.status === "ACTIVE") {
+            setSelectedCompanyId(companyId)
+        }
     }
 
     const handleAddQuickBooks = async () => {
         try {
-            const redirectUrl = await initAddQuickBookAccount();
+            const redirectUrl = await initAddQuickBookAccount()
             if (redirectUrl) {
-                window.open(redirectUrl, "_self");
+                window.open(redirectUrl, "_self")
             } else {
-                console.error("No redirect URL provided");
+                console.error("No redirect URL provided")
             }
         } catch (error) {
-            console.error(error);
+            console.error(error)
         }
-    };
+    }
 
     const handleConnect = async () => {
         if (!selectedCompanyId) {
@@ -97,89 +108,130 @@ const CompanySelectionPage = () => {
         }
     }
 
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-            <Card className="w-full max-w-3xl">
-                <CardContent className="p-6">
-                    <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">Select a Company</h1>
-                        <p className="text-gray-600">Choose a company from {selectedOrganization.name} to continue</p>
+    // If no companies are available, show the NoCompaniesPage UI
+    if (companies.length === 0) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-white">
+                <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+                    <div className="mb-8 flex items-center">
+                        <button onClick={() => router.back()} className="mr-4">
+                            <ArrowLeft className="h-5 w-5 text-gray-500" />
+                        </button>
+                        <div className="ml-auto rounded-md border border-gray-200 px-3 py-1.5 text-sm">
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-4 w-4">👤</span>
+                                {user.email}
+                            </span>
+                        </div>
                     </div>
 
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4" />
-                                <span>{error}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {companies.length === 0 ? (
-                        <div className="text-center p-8 bg-gray-50 rounded-lg mb-6">
-                            <div className="flex justify-center mb-4">
-                                <Building className="h-12 w-12 text-gray-400" />
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">No companies available</h3>
-                            <p className="text-gray-600 mb-4">You don't have any companies in this organization.</p>
-                            <Button variant="outline" onClick={handleAddQuickBooks}>
-                                Add QuickBooks Company
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                            {companies.map((company) => (
-                                <div
-                                    key={company.id}
-                                    className={`
-                    border rounded-lg p-4 cursor-pointer transition-all
-                    ${company.status !== "ACTIVE" ? "opacity-50 cursor-not-allowed" : ""}
-                    ${selectedCompanyId === company.id ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-blue-300"}
-                  `}
-                                    onClick={() => company.status === "ACTIVE" && handleCompanySelect(company.id)}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div
-                                            className={`
-                      flex h-10 w-10 items-center justify-center rounded-md shrink-0
-                      ${selectedCompanyId === company.id ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"}
-                    `}
-                                        >
-                                            <Building className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="font-medium text-gray-900">{company.name}</h3>
-                                                {selectedCompanyId === company.id && <CheckCircle2 className="h-5 w-5 text-blue-500" />}
-                                            </div>
-                                            <p className="text-sm text-gray-500 mt-1">
-                                                Status:{" "}
-                                                <span className={company.status === "ACTIVE" ? "text-green-600" : "text-gray-500"}>
-                          {company.status}
-                        </span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="flex justify-between">
-                        <Button variant="outline" onClick={handleAddQuickBooks}>
-                            Add New Company
-                        </Button>
-
-                        <Button
-                            onClick={handleConnect}
-                            disabled={!selectedCompanyId || isLoading || companies.length === 0}
-                            className="min-w-[120px]"
+                    <div className="flex flex-col items-center justify-center space-y-4 py-12">
+                        <Building2 className="h-16 w-16 text-gray-400" />
+                        <h2 className="text-2xl font-semibold">No companies available</h2>
+                        <p className="text-gray-500">You don't have any companies in {selectedOrganization.name}'s organisation</p>
+                        <button
+                            onClick={handleAddQuickBooks}
+                            disabled={isLoading}
+                            className="relative w-[238px] h-[52px] group"
                         >
-                            {isLoading ? "Connecting..." : "Connect"}
-                        </Button>
+                            {isLoading ? (
+                                <div className="h-[52px] flex items-center justify-center bg-[#4CAF50] text-white rounded-md">
+                                    Loading...
+                                </div>
+                            ) : (
+                                <>
+                                    <Image
+                                        src={connectToQuickbooksButton}
+                                        alt="Connect to QuickBooks"
+                                        className="w-full group-hover:opacity-0"
+                                        priority
+                                    />
+                                    <Image
+                                        src={connectToQuickBooksHover}
+                                        alt="Connect to QuickBooks"
+                                        className="w-full absolute top-0 left-0 opacity-0 group-hover:opacity-100"
+                                        priority
+                                    />
+                                </>
+                            )}
+                        </button>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
+        )
+    }
+
+    // Main company selection UI
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-white">
+            <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+                <div className="mb-14 flex justify-between">
+                    <div className={"space-y-4"}>
+                        <h2 className="text-2xl font-semibold">Select a company</h2>
+                        <p className="text-gray-500">Choose from connected company</p>
+                    </div>
+
+                    <div className=" rounded-md border max-h-fit border-gray-200 px-3 py-1.5 text-sm">
+                        <span className="flex items-center gap-1.5">
+                            <span className="h-4 w-4">👤</span>
+                            {user.email}
+                        </span>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-500">
+                        {error}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                    {companies.map((company) => (
+                        <div
+                            key={company.id}
+                            className={`relative flex cursor-pointer items-center gap-3 rounded-md border ${
+                                company.status !== "ACTIVE" ? "opacity-50 cursor-not-allowed" : ""
+                            } ${
+                                selectedCompanyId === company.id
+                                    ? "border-[#4CAF50] ring-1 ring-[#4CAF50]"
+                                    : "border-gray-200 hover:border-gray-300"
+                            } p-4`}
+                            onClick={() => handleCompanySelect(company.id)}
+                        >
+                            <Building2 className="h-6 w-6 text-gray-400" />
+                            <div>
+                                <p className="font-medium">{company.name}</p>
+                                <p className={`text-sm ${company.status === "ACTIVE" ? "text-[#4CAF50]" : "text-red-500"}`}>
+                                    {company.status}
+                                </p>
+                            </div>
+                            {selectedCompanyId === company.id && (
+                                <div className="absolute right-2 top-2 h-3 w-3 rounded-full bg-[#4CAF50]"></div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
+                    <button
+                        onClick={handleAddQuickBooks}
+                        className="flex items-center gap-2 rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-[#4CAF50] hover:bg-gray-50"
+                    >
+                        <Image src={quickBooksLogo} alt={""}/>
+                        Add new company
+                    </button>
+
+                    <button
+                        onClick={handleConnect}
+                        disabled={!selectedCompanyId || isLoading}
+                        className={`rounded-md ${
+                            selectedCompanyId && !isLoading ? "bg-[#212529]" : "bg-gray-200"
+                        } px-6 py-2 text-sm font-medium text-white`}
+                    >
+                        {isLoading ? "Connecting..." : "Connect"}
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }

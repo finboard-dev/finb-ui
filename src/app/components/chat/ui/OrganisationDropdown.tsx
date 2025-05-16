@@ -22,6 +22,9 @@ import { initAddQuickBookAccount } from "@/lib/api/intuitService";
 import { fetcher } from "@/lib/axios/config";
 import { selectDropDownLoading, setDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { setCurrentCompany, setCompanyLoading, setCompanyError } from "@/lib/store/slices/companySlice";
+import connectToQuickBooksMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg"
+import connectToQuickBooksHoverMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg"
+import Image from "next/image";
 
 // Define the props interface for OrganizationDropdown
 interface OrganizationDropdownProps {
@@ -226,20 +229,25 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
                   </div>
               ))}
 
-              <div className="border-t border-gray-100 p-2 bg-gray-50">
-                <button
-                    id="new-company-button"
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
-                    onClick={() => {
-                      dispatch(toggleComponent({ id: componentId, forceState: false }));
-                      updateUrlParams(false);
-                      handleAddQuickBooks();
-                    }}
-                    disabled={isLoading}
-                >
-                  <Building className="h-3.5 w-3.5" />
-                  <span>New Company</span>
-                </button>
+              <div className="border-t border-gray-100 p-2 flex justify-center items-center bg-gray-50">
+                  <Image
+                      onClick={() => {
+                        dispatch(toggleComponent({ id: componentId, forceState: false }));
+                        updateUrlParams(false);
+                        handleAddQuickBooks();
+                      }}
+                      className={`${isLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      src={connectToQuickBooksMed || "/placeholder.svg"}
+                      alt="Connect to QuickBooks"
+                      onMouseEnter={(e) => {
+                        const img = e.currentTarget
+                        img.src = connectToQuickBooksHoverMed.src
+                      }}
+                      onMouseLeave={(e) => {
+                        const img = e.currentTarget
+                        img.src = connectToQuickBooksMed.src
+                      }}
+                  />
               </div>
 
               {error && (

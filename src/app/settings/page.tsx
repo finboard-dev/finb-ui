@@ -2,25 +2,24 @@
 
 import { useState, useEffect } from "react"
 import { getAllDataSources } from "@/lib/api/datasource"
-import {persistor, store} from "@/lib/store/store"
+import { persistor, store } from "@/lib/store/store"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-    Loader2, RefreshCw, Database, AlertCircle, CheckCircle2, XCircle,
-    Clock, Trash2, ArrowLeft, Settings, LogOut, User, ShieldCheck,
-    ChevronLeft, ChevronRight, Menu
-} from "lucide-react"
+import { ArrowLeft, CheckCircle2, XCircle, Clock, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { disconnectAccount, initAddQuickBookAccount } from "@/lib/api/intuitService"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import {logout} from "@/lib/api/logout";
-import {useAppDispatch} from "@/lib/store/hooks";
-import {clearUserData} from "@/lib/store/slices/userSlice";
+import { logout } from "@/lib/api/logout"
+import { useAppDispatch } from "@/lib/store/hooks"
+import { clearUserData } from "@/lib/store/slices/userSlice"
+import Link from "next/link"
+import connectToQuickBooksMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg"
+import connectToQuickBooksHoverMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg"
+import connectToQuickBooksHoverSmall from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_hover.svg"
+import connectToQuickbooksSmall from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_default.svg"
+import Image from "next/image"
 
 interface DataSource {
     id: string
@@ -30,24 +29,15 @@ interface DataSource {
     last_refreshed_at: string
 }
 
-interface SidebarItem {
-    id: string
-    label: string
-    icon: React.ReactNode
-    content: React.ReactNode
-}
-
 export default function SettingsPage() {
     const dispatch = useAppDispatch()
     const [dataSources, setDataSources] = useState<DataSource[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [isRefreshing, setIsRefreshing] = useState(false)
     const [activeTab, setActiveTab] = useState("all")
-    const [activeSidebarItem, setActiveSidebarItem] = useState("data-connections")
-    const [sidebarExpanded, setSidebarExpanded] = useState(true)
-    const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+    const [activeSection, setActiveSection] = useState("data-connections")
     const router = useRouter()
+    const [isConnecting, setIsConnecting] = useState(false)
 
     const user = store?.getState()?.user?.selectedCompany
     const company_id = user?.id
@@ -75,12 +65,6 @@ export default function SettingsPage() {
         }
     }, [company_id])
 
-    const refreshData = async () => {
-        setIsRefreshing(true)
-        await fetchData()
-        setIsRefreshing(false)
-    }
-
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleString("en-US", {
             year: "numeric",
@@ -99,10 +83,8 @@ export default function SettingsPage() {
                 return <XCircle className="h-4 w-4 mr-1 text-red-600" />
             case "expired":
                 return <Clock className="h-4 w-4 mr-1 text-orange-600" />
-            case "deleted":
-                return <Trash2 className="h-4 w-4 mr-1 text-gray-600" />
             default:
-                return <AlertCircle className="h-4 w-4 mr-1 text-gray-600" />
+                return null
         }
     }
 
@@ -114,8 +96,6 @@ export default function SettingsPage() {
                 return "bg-red-100 text-red-800 border-red-300"
             case "expired":
                 return "bg-orange-100 text-orange-800 border-orange-300"
-            case "deleted":
-                return "bg-gray-100 text-gray-800 border-gray-300"
             default:
                 return "bg-gray-100 text-gray-800 border-gray-300"
         }
@@ -123,6 +103,7 @@ export default function SettingsPage() {
 
     const handleConnect = async (sourceId: string) => {
         try {
+            setIsConnecting(true)
             const redirectUrl = await initAddQuickBookAccount()
             if (redirectUrl) {
                 window.open(redirectUrl, "_blank")
@@ -132,6 +113,7 @@ export default function SettingsPage() {
         } catch (error) {
             console.error(error)
         } finally {
+            setIsConnecting(false)
             await fetchData()
         }
     }
@@ -148,11 +130,10 @@ export default function SettingsPage() {
 
     const handleLogout = async () => {
         try {
-            console.log("Logging out...")
-            await logout();
+            await logout()
             dispatch(clearUserData())
             await persistor.purge()
-            router.push('/')
+            router.push("/")
         } catch (e) {
             console.error("Error during logout:", e)
             alert("Error during logout. Please try again.")
@@ -164,534 +145,247 @@ export default function SettingsPage() {
             ? dataSources
             : dataSources.filter((source) => source.status.toLowerCase() === activeTab.toLowerCase())
 
-    const renderDataConnectionsContent = () => (
-        <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="bg-blue-500 p-3 rounded-full">
-                                <Database className="h-6 w-6 text-white" />
-                            </div>
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                {dataSources.filter((s) => s.status.toLowerCase() === "connected").length} Active
-                            </Badge>
-                        </div>
-                        <h3 className="text-xl font-semibold mt-4 text-gray-900">Data Sources</h3>
-                        <p className="text-gray-600 mt-1">Manage your connected data integrations</p>
-                    </CardContent>
-                </Card>
+    const renderDataConnections = () => (
+        <Card className="border-gray-200">
+            <CardHeader>
+                <CardTitle className="text-xl font-semibold">Data Source</CardTitle>
+                <CardDescription className="text-gray-500">Manage your QuickBooks and other data connections</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-between mb-12">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="flex space-x-2 rounded-md bg-gray-100 p-1">
+                            <TabsTrigger
+                                value="all"
+                                className={`rounded-md px-4 py-1 text-sm ${activeTab === "all" ? "bg-white shadow-sm" : ""}`}
+                            >
+                                All
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="connected"
+                                className={`rounded-md px-4 py-1 text-sm ${activeTab === "connected" ? "bg-white shadow-sm" : ""}`}
+                            >
+                                Connected
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="disconnected"
+                                className={`rounded-md px-4 py-1 text-sm ${activeTab === "disconnected" ? "bg-white shadow-sm" : ""}`}
+                            >
+                                Disconnected
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="expired"
+                                className={`rounded-md px-4 py-1 text-sm ${activeTab === "expired" ? "bg-white shadow-sm" : ""}`}
+                            >
+                                Expired
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                    <button onClick={() => handleConnect("")} disabled={isConnecting}>
+                        <Image
+                            src={connectToQuickbooksSmall || "/placeholder.svg"}
+                            alt="Connect to QuickBooks"
+                            onMouseEnter={(e) => {
+                                const img = e.currentTarget
+                                img.src = connectToQuickBooksHoverSmall.src
+                            }}
+                            onMouseLeave={(e) => {
+                                const img = e.currentTarget
+                                img.src = connectToQuickbooksSmall.src
+                            }}
+                        />
+                    </button>
+                </div>
 
-                <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="bg-green-500 p-3 rounded-full">
-                                <CheckCircle2 className="h-6 w-6 text-white" />
-                            </div>
-                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                                QuickBooks
-                            </Badge>
-                        </div>
-                        <h3 className="text-xl font-semibold mt-4 text-gray-900">Connected Services</h3>
-                        <p className="text-gray-600 mt-1">View and manage your connected services</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="bg-purple-500 p-3 rounded-full">
-                                <RefreshCw className="h-6 w-6 text-white" />
-                            </div>
-                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">
-                                {dataSources.length} Total
-                            </Badge>
-                        </div>
-                        <h3 className="text-xl font-semibold mt-4 text-gray-900">Sync Status</h3>
-                        <p className="text-gray-600 mt-1">Monitor your data synchronization status</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="shadow-lg border-gray-200 overflow-hidden mx-auto">
-                <CardHeader className="bg-white border-b border-gray-100 p-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <CardTitle className="text-2xl font-bold text-gray-900">Data Sources</CardTitle>
-                            <CardDescription className="text-gray-500 mt-1">
-                                Manage your QuickBooks and other data connections
-                            </CardDescription>
-                        </div>
-                        <Button
-                            className="mt-4 md:mt-0 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
-                            onClick={() => handleConnect("")}
-                        >
-                            Add New Connection
+                {isLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <span className="text-lg text-gray-600">Loading...</span>
+                    </div>
+                ) : isConnecting ? (
+                    <div className="flex justify-center items-center h-64">
+                        <span className="text-lg text-gray-600">Connecting...</span>
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-8">
+                        <p className="text-red-600">{error}</p>
+                        <Button variant="outline" onClick={fetchData} className="mt-4">
+                            Try Again
                         </Button>
                     </div>
-                </CardHeader>
-
-                <div className="border-b border-gray-100">
-                    <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
-                        <div className="px-6 pt-4">
-                            <TabsList className="grid grid-cols-4 w-full max-w-md mx-auto bg-gray-100 p-1 rounded-md">
-                                <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    All
-                                </TabsTrigger>
-                                <TabsTrigger value="connected" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    Connected
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="disconnected"
-                                    className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                                >
-                                    Disconnected
-                                </TabsTrigger>
-                                <TabsTrigger value="expired" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    Expired
-                                </TabsTrigger>
-                            </TabsList>
-                        </div>
-
-                        {isLoading ? (
-                            <div className="flex flex-col justify-center items-center h-64 bg-gray-50 w-full">
-                                <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
-                                <span className="text-lg text-gray-600">Loading your data sources...</span>
-                                <p className="text-gray-400 mt-2">This may take a moment</p>
-                            </div>
-                        ) : error ? (
-                            <div className="bg-red-50 p-8 rounded-md flex flex-col items-center justify-center w-full">
-                                <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-                                <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Data</h3>
-                                <p className="text-red-600 text-center">{error}</p>
-                                <Button
-                                    variant="outline"
-                                    className="mt-4 border-red-300 text-red-700 hover:bg-red-50"
-                                    onClick={refreshData}
-                                >
-                                    Try Again
-                                </Button>
-                            </div>
-                        ) : filteredSources.length === 0 ? (
-                            <div className="text-center py-16 px-6 bg-gray-50 w-full">
-                                <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">No data sources found</h3>
-                                <p className="text-gray-500 max-w-md mx-auto mb-6">
-                                    {activeTab === "all"
-                                        ? "You don't have any data sources connected yet. Add your first connection to get started."
-                                        : `You don't have any ${activeTab.toLowerCase()} data sources.`}
-                                </p>
-                                <Button
-                                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
-                                    onClick={() => handleConnect("")}
-                                >
-                                    Connect QuickBooks
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="p-6">
-                                <div className="overflow-x-auto w-full border border-gray-200 rounded-lg">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-gray-50 border-b border-gray-200">
-                                                <TableHead className="py-4 font-semibold text-gray-700">Name</TableHead>
-                                                <TableHead className="py-4 font-semibold text-gray-700">Type</TableHead>
-                                                <TableHead className="py-4 font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="py-4 font-semibold text-gray-700">Last Refreshed</TableHead>
-                                                <TableHead className="py-4 font-semibold text-gray-700">ID</TableHead>
-                                                <TableHead className="py-4 font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filteredSources.map((source) => (
-                                                <TableRow
-                                                    key={source.id}
-                                                    className="hover:bg-blue-50/30 transition-colors"
+                ) : filteredSources.length === 0 ? (
+                    <div className="text-center py-8">
+                        <p className="text-gray-500">No data sources found.</p>
+                        <button onClick={() => handleConnect("")} disabled={isConnecting} className="mt-4">
+                            <Image
+                                src={connectToQuickBooksMed || "/placeholder.svg"}
+                                alt="Connect to QuickBooks"
+                                onMouseEnter={(e) => {
+                                    const img = e.currentTarget
+                                    img.src = connectToQuickBooksHoverMed.src
+                                }}
+                                onMouseLeave={(e) => {
+                                    const img = e.currentTarget
+                                    img.src = connectToQuickBooksMed.src
+                                }}
+                            />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="overflow-hidden rounded-md border border-gray-200">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-gray-50 text-left text-sm font-medium text-gray-500 border-b border-gray-200">
+                                    <TableHead className="px-4 py-3">Name</TableHead>
+                                    <TableHead className="px-4 py-3">Source</TableHead>
+                                    <TableHead className="px-4 py-3">Status</TableHead>
+                                    <TableHead className="px-4 py-3">Last Updated</TableHead>
+                                    <TableHead className="px-4 py-3">ID</TableHead>
+                                    <TableHead className="px-4 py-3">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredSources.map((source) => (
+                                    <TableRow key={source.id} className="border-b border-gray-300 text-sm">
+                                        <TableCell className="px-4 py-3">{source.name}</TableCell>
+                                        <TableCell className="px-4 py-3">
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                {source.type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">
+                                            <Badge variant="outline" className={`flex items-center ${getStatusColor(source.status)}`}>
+                                                {getStatusIcon(source.status)}
+                                                {source.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3">{formatDate(source.last_refreshed_at)}</TableCell>
+                                        <TableCell className="px-4 py-3">{source.id.substring(0, 8)}...</TableCell>
+                                        <TableCell className="px-4 py-3">
+                                            {source.status === "CONNECTED" && (
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleDisconnect(source.id)}
+                                                    disabled={isConnecting}
                                                 >
-                                                    <TableCell className="py-4 font-medium text-gray-900">{source.name}</TableCell>
-                                                    <TableCell className="py-4">
-                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                                            {source.type}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <Badge variant="outline" className={`flex items-center ${getStatusColor(source.status)}`}>
-                                                            {getStatusIcon(source.status)}
-                                                            {source.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="py-4 text-gray-600">
-                                                        <div className="flex items-center">
-                                                            <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                                                            {formatDate(source.last_refreshed_at)}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <span className="text-xs font-mono bg-gray-50 rounded px-2 py-1 text-gray-600">
-                                                            {source.id.substring(0, 8)}...
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        {source.status === "CONNECTED" && (
-                                                            <Button
-                                                                variant="destructive"
-                                                                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-sm hover:shadow-md transition-all"
-                                                                size="sm"
-                                                                onClick={() => handleDisconnect(source.id)}
-                                                            >
-                                                                Disconnect
-                                                            </Button>
-                                                        )}
-                                                        {source.status === "DISCONNECTED" && (
-                                                            <Button
-                                                                variant="default"
-                                                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-sm hover:shadow-md transition-all"
-                                                                size="sm"
-                                                                onClick={() => handleConnect(source.id)}
-                                                            >
-                                                                Connect
-                                                            </Button>
-                                                        )}
-                                                        {source.status === "EXPIRED" && (
-                                                            <Button
-                                                                variant="default"
-                                                                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm hover:shadow-md transition-all"
-                                                                size="sm"
-                                                                onClick={() => handleConnect(source.id)}
-                                                            >
-                                                                Reconnect
-                                                            </Button>
-                                                        )}
-                                                        {source.status === "DELETED" && (
-                                                            <Button
-                                                                variant="outline"
-                                                                className="text-gray-500 border-gray-300 bg-gray-50"
-                                                                size="sm"
-                                                                disabled
-                                                            >
-                                                                Deleted
-                                                            </Button>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-                        )}
-                    </Tabs>
-                </div>
-            </Card>
-        </>
+                                                    Disconnect
+                                                </Button>
+                                            )}
+                                            {(source.status === "DISCONNECTED" || source.status === "EXPIRED") && (
+                                                <button onClick={() => handleConnect(source.id)} disabled={isConnecting}>
+                                                    <Image
+                                                        src={connectToQuickbooksSmall || "/placeholder.svg"}
+                                                        alt={source.status === "EXPIRED" ? "Reconnect to QuickBooks" : "Connect to QuickBooks"}
+                                                        onMouseEnter={(e) => {
+                                                            const img = e.currentTarget
+                                                            img.src = connectToQuickBooksHoverSmall.src
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            const img = e.currentTarget
+                                                            img.src = connectToQuickbooksSmall.src
+                                                        }}
+                                                    />
+                                                </button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     )
 
-    const renderProfileContent = () => (
-        <Card className="shadow-lg border-gray-200 overflow-hidden mx-auto">
-            <CardHeader className="bg-white border-b border-gray-100 p-6">
-                <CardTitle className="text-2xl font-bold text-gray-900">Profile Settings</CardTitle>
-                <CardDescription className="text-gray-500 mt-1">
-                    Manage your personal account information
-                </CardDescription>
+    const renderProfile = () => (
+        <Card className="shadow-lg border-gray-200">
+            <CardHeader>
+                <CardTitle className="text-xl font-semibold">Profile</CardTitle>
+                <CardDescription className="text-gray-500">Manage your personal account information</CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent>
                 <p className="text-gray-600">Your profile settings content goes here.</p>
             </CardContent>
         </Card>
     )
 
-    const renderSecurityContent = () => (
-        <Card className="shadow-lg border-gray-200 overflow-hidden mx-auto">
-            <CardHeader className="bg-white border-b border-gray-100 p-6">
-                <CardTitle className="text-2xl font-bold text-gray-900">Security Settings</CardTitle>
-                <CardDescription className="text-gray-500 mt-1">
-                    Manage your account security and privacy
-                </CardDescription>
+    const renderSecurity = () => (
+        <Card className="shadow-lg border-gray-200">
+            <CardHeader>
+                <CardTitle className="text-xl font-semibold">Security</CardTitle>
+                <CardDescription className="text-gray-500">Manage your account security and privacy</CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent>
                 <p className="text-gray-600">Your security settings content goes here.</p>
             </CardContent>
         </Card>
     )
 
-    const sidebarItems: SidebarItem[] = [
-        {
-            id: "data-connections",
-            label: "Data Connections",
-            icon: <Database className="h-5 w-5" />,
-            content: renderDataConnectionsContent()
-        },
-        {
-            id: "profile",
-            label: "Profile",
-            icon: <User className="h-5 w-5" />,
-            content: renderProfileContent()
-        },
-        {
-            id: "security",
-            label: "Security",
-            icon: <ShieldCheck className="h-5 w-5" />,
-            content: renderSecurityContent()
-        }
-    ]
-
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-            <div className="flex">
-                {/* Collapsible Desktop Sidebar */}
-                <div className={cn(
-                    "hidden md:flex flex-col bg-white border-r border-gray-200 min-h-screen transition-all duration-300",
-                    sidebarExpanded ? "w-64" : "w-16"
-                )}>
-                    <div className={cn(
-                        "flex items-center justify-between p-4 border-b border-gray-100",
-                        sidebarExpanded ? "px-6" : "px-3"
-                    )}>
-                        <div className="flex items-center gap-2 overflow-hidden">
-                            {sidebarExpanded  && <Settings className="h-6 w-6 text-blue-600 flex-shrink-0" />}
-                            {sidebarExpanded && <h2 className="text-xl font-bold text-gray-900 truncate">Settings</h2>}
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-1 rounded-full hover:bg-gray-100"
-                            onClick={() => setSidebarExpanded(!sidebarExpanded)}
-                        >
-                            {sidebarExpanded ? (
-                                <ChevronLeft className="h-5 w-5 text-gray-500" />
-                            ) : (
-                                <ChevronRight className="h-5 w-5 text-gray-500" />
-                            )}
-                        </Button>
-                    </div>
-                    <nav className="flex-1 overflow-y-auto py-4">
-                        <ul className="space-y-1">
-                            <TooltipProvider>
-                                {sidebarItems.map((item) => (
-                                    <li key={item.id}>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    onClick={() => setActiveSidebarItem(item.id)}
-                                                    className={cn(
-                                                        "flex items-center w-full text-left transition-colors",
-                                                        sidebarExpanded ? "px-6 py-3" : "px-0 py-3 justify-center",
-                                                        activeSidebarItem === item.id
-                                                            ? "bg-blue-50 text-blue-700 border-r-4 border-blue-600"
-                                                            : "text-gray-700 hover:bg-gray-100 border-r-4 border-transparent"
-                                                    )}
-                                                >
-                                                    <span className={cn(
-                                                        "text-gray-500",
-                                                        sidebarExpanded ? "mr-3" : "mx-auto"
-                                                    )}>
-                                                        {item.icon}
-                                                    </span>
-                                                    {sidebarExpanded && <span className="truncate">{item.label}</span>}
-                                                </button>
-                                            </TooltipTrigger>
-                                            {!sidebarExpanded && (
-                                                <TooltipContent side="right" sideOffset={10}>
-                                                    {item.label}
-                                                </TooltipContent>
-                                            )}
-                                        </Tooltip>
-                                    </li>
-                                ))}
-                            </TooltipProvider>
-                            <li className={cn(
-                                sidebarExpanded ? "px-6 pt-4 mt-4" : "px-3 pt-4 mt-4",
-                                "border-t border-gray-200"
-                            )}>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="destructive"
-                                                className={cn(
-                                                    "bg-red-500 hover:bg-red-600 text-white",
-                                                    sidebarExpanded ? "w-full justify-start" : "w-10 h-10 p-0"
-                                                )}
-                                                onClick={handleLogout}
-                                            >
-                                                <LogOut className={cn(
-                                                    "h-5 w-5",
-                                                    sidebarExpanded ? "mr-2" : ""
-                                                )} />
-                                                {sidebarExpanded && <span>Logout</span>}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        {!sidebarExpanded && (
-                                            <TooltipContent side="right" sideOffset={10}>
-                                                Logout
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-
-                {/* Mobile Header with Sheet */}
-                <div className="md:hidden w-full bg-white border-b border-gray-200 p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-                                <SheetTrigger asChild>
-                                    <Button variant="ghost" className="p-2 mr-2 hover:bg-gray-100">
-                                        <Menu className="h-5 w-5 text-gray-700" />
-                                    </Button>
-                                </SheetTrigger>
-                                <SheetContent side="left" className="w-[240px] p-0">
-                                    <div className="flex flex-col h-full">
-                                        <div className="p-4 border-b border-gray-100">
-                                            <div className="flex items-center gap-2">
-                                                <Settings className="h-6 w-6 text-blue-600" />
-                                                <h2 className="text-xl font-bold text-gray-900">Settings</h2>
-                                            </div>
-                                        </div>
-                                        <nav className="flex-1 overflow-y-auto py-4">
-                                            <ul className="space-y-1">
-                                                {sidebarItems.map((item) => (
-                                                    <li key={item.id}>
-                                                        <button
-                                                            onClick={() => {
-                                                                setActiveSidebarItem(item.id);
-                                                                setMobileSheetOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "flex items-center w-full px-6 py-3 text-left transition-colors",
-                                                                activeSidebarItem === item.id
-                                                                    ? "bg-blue-50 text-blue-700 border-r-4 border-blue-600"
-                                                                    : "text-gray-700 hover:bg-gray-100"
-                                                            )}
-                                                        >
-                                                            <span className="mr-3 text-gray-500">{item.icon}</span>
-                                                            <span>{item.label}</span>
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                                <li className="px-6 pt-4 mt-4 border-t border-gray-200">
-                                                    <Button
-                                                        variant="destructive"
-                                                        className="w-full justify-start bg-red-500 hover:bg-red-600 text-white"
-                                                        onClick={() => {
-                                                            handleLogout();
-                                                            setMobileSheetOpen(false);
-                                                        }}
-                                                    >
-                                                        <LogOut className="h-5 w-5 mr-2" />
-                                                        <span>Logout</span>
-                                                    </Button>
-                                                </li>
-                                            </ul>
-                                        </nav>
-                                    </div>
-                                </SheetContent>
-                            </Sheet>
-                            <h1 className="text-xl font-bold text-gray-900">Settings</h1>
-                        </div>
-
-                        <div className="flex items-center">
-                            <Button
-                                variant="ghost"
-                                className="mr-2 p-2 hover:bg-gray-100"
-                                onClick={() => router.push('/')}
-                            >
-                                <ArrowLeft className="h-5 w-5 text-gray-700" />
-                            </Button>
-
-                            {/* Mobile logout button */}
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                className="bg-red-500 hover:bg-red-600 text-white"
-                                onClick={handleLogout}
-                            >
-                                <LogOut className="h-4 w-4 mr-1" />
-                                Logout
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Mobile tab navigation */}
-                    <div className="mt-4">
-                        <Tabs value={activeSidebarItem} onValueChange={setActiveSidebarItem}>
-                            <TabsList className="w-full grid grid-cols-3 bg-gray-100 p-1 rounded-md">
-                                {sidebarItems.map((item) => (
-                                    <TabsTrigger
-                                        key={item.id}
-                                        value={item.id}
-                                        className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                                    >
-                                        <span className="flex items-center">
-                                            <span className="mr-2">{item.icon}</span>
-                                            <span>{item.label}</span>
-                                        </span>
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </Tabs>
+        <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-white">
+            {/* Narrow Sidebar */}
+            <div className="w-20 border-r border-gray-200 bg-gray-50">
+                <div className="flex h-16 items-center justify-center border-b border-gray-200">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200">
+                        <span className="text-lg font-bold">ID</span>
                     </div>
                 </div>
+                <div className="flex flex-col items-center py-4">
+                    <button className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+                        <User className="h-5 w-5" />
+                    </button>
+                    <button
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
+                        onClick={handleLogout}
+                    >
+                        <LogOut className="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
 
-                {/* Main Content */}
-                <div className="flex-1 p-6">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="md:hidden">
-                            {/* Only show this in mobile view */}
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                                <p className="text-gray-500">Manage your account settings and preferences</p>
-                                <Button
-                                    variant="outline"
-                                    className="mt-4 md:mt-0 flex items-center gap-2 hover:bg-gray-100 transition-colors"
-                                    onClick={refreshData}
-                                    disabled={isRefreshing}
-                                >
-                                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                                    {isRefreshing ? "Refreshing..." : "Refresh"}
-                                </Button>
-                            </div>
+            {/* Main Content */}
+            <div className="flex-1 mt-12">
+                {/* Header */}
+                <div className="flex pt-8 items-center px-18">
+                    <Link href="/" className={"border border-gray-200 rounded-md p-3 max-h-fit mr-4"}>
+                        <div className="flex items-center gap-2">
+                            <ArrowLeft className="h-5 w-5 text-gray-500" />
                         </div>
+                    </Link>
+                    <h1 className="text-2xl font-semibold">Settings</h1>
+                </div>
 
-                        <div className="hidden md:block">
-                            {/* Only show this in desktop view */}
-                            <div className="flex items-center mb-6">
-                                <Button
-                                    variant="ghost"
-                                    className="mr-4 p-2 hover:bg-gray-100"
-                                    onClick={() => router.push('/')}
-                                >
-                                    <ArrowLeft className="h-5 w-5 text-gray-700" />
-                                </Button>
-                                <h1 className="text-3xl font-bold text-gray-900">
-                                    {sidebarItems.find(item => item.id === activeSidebarItem)?.label || "Settings"}
-                                </h1>
-                            </div>
+                <div className="flex">
+                    {/* Settings Sidebar */}
+                    <div className="w-64 p-7  flex justify-end pt-14">
+                        <nav className="space-y-3">
+                            <button
+                                onClick={() => setActiveSection("data-connections")}
+                                className={`block rounded-md px-3 py-2 font-medium ${activeSection === "data-connections" ? "bg-gray-100" : "text-gray-700 hover:bg-gray-50"}`}
+                            >
+                                Data Connections
+                            </button>
+                            <button
+                                onClick={() => setActiveSection("profile")}
+                                className={`block rounded-md px-3 py-2 font-medium ${activeSection === "profile" ? "bg-gray-100" : "text-gray-700 hover:bg-gray-50"}`}
+                            >
+                                Profile
+                            </button>
+                            <button
+                                onClick={() => setActiveSection("security")}
+                                className={`block rounded-md px-3 py-2 font-medium ${activeSection === "security" ? "bg-gray-100" : "text-gray-700 hover:bg-gray-50"}`}
+                            >
+                                Security
+                            </button>
+                        </nav>
+                    </div>
 
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-                                <p className="text-gray-500">
-                                    {activeSidebarItem === "data-connections" && "Manage your data connections and account settings"}
-                                    {activeSidebarItem === "profile" && "Update your personal information and preferences"}
-                                    {activeSidebarItem === "security" && "Configure security settings and privacy options"}
-                                </p>
-                                {activeSidebarItem === "data-connections" && (
-                                    <Button
-                                        variant="outline"
-                                        className="mt-4 md:mt-0 flex items-center gap-2 hover:bg-gray-100 transition-colors"
-                                        onClick={refreshData}
-                                        disabled={isRefreshing}
-                                    >
-                                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                                        {isRefreshing ? "Refreshing..." : "Refresh"}
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Content based on selected sidebar item */}
-                        {sidebarItems.find(item => item.id === activeSidebarItem)?.content}
+                    {/* Settings Content */}
+                    <div className="flex-1 p-14">
+                        {activeSection === "data-connections" && renderDataConnections()}
+                        {activeSection === "profile" && renderProfile()}
+                        {activeSection === "security" && renderSecurity()}
                     </div>
                 </div>
             </div>

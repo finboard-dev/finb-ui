@@ -3,8 +3,8 @@
 import { useState } from "react"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import intuitButton from "@/../public/images/icons/Sign_in_blue_btn_med_default.svg"
-import hoverIntuitButton from "@/../public/images/icons/Sign_in_blue_btn_med_hover.svg"
+import intuitButton from "../../../../public/buttons/Sign_in_blue_btn_med_default.svg"
+import hoverIntuitButton from "../../../../public/buttons/Sign_in_blue_btn_med_hover.svg"
 
 interface LoginButtonProps {
     isLoading: boolean
