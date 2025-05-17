@@ -11,10 +11,14 @@ interface UIComponentState {
 
 interface UIState {
   components: Record<string, UIComponentState>;
+  mainContent: "chat" | "settings";
+  activeSettingsSection: "data-connections" | "profile" | "security" | "logout"; // Added to manage settings section
 }
 
 const initialState: UIState = {
   components: {},
+  mainContent: "chat",
+  activeSettingsSection: "data-connections", // Default to data-connections
 };
 
 const generateComponentId = (type: UIComponentType, identifier?: string): string => {
@@ -26,17 +30,17 @@ const uiSlice = createSlice({
   initialState,
   reducers: {
     initializeComponent: (
-      state,
-      action: PayloadAction<{
-        type: UIComponentType;
-        id?: string;
-        initialParams?: Record<string, any>;
-        isOpenFromUrl?: boolean;
-      }>
+        state,
+        action: PayloadAction<{
+          type: UIComponentType;
+          id?: string;
+          initialParams?: Record<string, any>;
+          isOpenFromUrl?: boolean;
+        }>
     ) => {
       const { type, id, initialParams, isOpenFromUrl } = action.payload;
       const componentId = id || generateComponentId(type);
-      
+
       if (!state.components[componentId]) {
         state.components[componentId] = {
           id: componentId,
@@ -48,11 +52,11 @@ const uiSlice = createSlice({
     },
 
     toggleComponent: (
-      state,
-      action: PayloadAction<{
-        id: string;
-        forceState?: boolean;
-      }>
+        state,
+        action: PayloadAction<{
+          id: string;
+          forceState?: boolean;
+        }>
     ) => {
       const { id, forceState } = action.payload;
       const component = state.components[id];
@@ -62,11 +66,11 @@ const uiSlice = createSlice({
     },
 
     updateComponentParams: (
-      state,
-      action: PayloadAction<{
-        id: string;
-        params: Record<string, any>;
-      }>
+        state,
+        action: PayloadAction<{
+          id: string;
+          params: Record<string, any>;
+        }>
     ) => {
       const { id, params } = action.payload;
       const component = state.components[id];
@@ -85,6 +89,17 @@ const uiSlice = createSlice({
     resetComponents: (state) => {
       state.components = {};
     },
+
+    setMainContent: (state, action: PayloadAction<"chat" | "settings">) => {
+      state.mainContent = action.payload;
+    },
+
+    setActiveSettingsSection: (
+        state,
+        action: PayloadAction<"data-connections" | "profile" | "security" | "logout">
+    ) => {
+      state.activeSettingsSection = action.payload;
+    },
   },
 });
 
@@ -94,15 +109,21 @@ export const {
   updateComponentParams,
   removeComponent,
   resetComponents,
+  setMainContent,
+  setActiveSettingsSection,
 } = uiSlice.actions;
 
 export const selectComponentState = (state: { ui: UIState }, id: string) =>
-  state.ui.components[id];
+    state.ui.components[id];
 
 export const selectIsComponentOpen = (state: { ui: UIState }, id: string) =>
-  state.ui.components[id]?.isOpen || false;
+    state.ui.components[id]?.isOpen || false;
 
 export const selectComponentParams = (state: { ui: UIState }, id: string) =>
-  state.ui.components[id]?.params || {};
+    state.ui.components[id]?.params || {};
+
+export const selectMainContent = (state: { ui: UIState }) => state.ui.mainContent;
+
+export const selectActiveSettingsSection = (state: { ui: UIState }) => state.ui.activeSettingsSection;
 
 export default uiSlice.reducer;

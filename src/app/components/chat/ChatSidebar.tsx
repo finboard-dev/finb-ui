@@ -20,7 +20,8 @@ import {
 import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
 import { getChatConversation } from "@/lib/api/ChatServices/getChatConversations";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
-import {setActiveToolCallId} from "@/lib/store/slices/responsePanelSlice";
+import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
+import { setMainContent } from "@/lib/store/slices/uiSlice";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
@@ -116,11 +117,13 @@ const ChatSidebarClient = () => {
       dispatch(initializeNewChat({ assistantId: selectedAssistant.id }));
     }
     localStorage.removeItem("thread_id");
+    dispatch(setMainContent("chat")); // Ensure chat view is active
   };
 
   const handleAssistantChange = (assistantId: string) => {
     dispatch(initializeNewChat({ assistantId }));
     localStorage.removeItem("thread_id");
+    dispatch(setMainContent("chat")); // Ensure chat view is active
   };
 
   const handleCompanyChange = () => {
@@ -130,10 +133,12 @@ const ChatSidebarClient = () => {
       dispatch(initializeNewChat({ assistantId: defaultAssistant.id }));
     }
     localStorage.removeItem("thread_id");
+    dispatch(setMainContent("chat")); // Ensure chat view is active
   };
 
   const handleSelectChat = async (chatId: string) => {
     dispatch(setActiveChatId(chatId));
+    dispatch(setMainContent("chat")); // Switch to chat view
     const chat = chats.find((c) => c.id === chatId) || pendingChat;
     if (chat && chat.thread_id) {
       try {
@@ -292,7 +297,7 @@ const ChatSidebarClient = () => {
                         size="icon"
                         id="settings-button"
                         className="h-8 w-8 hover:bg-gray-200"
-                        onClick={() => window.open("/settings", "_self")}
+                        onClick={() => dispatch(setMainContent("settings"))}
                     >
                       <Settings className="h-5 w-5" />
                     </Button>
