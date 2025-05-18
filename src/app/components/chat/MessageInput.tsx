@@ -50,7 +50,7 @@ export default function MessageInput({
                                          showBorder = true,
                                          className = "",
                                      }: MessageInputProps) {
-    const placeholderText = "Ask about your financial data... e.g., Revenue for last quarter"
+    const placeholderText = `Type @${String.fromCharCode(8203)} to mention a report tool`
     const MENTION_DROPDOWN_WIDTH = 288
 
     const dispatch = useAppDispatch()
@@ -560,7 +560,7 @@ export default function MessageInput({
                         : "rounded-2xl bg-background-card border-none px-3 py-3"
                 } transition-all duration-200`}
             >
-                <Card className="rounded-xl bg-white border border-primary p-4 relative">
+                <Card className="rounded-xl bg-white border-[1px] stroke-100 shadow-none p-4 relative">
                     <div className="relative" ref={containerRef}>
                         <div
                             ref={inputRef}
@@ -577,19 +577,19 @@ export default function MessageInput({
                             }}
                             onFocus={updateCursorPositionAndMentions}
                             className={`
-                ${showBorder ? "min-h-[40px]" : "min-h-[48px]"}
-                px-1 py-1
-                text-base text-gray-800
-                focus:outline-none w-full
-                relative
-                overflow-y-auto max-h-[150px]
-                data-[empty=true]:before:content-[attr(data-placeholder)]
-                data-[empty=true]:before:absolute
-                data-[empty=true]:before:text-gray-400
-                data-[empty=true]:before:pointer-events-none
-                data-[empty=true]:before:top-1
-                data-[empty=true]:before:left-1
-              `}
+        ${showBorder ? "min-h-24" : "min-h-36"}
+        px-1 py-1
+        text-base text-gray-800
+        focus:outline-none w-full
+        relative
+        overflow-y-auto max-h-[150px]
+        data-[empty=true]:before:content-[attr(data-placeholder)]
+        data-[empty=true]:before:absolute
+        data-[empty=true]:before:text-gray-400
+        data-[empty=true]:before:pointer-events-none
+        data-[empty=true]:before:top-1
+        data-[empty=true]:before:left-1
+    `}
                             data-placeholder={
                                 !validSelectedCompany
                                     ? "Please connect a company first"
@@ -604,7 +604,6 @@ export default function MessageInput({
                             aria-multiline="true"
                             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                         />
-
                         {showMentionSuggestions && (
                             <div
                                 ref={menuRef}
@@ -759,11 +758,11 @@ export default function MessageInput({
                             <Image src={ArrowUp} alt={"arrow_up"} width={16} height={16} />
                         </Button>
                     </div>
-                    {!showBorder && (
-                        <div className="text-xs text-gray-400 mt-2 px-1 text-left">
-                            Type <span className="font-medium bg-gray-100 px-1 rounded">@</span> to mention a report tool
-                        </div>
-                    )}
+                    {/*{!showBorder && (*/}
+                    {/*    <div className="text-xs text-gray-400 mt-2 px-1 text-left">*/}
+                    {/*        Type <span className="font-medium bg-gray-100 px-1 rounded">@</span> to mention a report tool*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
                 </Card>
             </Card>
         </div>

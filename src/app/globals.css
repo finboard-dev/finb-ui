@@ -319,6 +319,6 @@ html, body {
 
 .text-primary { color: var(--primary); }
 .text-sec { color: var(--sec); }
-.text-strk-500 { color: var(--strk-500); }
-.text-stroke-100 { color: var(--stroke-100); }
+.strk-500 { border-color: var(--strk-500); }
+.stroke-100 { border-color: var(--stroke-100); }
 .text-white-text { color: var(--white-text); }
