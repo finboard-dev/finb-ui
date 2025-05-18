@@ -97,29 +97,29 @@
 :root {
   /* Typography */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  
+
   /* Colors from Tailwind config */
   --ceramic-50: #f8fafc;
-  
+
   --gray-150: #E4E5E5;
-  
-  --sidebar-primary: #F5F7FB;
+
+  --sidebar-primary: #F8F8F8;
   --sidebar-button-add: #171821;
-  
+
   --background-sidebar: #E4E5E5;
   --background-button-dark: #2B2C36;
   --background-card: #F8F8F8;
   --background-button-blue: #3E5BF9;
-  
+
   --border-primary: #EFF1F5;
   --border-button: #0B2CE0;
-  
+
   --chat-primary: #EFF1F5;
 
   --logo-text: #B7B7BA;
 
   --border-dropdown: #EFF1F5;
-  
+
   --text-primary: #2B2C36;
   --text-placeholder: #949599;
   --text-secondary: #949599;
@@ -129,6 +129,13 @@
   --text-light: #F1F1F1;
 
   --input-border: #F5F7FB;
+
+  /* New colors from the image */
+  --primary: #2B2C36;
+  --sec: #767A8B;
+  --strk-500: #767A8B;
+  --stroke-100: #EFF1F5;
+  --white-text: #F1F1F1;
 
   /* Container settings */
   --container-padding: 2rem;
@@ -255,11 +262,11 @@ html, body {
   left: 0;
   transform: translateX(-100%);
   background-image: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0,
-    rgba(255, 255, 255, 0.2) 20%,
-    rgba(255, 255, 255, 0.5) 60%,
-    rgba(255, 255, 255, 0)
+          90deg,
+          rgba(255, 255, 255, 0) 0,
+          rgba(255, 255, 255, 0.2) 20%,
+          rgba(255, 255, 255, 0.5) 60%,
+          rgba(255, 255, 255, 0)
   );
   animation: shimmer 1.5s infinite;
   content: '';
@@ -302,3 +309,16 @@ html, body {
 .bg-home {
   background: linear-gradient(to bottom, #F5F7FB, #FFFFFF);
 }
+
+/* New utility classes for the added colors */
+.bg-primary { background-color: var(--primary); }
+.bg-sec { background-color: var(--sec); }
+.bg-strk-500 { background-color: var(--strk-500); }
+.bg-stroke-100 { background-color: var(--stroke-100); }
+.bg-white-text { background-color: var(--white-text); }
+
+.text-primary { color: var(--primary); }
+.text-sec { color: var(--sec); }
+.text-strk-500 { color: var(--strk-500); }
+.text-stroke-100 { color: var(--stroke-100); }
+.text-white-text { color: var(--white-text); }

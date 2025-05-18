@@ -25,8 +25,8 @@ const NoChatBranding = () => {
           <section className="flex flex-col items-center">
             <div className="pt-24">
               <div className="py-16">
-                <h1 className="text-[2.4rem] font-semibold text-center text-primary">Get Financial Insights with AI</h1>
-                <p className="mt-3 text-base leading-2 font-medium text-center text-secondary">
+                <h1 className="text-[2.4rem] font-semibold font-inter text-center text-primary">Get Financial Insights with AI</h1>
+                <p className="mt-3 text-base leading-2 font-inter font-normal text-center text-sec">
                   Let AI help you visualize and analyze your data.
                 </p>
               </div>

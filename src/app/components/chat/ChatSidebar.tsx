@@ -228,18 +228,18 @@ const ChatSidebarClient = () => {
                   variant="default"
                   id="new-chat-button"
                   onClick={(e) => handleNewChat(e)}
-                  className="w-full flex cursor-pointer justify-start text-white items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
+                  className="w-full flex cursor-pointer justify-start text-white-text items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
               >
-                <PlusIcon className="h-4 w-4" />
+                <PlusIcon className="h-4 w-4 text-white-text" />
                 New Chat
               </Button>
           ) : (
               <Button
                   id="new-chat-button"
                   onClick={(e) => handleNewChat(e)}
-                  className="w-full rounded-full text-white cursor-pointer flex items-center justify-center h-fit bg-background-button-dark hover:bg-background-button-dark/90"
+                  className="w-full rounded-full text-white-text cursor-pointer flex items-center justify-center h-fit bg-background-button-dark hover:bg-background-button-dark/90"
               >
-                <PlusIcon className="h-5 w-5" />
+                <PlusIcon className="h-5 w-5 text-white-text" />
               </Button>
           )}
         </div>
@@ -250,8 +250,8 @@ const ChatSidebarClient = () => {
             className="flex-1 overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
         >
           {isSidebarOpen && chats.length > 0 && (
-              <div className="px-3 mb-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Recent Conversations</h3>
+              <div className="pl-5 mb-2">
+                <h3 className="text-xs font-medium text-[#949599] uppercase tracking-wider">Recent Conversations</h3>
               </div>
           )}
 
@@ -262,12 +262,12 @@ const ChatSidebarClient = () => {
                     onClick={() => handleSelectChat(chat.id)}
                     id={`chat-${chat.id}`}
                     className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                        chat.id === activeChatId ? "bg-gray-200" : "hover:bg-gray-200"
+                        chat.id === activeChatId ? "bg-[#EDEDED]" : "hover:bg-[#EDEDED]"
                     }`}
                 >
                   <div className="flex items-center space-x-2 truncate flex-1">
                     {!isSidebarOpen && <MessageSquare className="h-4 w-4 text-gray-500" />}
-                    {isSidebarOpen && <span className="truncate font-serif text-sm">{getChatName(index, chat)}</span>}
+                    {isSidebarOpen && <span className="truncate font-serif font-normal text-primary text-sm">{getChatName(index, chat)}</span>}
                   </div>
                 </div>
             ))}
@@ -289,7 +289,6 @@ const ChatSidebarClient = () => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
-                        <p className="text-xs text-gray-500">View profile</p>
                       </div>
                     </div>
                     <Button

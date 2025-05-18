@@ -5,7 +5,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowUp } from "lucide-react"
+// import { ArrowUp } from "lucide-react"
+import ArrowUp from "@/../public/images/icons/arrow_up.svg"
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks"
 import { useChatStream } from "@/hooks/useChatStreaming"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -42,6 +43,7 @@ import {
     selectAllCompanyAssistants,
     selectAllCompanyTools,
 } from "@/lib/store/slices/companySlice"
+import Image from "next/image";
 
 export default function MessageInput({
                                          placeholder = "Ask about your financial data...",
@@ -747,14 +749,14 @@ export default function MessageInput({
                             disabled={
                                 !inputValue.trim() || isResponding || !activeChatId || !validSelectedCompany || !selectedAssistantId
                             }
-                            className={`rounded-full h-9 w-9 p-0 flex items-center justify-center transition-colors duration-200 ${
+                            className={`rounded-full h-9 w-9 p-0 flex items-center cursor-pointer justify-center transition-colors duration-200 ${
                                 !inputValue.trim() || isResponding || !activeChatId || !validSelectedCompany || !selectedAssistantId
-                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                                    ? "bg-sec text-gray-400 cursor-not-allowed"
+                                    : "bg-primary hover:bg-primary text-white-text"
                             }`}
                             aria-label="Send message"
                         >
-                            <ArrowUp className="h-4 w-4" />
+                            <Image src={ArrowUp} alt={"arrow_up"} width={16} height={16} />
                         </Button>
                     </div>
                     {!showBorder && (
