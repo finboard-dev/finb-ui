@@ -37,22 +37,22 @@ module.exports = {
         gray: {
           150: '#E4E5E5',
         },
-        sidebar : {
+        sidebar: {
           primary: '#F5F7FB',
-          button : {
+          button: {
             add: '#171821',
           }
         },
         background: {
-        sidebar: '#E4E5E5',
-        button : {
-          dark : '#2B2C36',
-          blue: '#3E5BF9'
-        },
+          sidebar: '#E4E5E5',
+          button: {
+            dark: '#2B2C36',
+            blue: '#3E5BF9'
+          },
         },
         border: {
-         primary: '#EFF1F5',
-         button: '#0B2CE0'
+          primary: '#EFF1F5',
+          button: '#0B2CE0'
         },
         chat: {
           primary: '#EFF1F5'
@@ -64,6 +64,11 @@ module.exports = {
           selected: '#3E5BF9',
           light: '#F1F1F1'
         },
+        primary: '#2B2C36',
+        sec: '#767A8B',
+        'strk-500': '#767A8B',
+        'stroke-100': '#EFF1F5',
+        'white-text': '#F1F1F1',
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

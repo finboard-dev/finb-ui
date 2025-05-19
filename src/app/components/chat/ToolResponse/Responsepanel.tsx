@@ -105,7 +105,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const { code, toolCallResponses, activeToolCallId } = useAppSelector(
       (state) => state.responsePanel
   );
-
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const activeChat = useAppSelector((state) =>
       state.chat.chats.find((chat) => chat.id === activeChatId)
@@ -241,6 +240,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   };
 
   const renderContent = (response: ToolCallResponse, mode: "view" | "json") => {
+    console.log(response , "response")
     if (mode === "json") {
       return (
           <div className="h-[calc(100vh-200px)] w-full">

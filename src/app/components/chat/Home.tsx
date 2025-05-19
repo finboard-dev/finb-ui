@@ -7,6 +7,7 @@ import ChatContainer from "./ChatContainer";
 import NoChatBranding from "./NoChatBranding";
 import ResponsePanel from "./ToolResponse/Responsepanel";
 import ChatSidebar from "./ChatSidebar";
+import Settings from "@/app/components/pages/Settings";
 import {
   setResponsePanelWidth,
   setActiveMessageId,
@@ -28,46 +29,40 @@ import { store } from "@/lib/store/store";
 
 interface ToolCallResponse {
   messageId: string;
-  // Add other relevant fields
 }
 
 const Home: FC = () => {
   const dispatch = useAppDispatch();
-  const activeChatId: string | null = useAppSelector((state) => state.chat.activeChatId);
-  const isLoadingMessages: boolean = useAppSelector((state) => state.chat.isLoadingMessages); // Added
+  const activeChatId = useAppSelector((state) => state.chat.activeChatId);
+  const isLoadingMessages = useAppSelector((state) => state.chat.isLoadingMessages);
   const availableAssistants = useAppSelector(selectAllCompanyAssistants);
-  const pendingChat: AllChats | null = useAppSelector((state) => state.chat.pendingChat);
+  const pendingChat = useAppSelector((state) => state.chat.pendingChat);
   const selectedCompany = store.getState().user.selectedCompany;
   const selectedCompanyId = selectedCompany?.id;
+  const mainContent = useAppSelector((state) => state.ui.mainContent);
 
-  const activeChat: AllChats | undefined = useAppSelector((state) => {
+  const activeChat = useAppSelector((state) => {
     if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
       return state.chat.pendingChat;
     }
     return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
   });
 
-  const responsePanelWidth: number = activeChat?.chats[0]?.responsePanelWidth || 0;
-  const activeMessageId: string | null = activeChat?.chats[0]?.activeMessageId || null;
-  const messages: MessageType[] = activeChat?.chats[0]?.messages || [];
+  const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
+  const activeMessageId = activeChat?.chats[0]?.activeMessageId || null;
+  const messages = activeChat?.chats[0]?.messages || [];
 
   const responsePanelRef = useRef<ImperativePanelHandle>(null);
 
-  const userMessages: MessageType[] = messages.filter((msg) => msg.role === "user");
-  const showChat: boolean = userMessages.length > 0;
+  const userMessages = messages.filter((msg) => msg.role === "user");
+  const showChat = userMessages.length > 0;
 
-  // @ts-ignore
-  const { toolCallResponses }: { toolCallResponses: ToolCallResponse[] } = useAppSelector(
-      (state) => state.responsePanel
-  );
-
-  const visibleResponses: ToolCallResponse[] = activeMessageId
+  const { toolCallResponses } = useAppSelector((state) => state.responsePanel) as { toolCallResponses: ToolCallResponse[] };
+  const visibleResponses = activeMessageId
       ? toolCallResponses.filter((response) => response.messageId === activeMessageId)
       : toolCallResponses;
+  const isPanelVisible = visibleResponses.length > 0 && responsePanelWidth > 0;
 
-  const isPanelVisible: boolean = visibleResponses.length > 0 && responsePanelWidth > 0;
-
-  // Initialize default assistant if no active chat
   useEffect(() => {
     const defaultAssistant =
         availableAssistants.find((assist) => assist.name === "report_agent") || availableAssistants[0];
@@ -76,18 +71,15 @@ const Home: FC = () => {
     }
   }, [dispatch, availableAssistants, activeChatId]);
 
-  // Handle company selection
   useEffect(() => {
     const handleCompanySelect = async () => {
       try {
         const response = await fetcher.post("/companies/current", {
           company_id: selectedCompanyId,
         });
-
         if (response.id === selectedCompanyId) {
           dispatch(setSelectedCompany(response));
         }
-
         if (response.id) {
           dispatch(setCurrentCompany(response));
         }
@@ -103,14 +95,12 @@ const Home: FC = () => {
     handleCompanySelect();
   }, [dispatch, selectedCompanyId]);
 
-  const handlePanelResize = (sizes: number[]): void => {
+  const handlePanelResize = (sizes: number[]) => {
     if (!activeChatId) return;
-
-    const newWidthPercentage: number = sizes[1];
-    const viewportWidth: number = window.innerWidth;
-    const maxWidthPercentage: number = ((viewportWidth * 0.6) / viewportWidth) * 100;
-    const clampedWidth: number = Math.max(20, Math.min(maxWidthPercentage, newWidthPercentage));
-
+    const newWidthPercentage = sizes[1];
+    const viewportWidth = window.innerWidth;
+    const maxWidthPercentage = ((viewportWidth * 0.6) / viewportWidth) * 100;
+    const clampedWidth = Math.max(20, Math.min(maxWidthPercentage, newWidthPercentage));
     if (clampedWidth !== responsePanelWidth) {
       dispatch(setResponsePanelWidth(clampedWidth));
     }
@@ -123,12 +113,9 @@ const Home: FC = () => {
           dispatch(setActiveMessageId(event.detail.messageId));
         }
       };
-
       window.addEventListener("toolCallSelected", handleToolCallClick as EventListener);
-
       return () => window.removeEventListener("toolCallSelected", handleToolCallClick as EventListener);
     }, []);
-
     return null;
   };
 
@@ -136,42 +123,40 @@ const Home: FC = () => {
       <main className="flex h-screen overflow-hidden bg-white" style={{ minWidth: 0, minHeight: 0 }}>
         <ToolCallEventListener />
         <ChatSidebar />
-
         <div className="flex flex-1 w-full h-full flex-row">
-          {activeChatId ? (
-              !showChat && pendingChat && pendingChat.id === activeChatId ? (
-                  <NoChatBranding />
+          {mainContent === "chat" ? (
+              activeChatId ? (
+                  !showChat && pendingChat && pendingChat.id === activeChatId ? (
+                      <NoChatBranding />
+                  ) : (
+                      <PanelGroup direction="horizontal" onLayout={handlePanelResize} className="flex-1">
+                        <Panel className="overflow-hidden" defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}>
+                          {isLoadingMessages ? <FinancialReportShimmer /> : <ChatContainer />}
+                        </Panel>
+                        {isPanelVisible && (
+                            <>
+                              <PanelResizeHandle className="w-[0.5px] bg-gray-200 z-50 transition-colors group relative">
+                                <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
+                              </PanelResizeHandle>
+                              <Panel
+                                  ref={responsePanelRef}
+                                  defaultSize={responsePanelWidth}
+                                  minSize={20}
+                                  maxSize={Math.min(60, ((window.innerWidth * 0.6) / window.innerWidth) * 100)}
+                                  className="bg-white border-l border-gray-200 overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
+                                  style={{ overflowX: "hidden" }}
+                              >
+                                <ResponsePanel activeMessageId={activeMessageId as any} isOpen={isPanelVisible} />
+                              </Panel>
+                            </>
+                        )}
+                      </PanelGroup>
+                  )
               ) : (
-                  <PanelGroup direction="horizontal" onLayout={handlePanelResize} className="flex-1">
-                    <Panel
-                        className="overflow-hidden"
-                        defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
-                    >
-                      {isLoadingMessages ? <FinancialReportShimmer /> : <ChatContainer />}
-                    </Panel>
-
-                    {isPanelVisible && (
-                        <>
-                          <PanelResizeHandle className="w-[0.5px] bg-gray-200 z-50 transition-colors group relative">
-                            <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
-                          </PanelResizeHandle>
-
-                          <Panel
-                              ref={responsePanelRef}
-                              defaultSize={responsePanelWidth}
-                              minSize={20}
-                              maxSize={Math.min(60, ((window.innerWidth * 0.6) / window.innerWidth) * 100)}
-                              className="bg-white border-l border-gray-200 overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
-                              style={{ overflowX: "hidden" }}
-                          >
-                            <ResponsePanel activeMessageId={activeMessageId as any} isOpen={isPanelVisible} />
-                          </Panel>
-                        </>
-                    )}
-                  </PanelGroup>
+                  <NoChatBranding />
               )
           ) : (
-              <NoChatBranding />
+              <Settings />
           )}
         </div>
       </main>

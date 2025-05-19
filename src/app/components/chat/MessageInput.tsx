@@ -5,7 +5,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowUp } from "lucide-react"
+// import { ArrowUp } from "lucide-react"
+import ArrowUp from "@/../public/images/icons/arrow_up.svg"
 import { useAppSelector, useAppDispatch } from "@/lib/store/hooks"
 import { useChatStream } from "@/hooks/useChatStreaming"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -42,13 +43,14 @@ import {
     selectAllCompanyAssistants,
     selectAllCompanyTools,
 } from "@/lib/store/slices/companySlice"
+import Image from "next/image";
 
 export default function MessageInput({
                                          placeholder = "Ask about your financial data...",
                                          showBorder = true,
                                          className = "",
                                      }: MessageInputProps) {
-    const placeholderText = "Ask about your financial data... e.g., Revenue for last quarter"
+    const placeholderText = `Type @${String.fromCharCode(8203)} to mention a report tool`
     const MENTION_DROPDOWN_WIDTH = 288
 
     const dispatch = useAppDispatch()
@@ -558,7 +560,7 @@ export default function MessageInput({
                         : "rounded-2xl bg-background-card border-none px-3 py-3"
                 } transition-all duration-200`}
             >
-                <Card className="rounded-xl bg-white border border-primary p-4 relative">
+                <Card className="rounded-xl bg-white border-[1px] stroke-100 shadow-none p-4 relative">
                     <div className="relative" ref={containerRef}>
                         <div
                             ref={inputRef}
@@ -575,19 +577,19 @@ export default function MessageInput({
                             }}
                             onFocus={updateCursorPositionAndMentions}
                             className={`
-                ${showBorder ? "min-h-[40px]" : "min-h-[48px]"}
-                px-1 py-1
-                text-base text-gray-800
-                focus:outline-none w-full
-                relative
-                overflow-y-auto max-h-[150px]
-                data-[empty=true]:before:content-[attr(data-placeholder)]
-                data-[empty=true]:before:absolute
-                data-[empty=true]:before:text-gray-400
-                data-[empty=true]:before:pointer-events-none
-                data-[empty=true]:before:top-1
-                data-[empty=true]:before:left-1
-              `}
+        ${showBorder ? "min-h-24" : "min-h-36"}
+        px-1 py-1
+        text-base text-gray-800
+        focus:outline-none w-full
+        relative
+        overflow-y-auto max-h-[150px]
+        data-[empty=true]:before:content-[attr(data-placeholder)]
+        data-[empty=true]:before:absolute
+        data-[empty=true]:before:text-gray-400
+        data-[empty=true]:before:pointer-events-none
+        data-[empty=true]:before:top-1
+        data-[empty=true]:before:left-1
+    `}
                             data-placeholder={
                                 !validSelectedCompany
                                     ? "Please connect a company first"
@@ -602,7 +604,6 @@ export default function MessageInput({
                             aria-multiline="true"
                             style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                         />
-
                         {showMentionSuggestions && (
                             <div
                                 ref={menuRef}
@@ -747,21 +748,21 @@ export default function MessageInput({
                             disabled={
                                 !inputValue.trim() || isResponding || !activeChatId || !validSelectedCompany || !selectedAssistantId
                             }
-                            className={`rounded-full h-9 w-9 p-0 flex items-center justify-center transition-colors duration-200 ${
+                            className={`rounded-full h-9 w-9 p-0 flex items-center cursor-pointer justify-center transition-colors duration-200 ${
                                 !inputValue.trim() || isResponding || !activeChatId || !validSelectedCompany || !selectedAssistantId
-                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                                    ? "bg-sec text-gray-400 cursor-not-allowed"
+                                    : "bg-primary hover:bg-primary text-white-text"
                             }`}
                             aria-label="Send message"
                         >
-                            <ArrowUp className="h-4 w-4" />
+                            <Image src={ArrowUp} alt={"arrow_up"} width={16} height={16} />
                         </Button>
                     </div>
-                    {!showBorder && (
-                        <div className="text-xs text-gray-400 mt-2 px-1 text-left">
-                            Type <span className="font-medium bg-gray-100 px-1 rounded">@</span> to mention a report tool
-                        </div>
-                    )}
+                    {/*{!showBorder && (*/}
+                    {/*    <div className="text-xs text-gray-400 mt-2 px-1 text-left">*/}
+                    {/*        Type <span className="font-medium bg-gray-100 px-1 rounded">@</span> to mention a report tool*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
                 </Card>
             </Card>
         </div>

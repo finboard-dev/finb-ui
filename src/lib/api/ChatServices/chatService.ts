@@ -54,32 +54,35 @@ export const processStreamResponse = (
     return
   }
 
+  // Handle streaming tokens
   if (response.type === "token" && response.content) {
     onToken(response.content)
     contentPositionTracker.currentLength += response.content.length
     return
   }
 
+  // Handle message type responses
   if (response.type === "message") {
     const { content } = response
 
-    if (content?.type === "ai" && content?.content && typeof content.content === "string") {
-      onToken(content.content)
-      contentPositionTracker.currentLength += content.content.length
+    // Skip content processing for AI messages - we already have the content from tokens
+    if (content?.type === "ai") {
+      // Only process tool calls if present
+      if (content?.tool_calls?.length) {
+        content.tool_calls.forEach((toolCall: any) => {
+          const toolCallWithPosition = {
+            name: toolCall.name,
+            args: toolCall.args,
+            id: toolCall.id,
+            position: contentPositionTracker.currentLength,
+          }
+          onToolCall(toolCallWithPosition)
+        })
+      }
+      return
     }
 
-    if (content?.type === "ai" && content?.tool_calls?.length) {
-      content.tool_calls.forEach((toolCall: any) => {
-        const toolCallWithPosition = {
-          name: toolCall.name,
-          args: toolCall.args,
-          id: toolCall.id,
-          position: contentPositionTracker.currentLength,
-        }
-        onToolCall(toolCallWithPosition)
-      })
-    }
-
+    // Handle tool responses
     if (content?.type === "tool" && content?.content) {
       try {
         let toolContent
@@ -91,7 +94,6 @@ export const processStreamResponse = (
               toolContent = JSON.parse(content.content)
             } catch (error) {
               toolContent = { type: "text", text: content.content }
-              console.warn("Failed to parse tool response as JSON:", error, "Content:", content.content)
             }
           }
         } else if (typeof content.content === "object") {

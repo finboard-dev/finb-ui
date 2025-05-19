@@ -51,6 +51,13 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
         window.dispatchEvent(event);
     };
 
+    const handleViewResults = () => {
+        if (toolCall?.id != null) {
+            dispatch(setActiveToolCallId(toolCall?.id))
+        }
+        dispatch(setResponsePanelWidth(500))
+    }
+
     const getToolIcon = (toolName: string | undefined) => {
         if (!toolName) {
             return <Code className="w-4 h-4" />;
@@ -155,7 +162,7 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
                             <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleOpenPanel(toolCall.id as string)}
+                                onClick={handleViewResults}
                                 className="w-full h-9 text-sm"
                             >
                                 View Results
