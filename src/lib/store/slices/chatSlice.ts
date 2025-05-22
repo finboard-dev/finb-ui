@@ -422,6 +422,12 @@ export const chatSlice = createSlice({
         chat.chats[0].messages = [];
       }
     },
+    clearAllChats(state) {
+      state.chats = [];
+      state.pendingChat = null;
+      state.activeChatId = null;
+    },
+
   },
 });
 
@@ -445,6 +451,7 @@ export const {
   closeResponsePanel,
   setActiveMessageId,
   clearMessages,
+    clearAllChats,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -1,68 +1,63 @@
-"use client"
 
-import type React from "react"
-
-import { useEffect, useRef, useState } from "react"
-import * as echarts from "echarts"
+import React, { useEffect, useRef } from 'react';
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 
 interface EChartsRendererProps {
-    config: any
-    className?: string
-    style?: React.CSSProperties
-    theme?: string | object
+    config: EChartsOption;
 }
 
-export default function EChartsRenderer({ config, className = "", style = {}, theme }: EChartsRendererProps) {
-    const chartRef = useRef<HTMLDivElement>(null)
-    const chartInstance = useRef<echarts.ECharts | null>(null)
-    const [isInitialized, setIsInitialized] = useState(false)
+const EChartsRenderer: React.FC<EChartsRendererProps> = ({ config }) => {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstance = useRef<echarts.EChartsType | null>(null);
 
-    // Initialize chart only once
     useEffect(() => {
-        if (chartRef.current && !chartInstance.current) {
-            try {
-                chartInstance.current = echarts.init(chartRef.current, theme)
+        if (!chartRef.current) return;
 
-                // Handle resize
-                const handleResize = () => {
-                    chartInstance.current?.resize()
-                }
-                window.addEventListener("resize", handleResize)
+        // Initialize with SVG renderer
+        chartInstance.current = echarts.init(chartRef.current, undefined, {
+            renderer: 'svg',
+            useDirtyRect: false
+        });
 
-                setIsInitialized(true)
+        const resizeObserver = new ResizeObserver(() => {
+            chartInstance.current?.resize();
+        });
 
-                return () => {
-                    window.removeEventListener("resize", handleResize)
-                    chartInstance.current?.dispose()
-                    chartInstance.current = null
-                    setIsInitialized(false)
-                }
-            } catch (error) {
-                console.error("Error initializing ECharts:", error)
-            }
-        }
-    }, [theme])
+        resizeObserver.observe(chartRef.current);
 
-    // Update chart options in a separate effect
+        return () => {
+            resizeObserver.disconnect();
+            chartInstance.current?.dispose();
+        };
+    }, []);
+
     useEffect(() => {
-        if (chartInstance.current && isInitialized && config) {
-            try {
-                // Check if config is a valid object
-                if (config && typeof config === 'object') {
-                    // Use setTimeout to ensure this happens outside the main process
-                    setTimeout(() => {
-                        if (chartInstance.current) {
-                            chartInstance.current.setOption(config, { notMerge: false })
-                        }
-                    }, 0)
-                } else {
-                    console.error("Invalid chart config:", config)
-                }
-            } catch (error) {
-                console.error("Error setting chart options:", error)
-            }
-        }
-    }, [config, isInitialized])
+        if (!chartInstance.current) return;
 
-    return <div ref={chartRef} className={`w-full h-[500px] ${className}`} style={style} />
-}
+        // Set responsive options
+        const responsiveOptions: EChartsOption = {
+            ...config,
+            grid: {
+                ...config.grid,
+                containLabel: true,
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                top: '3%'
+            }
+        };
+
+        chartInstance.current.setOption(responsiveOptions);
+    }, [config]);
+
+    return (
+        <div
+            ref={chartRef}
+            className="w-full h-full min-h-[400px]"
+            style={{ height: '100%', width: '100%' }}
+        />
+    );
+};
+
+export default EChartsRenderer;

@@ -18,7 +18,7 @@ import {
   setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
 import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
-import { getChatConversation } from "@/lib/api/ChatServices/getChatConversations";
+import { getChatConversation } from "@/lib/services/ChatServices/getChatConversations";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
