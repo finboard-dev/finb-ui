@@ -78,7 +78,10 @@ const config = {
 
 const Page = () => {
     return (
-       <EChartsRenderer config={config}/>
+       // <EChartsRenderer config={config}/>
+        <>
+        hi
+        </>
     )
 }
 
