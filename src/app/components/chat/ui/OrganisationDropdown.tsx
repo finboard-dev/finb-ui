@@ -17,7 +17,7 @@ import {
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
 import { useSearchParams, useRouter } from "next/navigation";
-import { toggleSidebar } from "@/lib/store/slices/chatSlice";
+import {clearAllChats, clearMessages, toggleSidebar} from "@/lib/store/slices/chatSlice";
 import { initAddQuickBookAccount } from "@/lib/api/intuitService";
 import { fetcher } from "@/lib/axios/config";
 import { selectDropDownLoading, setDropDownLoading } from "@/lib/store/slices/loadingSlice";
@@ -90,37 +90,38 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     dispatch(setSelectedOrganization(organization));
   };
 
+
   const handleCompanySelect = async (company: Company) => {
     dispatch(setDropDownLoading(true));
     dispatch(setCompanyLoading(true));
     setError(null);
+    dispatch(clearAllChats());
 
     try {
+      // First set the selected company in the UI
+      dispatch(setSelectedCompany(company));
+
+      // Make the API call
       const response = await fetcher.post("/companies/current", {
         company_id: company?.id,
       });
 
-      if (response.id === company.id) {
-        dispatch(setSelectedCompany(company));
-      }
+      // Only set the current company from the response
+      dispatch(setCurrentCompany(response));
 
-      if (response.id) {
-        dispatch(setCurrentCompany(response));
-      }
       document.cookie = "has_selected_company=true; path=/";
 
       dispatch(toggleComponent({ id: componentId, forceState: false }));
       updateUrlParams(false);
 
-      // Trigger the onCompanyChange callback if provided
       if (onCompanyChange) {
         onCompanyChange();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error setting current company:", err);
       setError("Failed to connect company");
-      // @ts-ignore
       dispatch(setCompanyError(err.message || "Failed to connect company"));
+      dispatch(setSelectedCompany(null as any));
     } finally {
       dispatch(setDropDownLoading(false));
       dispatch(setCompanyLoading(false));

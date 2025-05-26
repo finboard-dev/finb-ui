@@ -26,11 +26,10 @@ import {
   type ToolCallResponse,
 } from "@/lib/store/slices/responsePanelSlice";
 import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
-import VisualizationView from "@/app/components/visualizationV1/VisualizationView";
+import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
+import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import DynamicTable, { RowData } from "@/app/tests/components/DynamicTableRenderer";
-import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -111,7 +110,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   );
   const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
 
-  // Filter responses by activeMessageId and optionally by activeToolCallId
   const filteredResponses = activeMessageId
       ? toolCallResponses.filter(
           (response) => response.messageId === activeMessageId
@@ -177,7 +175,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     const handleToolCallSelected = (event: Event) => {
       const customEvent = event as CustomEvent<{ toolCallId: string; messageId: string }>;
       const { toolCallId, messageId } = customEvent.detail;
-      console.log("toolCallSelected:", { toolCallId, messageId, currentActiveToolCallId: activeToolCallId });
       dispatch(setActiveToolCallId(toolCallId));
       dispatch(setResponsePanelWidth(500));
       if (messageId !== activeMessageId) {
@@ -226,21 +223,50 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   };
 
   const handleSaveComponent = (response: ToolCallResponse) => {
-    const result = saveComponentToLocalStorage(response);
+    try {
+      let content;
+      if (response.type === "graph") {
+        // Save only the schema, which is the ECharts option object
+        content = JSON.stringify(response.data.schema);
+      } else if (response.type === "table") {
+        content = JSON.stringify(response.data);
+      } else {
+        content = response.data; // Likely a string for Python/code
+      }
 
-    if (result.success) {
-      toast.success(`Component saved to dashboard!`, {
-        description: "You can now drag it onto your dashboard",
-      });
-    } else {
-      toast.error("Failed to save component", {
-        description: "Please try again or check console for errors",
-      });
+      const componentType =
+          response.type === "graph"
+              ? "Visualization"
+              : response.type === "table"
+                  ? "SQL"
+                  : "Python";
+
+      const newBlockId = `block-${Date.now()}`;
+      const componentData = {
+        id: newBlockId,
+        type: componentType,
+        title: response.tool_name?.split("/").pop() || `${componentType} Component`,
+        content: content,
+        timestamp: new Date().toISOString(),
+        originalType: response.type,
+        metadata: {
+          messageId: response.messageId,
+          toolCallId: response.tool_call_id,
+        },
+      };
+
+      const savedComponents = JSON.parse(localStorage.getItem("dashboardBlocks") || "[]");
+      savedComponents.push(componentData);
+      localStorage.setItem("dashboardBlocks", JSON.stringify(savedComponents));
+
+      toast.success("Component saved to dashboard!");
+    } catch (error) {
+      console.error("Error saving component:", error);
+      toast.error("Failed to save component");
     }
   };
 
   const renderContent = (response: ToolCallResponse, mode: "view" | "json") => {
-    console.log(response , "response")
     if (mode === "json") {
       return (
           <div className="h-[calc(100vh-200px)] w-full">
@@ -264,7 +290,9 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     switch (response.type) {
       case "graph":
         return response.data?.schema ? (
-            <EChartsRenderer config={response.data.schema} />
+            <div className="w-full h-full min-h-[400px] flex-1">
+              <EChartsRenderer config={response.data.schema} />
+            </div>
         ) : (
             <p className="text-gray-500">No visualization data available</p>
         );
@@ -310,9 +338,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
       <div
           ref={panelRef}
           className={cn(
-              "flex flex-col h-full bg-white relative transition-all duration-300 ease-in-out",
+              "flex flex-col h-full bg-white relative transition-all duration-300 ease-in-out max-w-full",
               isExpanded && "fixed inset-0 z-50"
           )}
+          style={{ maxWidth: "100%", overflowX: "hidden" }}
           key={`panel-${panelSize.width}-${panelSize.height}-${activeMessageId}`}
       >
         <div className="absolute top-2 right-2 z-10 flex gap-2">
@@ -320,7 +349,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               variant="ghost"
               size="icon"
               className="hover:bg-gray-100 rounded-full"
-              id="sidepanel-maximize-button"
               onClick={toggleExpand}
               aria-label={isExpanded ? "Minimize panel" : "Maximize panel"}
           >
@@ -329,7 +357,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           <Button
               variant="ghost"
               size="icon"
-              id="sidepanel-close-button"
               className="hover:bg-gray-100 rounded-full"
               onClick={handleClosePanel}
               aria-label="Close panel"
@@ -386,71 +413,26 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     </TabsTrigger>
 
                     <div className="absolute top-5 right-5 z-10 flex gap-2">
-                      {panelSize.width > 300 ? (
-                          <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                id="save-component-button"
-                                className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                                onClick={() => handleSaveComponent(response)}
-                                aria-label="Save to dashboard"
-                            >
-                              <Save size={16} />
-                            </Button>
-
-                            {response.type === "table" && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    id="refresh-table-button"
-                                    className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                                    onClick={() => handleRefreshTable(response.data as string)}
-                                    aria-label="Refresh table"
-                                >
-                                  <RefreshCw size={16} />
-                                </Button>
-                            )}
-                          </>
-                      ) : (
-                          <div className="relative">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                id="more-options-button"
-                                className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
-                                aria-label="More options"
-                            >
-                              <span className="sr-only">More options</span>
-                              <div className="w-4 h-4 flex items-center justify-center">
-                                <span className="block w-1 h-1 bg-black rounded-full"></span>
-                                <span className="block w-1 h-1 bg-black rounded-full mx-1"></span>
-                                <span className="block w-1 h-1 bg-black rounded-full"></span>
-                              </div>
-                            </Button>
-                            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                              <ul className="py-1">
-                                <li>
-                                  <button
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => handleSaveComponent(response)}
-                                  >
-                                    Save to Dashboard
-                                  </button>
-                                </li>
-                                {response.type === "table" && (
-                                    <li>
-                                      <button
-                                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                          onClick={() => handleRefreshTable(response.data as string)}
-                                      >
-                                        Refresh Table
-                                      </button>
-                                    </li>
-                                )}
-                              </ul>
-                            </div>
-                          </div>
+                      <Button
+                          variant="outline"
+                          size="sm"
+                          className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                          onClick={() => handleSaveComponent(response)}
+                          aria-label="Save to dashboard"
+                      >
+                        <Save size={16} />
+                        Save
+                      </Button>
+                      {response.type === "table" && (
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              className="cursor-pointer bg-white shadow-sm flex items-center gap-1"
+                              onClick={() => handleRefreshTable(response.data as string)}
+                              aria-label="Refresh table"
+                          >
+                            <RefreshCw size={16} />
+                          </Button>
                       )}
                     </div>
                   </TabsList>

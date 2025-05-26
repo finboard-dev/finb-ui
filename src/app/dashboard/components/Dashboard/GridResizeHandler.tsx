@@ -11,21 +11,19 @@ interface GridResizeHandlerProps {
   setLayouts: (layouts: Layout[]) => void;
 }
 
-// Define resize directions
 export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 const GridResizeHandler = ({
-  itemId,
-  onResizeStart,
-  onResizeEnd,
-  layouts,
-  setLayouts,
-}: GridResizeHandlerProps) => {
+                             itemId,
+                             onResizeStart,
+                             onResizeEnd,
+                             layouts,
+                             setLayouts,
+                           }: GridResizeHandlerProps) => {
   const isDraggingRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
   const resizeDirectionRef = useRef<ResizeDirection | null>(null);
 
-  // Find this item in layouts
   const layoutItem = layouts.find((item) => item.i === itemId);
 
   if (!layoutItem) return null;
@@ -40,7 +38,6 @@ const GridResizeHandler = ({
 
     onResizeStart(itemId, direction);
 
-    // Add global event listeners
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
@@ -51,36 +48,32 @@ const GridResizeHandler = ({
     const dx = e.clientX - startPosRef.current.x;
     const dy = e.clientY - startPosRef.current.y;
 
-    // Update layout based on resize direction
     const newLayouts = layouts.map((item) => {
       if (item.i !== itemId) return item;
 
       const dir = resizeDirectionRef.current!;
       const newItem = { ...item };
 
-      // Create a grid cell size approximation (can be adjusted based on your grid)
-      const cellW = 20; // Width of one grid cell in pixels (approximate)
-      const cellH = 20; // Height of one grid cell in pixels (approximate)
+      const cellW = 20;
+      const cellH = 20;
 
-      // Handle horizontal resizing
       if (dir.includes("e")) {
         const widthDelta = Math.round(dx / cellW);
-        newItem.w = Math.max(1, item.w + widthDelta);
+        newItem.w = Math.max(item.minW || 1, item.w + widthDelta);
       } else if (dir.includes("w")) {
         const widthDelta = Math.round(-dx / cellW);
-        if (item.w - widthDelta >= 1) {
+        if (item.w - widthDelta >= (item.minW || 1)) {
           newItem.w = item.w - widthDelta;
           newItem.x = item.x + widthDelta;
         }
       }
 
-      // Handle vertical resizing
       if (dir.includes("s")) {
         const heightDelta = Math.round(dy / cellH);
-        newItem.h = Math.max(1, item.h + heightDelta);
+        newItem.h = Math.max(item.minH || 1, item.h + heightDelta);
       } else if (dir.includes("n")) {
         const heightDelta = Math.round(-dy / cellH);
-        if (item.h - heightDelta >= 1) {
+        if (item.h - heightDelta >= (item.minH || 1)) {
           newItem.h = item.h - heightDelta;
           newItem.y = item.y + heightDelta;
         }
@@ -104,7 +97,6 @@ const GridResizeHandler = ({
   };
 
   useEffect(() => {
-    // Cleanup function
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -112,55 +104,40 @@ const GridResizeHandler = ({
   }, []);
 
   return (
-    <>
-      {/* North */}
-      <div
-        className="absolute top-0 left-4 right-4 h-2 cursor-n-resize"
-        onMouseDown={(e) => handleMouseDown(e, "n")}
-      />
-
-      {/* South */}
-      <div
-        className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize"
-        onMouseDown={(e) => handleMouseDown(e, "s")}
-      />
-
-      {/* East */}
-      <div
-        className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize"
-        onMouseDown={(e) => handleMouseDown(e, "e")}
-      />
-
-      {/* West */}
-      <div
-        className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize"
-        onMouseDown={(e) => handleMouseDown(e, "w")}
-      />
-
-      {/* North East */}
-      <div
-        className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
-        onMouseDown={(e) => handleMouseDown(e, "ne")}
-      />
-
-      {/* North West */}
-      <div
-        className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
-        onMouseDown={(e) => handleMouseDown(e, "nw")}
-      />
-
-      {/* South East */}
-      <div
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-        onMouseDown={(e) => handleMouseDown(e, "se")}
-      />
-
-      {/* South West */}
-      <div
-        className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
-        onMouseDown={(e) => handleMouseDown(e, "sw")}
-      />
-    </>
+      <>
+        <div
+            className="absolute top-0 left-4 right-4 h-2 cursor-n-resize"
+            onMouseDown={(e) => handleMouseDown(e, "n")}
+        />
+        <div
+            className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize"
+            onMouseDown={(e) => handleMouseDown(e, "s")}
+        />
+        <div
+            className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize"
+            onMouseDown={(e) => handleMouseDown(e, "e")}
+        />
+        <div
+            className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize"
+            onMouseDown={(e) => handleMouseDown(e, "w")}
+        />
+        <div
+            className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
+            onMouseDown={(e) => handleMouseDown(e, "ne")}
+        />
+        <div
+            className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
+            onMouseDown={(e) => handleMouseDown(e, "nw")}
+        />
+        <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+            onMouseDown={(e) => handleMouseDown(e, "se")}
+        />
+        <div
+            className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
+            onMouseDown={(e) => handleMouseDown(e, "sw")}
+        />
+      </>
   );
 };
 

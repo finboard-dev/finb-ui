@@ -18,13 +18,15 @@ import {
   setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
 import { selectCompanyChatConversations, selectAllCompanyAssistants } from "@/lib/store/slices/companySlice";
-import { getChatConversation } from "@/lib/api/ChatServices/getChatConversations";
+import { getChatConversation } from "@/lib/services/ChatServices/getChatConversations";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
+import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const router = useRouter();
   const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
   const componentId = "sidebar-chat";
@@ -59,8 +61,10 @@ const ChatSidebarClient = () => {
   useEffect(() => {
     if (chatConversations.length > 0) {
       dispatch(setChatsFromAPI(chatConversations));
+      setIsInitialLoading(false);
     }
   }, [dispatch, chatConversations]);
+
 
   useEffect(() => {
     if (isSidebarOpen && chatListRef.current && chats.length > 0) {
@@ -249,6 +253,13 @@ const ChatSidebarClient = () => {
             id="chat-history-container"
             className="flex-1 overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
         >
+          {isInitialLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <LoadingAnimation message={"loading chats"}/>
+              </div>
+          ) : (
+              <>
+
           {isSidebarOpen && chats.length > 0 && (
               <div className="pl-5 mb-2">
                 <h3 className="text-xs font-medium text-[#949599] uppercase tracking-wider">Recent Conversations</h3>
@@ -276,6 +287,9 @@ const ChatSidebarClient = () => {
                 <div className="px-2 py-4 text-center text-sm text-gray-500">No conversations yet. Start a new chat!</div>
             )}
           </div>
+              </>
+          )
+          }
         </div>
 
         <div className="mt-auto">
