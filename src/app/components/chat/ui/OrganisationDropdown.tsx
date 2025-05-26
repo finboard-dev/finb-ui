@@ -90,7 +90,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     dispatch(setSelectedOrganization(organization));
   };
 
-// In OrganizationDropdown component
+
   const handleCompanySelect = async (company: Company) => {
     dispatch(setDropDownLoading(true));
     dispatch(setCompanyLoading(true));
@@ -98,17 +98,16 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     dispatch(clearAllChats());
 
     try {
+      // First set the selected company in the UI
+      dispatch(setSelectedCompany(company));
+
+      // Make the API call
       const response = await fetcher.post("/companies/current", {
         company_id: company?.id,
       });
 
-      if (response.id === company.id) {
-        dispatch(setSelectedCompany(company));
-      }
-
-      if (response.id) {
-        dispatch(setCurrentCompany(response));
-      }
+      // Only set the current company from the response
+      dispatch(setCurrentCompany(response));
 
       document.cookie = "has_selected_company=true; path=/";
 
@@ -122,7 +121,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
       console.error("Error setting current company:", err);
       setError("Failed to connect company");
       dispatch(setCompanyError(err.message || "Failed to connect company"));
-      // Don't clear chat history on error
+      dispatch(setSelectedCompany(null as any));
     } finally {
       dispatch(setDropDownLoading(false));
       dispatch(setCompanyLoading(false));
