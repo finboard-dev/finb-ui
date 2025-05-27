@@ -134,7 +134,7 @@ const Settings = () => {
             await logout();
             dispatch(clearUserData());
             await persistor.purge();
-            router.push("/");
+            router.push("/login");
             toast.success("Logged out successfully");
         } catch (e) {
             console.error("Error during logout:", e);
