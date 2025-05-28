@@ -66,6 +66,7 @@ export interface AllChats {
   name: string
   thread_id: string
   assistantId: string
+  lastMessageAt?: string
   chats: ChatState[]
 }
 

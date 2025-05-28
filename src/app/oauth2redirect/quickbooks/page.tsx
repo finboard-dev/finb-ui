@@ -3,29 +3,125 @@
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { setUserData } from "@/lib/store/slices/userSlice"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useMemo } from "react"
 import { getAndClearRedirectPath } from "@/lib/auth/authUtils"
 import { AUTH_CONFIG } from "@/lib/auth/authConfig"
 import { quickbooksService } from "@/lib/api/sso/quickbooks"
 import { addCompany } from "@/lib/api/intuitService"
 import { store } from "@/lib/store/store"
 import { setAuthCookies } from "@/lib/auth/tokenUtils"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Badge } from "@/components/ui/badge"
+import {
+  Check,
+  ChevronDown,
+  ArrowRight,
+  Building2,
+  User,
+  ShieldCheck, // Changed from Shield for a more "verified" feel
+  KeyRound,    // Changed from Key for a softer look
+  DatabaseZap, // Changed from Database for a more "active sync" feel
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle, // Changed from AlertCircle for a more standard warning
+  Loader2,       // A more common spinner
+  Info,          // For debug section
+  Briefcase,     // For company selection
+} from "lucide-react"
+import { motion, AnimatePresence, Variants } from "framer-motion"
+
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: 0.5,
+      ease: "circOut",
+      when: "beforeChildren",
+      staggerChildren: 0.1,
+    },
+  },
+  exit: { opacity: 0, scale: 0.98, transition: { duration: 0.3, ease: "circIn" } },
+}
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "circOut" } },
+}
+
+const iconVariants: Variants = {
+  initial: { scale: 0, rotate: -90 },
+  animate: { scale: 1, rotate: 0, transition: { type: "spring", stiffness: 260, damping: 20, delay: 0.3 } },
+}
+
+const progressStepVariants: Variants = {
+  initial: { opacity: 0, x: -20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: 20 },
+}
 
 function CallbackHandler() {
   const dispatch = useAppDispatch()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [status, setStatus] = useState("loading")
-  const [message, setMessage] = useState("")
-  const [debug, setDebug] = useState({})
-  const [apiResponse, setApiResponse] = useState(null)
+  const [status, setStatus] = useState<"loading" | "success" | "add-company-success" | "error">("loading")
+  const [message, setMessage] = useState("Initializing secure connection...")
+  const [debug, setDebug] = useState<Record<string, any>>({})
+  const [apiResponse, setApiResponse] = useState<any>(null)
   const [readyToRedirect, setReadyToRedirect] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
 
   const currentToken = useAppSelector((state) => state?.user?.token || null)
   const currentUser = useAppSelector((state) => state?.user?.user || null)
   const selectedCompany = useAppSelector((state) => state?.user?.selectedCompany || null)
 
-  const REDIRECT_DELAY_MS = 3000
+  const AUTO_REDIRECT_DELAY_MS = 3000
+
+  const steps = useMemo(() => [
+    { label: "Authenticating Session", icon: ShieldCheck },
+    { label: "Validating Credentials", icon: KeyRound },
+    { label: "Syncing Account Data", icon: DatabaseZap },
+    { label: "Finalizing Connection", icon: Sparkles },
+  ], [])
+
+  useEffect(() => {
+    let progressInterval: NodeJS.Timeout
+    let stepInterval: NodeJS.Timeout
+
+    if (status === "loading") {
+      setMessage("Establishing secure connection...")
+      const totalDuration = 4000 // Approximate total time for loading visuals
+      const stepChangeInterval = totalDuration / steps.length
+
+      stepInterval = setInterval(() => {
+        setCurrentStepIndex((prev) => (prev < steps.length - 1 ? prev + 1 : prev))
+      }, stepChangeInterval)
+
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 98) return prev // Don't hit 100% until truly done
+          const increment = Math.random() * 5 + 2
+          return Math.min(prev + increment, 98)
+        })
+      }, 150)
+    } else {
+      setProgress(100)
+      setCurrentStepIndex(steps.length -1)
+      if (status === "success" || status === "add-company-success") {
+        setMessage(status === "add-company-success" ? "Company Connected Successfully!" : "Authentication Successful!")
+      }
+    }
+    return () => {
+      clearInterval(progressInterval)
+      clearInterval(stepInterval)
+    }
+  }, [status, steps.length])
 
   useEffect(() => {
     const params: any = {}
@@ -41,399 +137,500 @@ function CallbackHandler() {
       }
     } else {
       setStatus("error")
-      setMessage("Missing required parameters for SSO login")
-      setDebug({
-        ...debug,
-        error: "Missing required parameters",
-        params,
-      })
+      setMessage("Invalid authentication request. Missing required parameters.")
+      setDebug({ error: "Missing SSO parameters", paramsReceived: params })
     }
-  }, [searchParams])
+  }, [searchParams]) // Removed debug from dependencies to avoid loop if it contains non-serializable data
 
   useEffect(() => {
-    if (readyToRedirect) {
-      if (status === "add-company-success" || (status === "success" && currentToken?.accessToken)) {
-        // Determine where to redirect based on whether a company is selected
-        let redirectPath = getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath
-
-        // For login flow, check if we need to redirect to company selection
-        if (status === "success" && !selectedCompany) {
-          redirectPath = "/company-selection"
-          console.log(`No company selected, redirecting to company selection page...`)
-        } else {
-          console.log(`Token verified in Redux store, redirecting to ${redirectPath}...`)
-        }
-
-        // Use setTimeout to ensure state updates have completed
-        setTimeout(() => {
-          router.push(redirectPath)
-        }, 100)
+    if (readyToRedirect && (status === "success" || status === "add-company-success") && currentToken?.accessToken) {
+      let redirectPath = getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath
+      if (status === "success" && !selectedCompany) {
+        redirectPath = "/company-selection"
+        console.log("No company selected, will redirect to company selection.")
+      } else {
+        console.log(`Token verified, will redirect to ${redirectPath}.`)
       }
+
+      const timer = setTimeout(() => {
+        router.push(redirectPath)
+      }, AUTO_REDIRECT_DELAY_MS) // Auto-redirect after some time on success screen
+      return () => clearTimeout(timer);
     }
   }, [readyToRedirect, currentToken, router, status, selectedCompany])
 
   useEffect(() => {
-    // Check if we have the required parameters
     const code = searchParams.get("code")
-    const state = searchParams.get("state")
-
-    if (!code || !state) {
-      console.error("Missing required OAuth parameters")
-      setTimeout(() => {
-        router.push("/login")
-      }, 1000)
-    }
-
-    // Set auth cookies when processing the callback
     if (code) {
-      // The actual token will be set after the API call in the QuickbooksCallbackPage component
-      document.cookie = `processing_oauth=true; path=/`
+      document.cookie = `processing_oauth=true; path=/; SameSite=Lax; Secure`
+    } else if (status !== 'error') { // Only redirect if not already in an error state
+      console.warn("OAuth code missing from URL parameters.")
+      // Don't auto-redirect here, let the main logic decide if it's an error
     }
-  }, [searchParams, router])
+  }, [searchParams, status, router])
+
 
   useEffect(() => {
     if (status === "success" || status === "add-company-success") {
       const timer = setTimeout(() => {
-        console.log("Checking if token is in Redux store...")
-
         setDebug((prev) => ({
           ...prev,
-          tokenInReduxAfterDelay: !!currentToken?.accessToken,
-          currentReduxState: {
-            token: currentToken,
-            user: currentUser,
-            selectedCompany: selectedCompany,
+          finalReduxState: {
+            tokenExists: !!currentToken?.accessToken,
+            userExists: !!currentUser,
+            companySelected: !!selectedCompany,
           },
         }))
-
-        setReadyToRedirect(true)
-      }, REDIRECT_DELAY_MS)
-
+        setReadyToRedirect(true) // Enable redirect logic
+      }, 500) // Shorter delay to mark as ready, actual redirect has its own timer
       return () => clearTimeout(timer)
     }
   }, [status, currentToken, currentUser, selectedCompany])
 
-  const handleLogin = async (params: { realmId: string; code: string }) => {
+
+  const handleLogin = async (params: { code: string }) => {
+    setStatus("loading")
+    setMessage("Authenticating your credentials...")
+    setCurrentStepIndex(0)
+    setProgress(10)
+
     try {
-      setStatus("loading")
-      console.log("Starting login process...")
-
       const response: any = await quickbooksService.ssoLogin(params.code, null)
-      console.log("Received response from ssoLogin:", response)
-
       setApiResponse(response)
-
-      setDebug({
-        ...debug,
-        responseReceived: true,
-        hasToken: !!response?.token,
-        hasUser: !!response?.user,
-        hasSelectedCompany: !!response?.user?.selectedCompany,
-        responseDetails: {
-          tokenType: typeof response?.token,
-          userType: typeof response?.user,
-        },
-      })
+      setProgress(50)
+      setCurrentStepIndex(1)
 
       if (response && response.token && response.user) {
-        // Set auth cookies for middleware
-        if (response.token.accessToken) {
-          setAuthCookies(response.token.accessToken)
-        }
-
+        setAuthCookies(response.token.accessToken)
         const userData = {
-          token: {
-            accessToken: response.token.accessToken,
-            expiresIn: response.token.expiresIn,
-            tokenType: response.token.tokenType,
-          },
-          user: { ...response.user },
+          token: response.token,
+          user: response.user,
           selectedOrganization: response.user.selectedOrganization || null,
           selectedCompany: response.user.selectedCompany || null,
         }
+        dispatch(setUserData(userData))
+        setProgress(90)
+        setCurrentStepIndex(2)
 
-        console.log("Dispatching user data to Redux:", userData)
+        document.cookie = `has_selected_company=${!!response.user.selectedCompany}; path=/; SameSite=Lax; Secure`
 
-        try {
-          dispatch(setUserData(userData))
+        setTimeout(() => { // Simulate finalization
+          setCurrentStepIndex(3)
+          setStatus("success")
+          // Message is set by the status useEffect
+        }, 300);
 
-          // Set cookie to indicate if company is selected
-          if (response.user.selectedCompany) {
-            document.cookie = "has_selected_company=true; path=/"
-          } else {
-            document.cookie = "has_selected_company=false; path=/"
-          }
-
-          setTimeout(() => {
-            const storeToken = store.getState().user?.token
-            const storeCompany = store.getState().user?.selectedCompany
-
-            console.log("Verifying token in Redux after dispatch:", storeToken ? "Token exists" : "Token missing")
-            console.log(
-                "Selected company in Redux after dispatch:",
-                storeCompany ? "Company selected" : "No company selected",
-            )
-
-            setDebug((prev) => ({
-              ...prev,
-              reduxVerification: {
-                tokenSet: !!storeToken,
-                userSet: !!store.getState().user?.user,
-                companySet: !!storeCompany,
-              },
-            }))
-
-            setStatus("success")
-            setMessage("Login successful! Will redirect in a few seconds...")
-          }, 500)
-        } catch (dispatchError) {
-          console.error("Error dispatching to Redux:", dispatchError)
-          setStatus("error")
-          setMessage(
-              dispatchError instanceof Error
-                  ? `Redux error: ${dispatchError.message}`
-                  : "An error occurred while updating application state",
-          )
-          setDebug((prev) => ({
-            ...prev,
-            dispatchError: dispatchError instanceof Error ? dispatchError.message : "Unknown dispatch error",
-          }))
-        }
       } else {
-        console.error("Invalid response format:", response)
-        throw new Error("Invalid response format from server")
+        throw new Error(response?.error?.message || "Invalid response from authentication server.")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error)
       setStatus("error")
-      setMessage(error instanceof Error ? error.message : "An error occurred during login process")
-
-      setDebug({
-        ...debug,
-        error: error instanceof Error ? error.message : "Unknown error",
-        errorObject: error,
-      })
+      setMessage(error.message || "Login failed. Please try again.")
+      setDebug((prev) => ({ ...prev, error: error.message, errorDetails: error }))
     }
   }
 
   const handleAddCompany = async (params: { realmId: string; code: string }) => {
-    try {
-      setStatus("loading")
-      console.log("Starting add company process...")
-      console.log("Using realmId:", params.realmId)
+    setStatus("loading")
+    setMessage("Connecting your Quickbooks company...")
+    setCurrentStepIndex(0)
+    setProgress(10)
 
+    try {
       if (!currentToken?.accessToken) {
-        throw new Error("No active session found. Please log in first.")
+        throw new Error("No active session. Please log in again.")
       }
+      setProgress(30)
+      setCurrentStepIndex(1)
 
       const response = await addCompany(params.code, params.realmId)
-      console.log("Received response from addCompany:", response)
-
       setApiResponse(response)
-
-      setDebug({
-        ...debug,
-        responseReceived: true,
-        addCompanyResponse: response,
-        params: params,
-        currentToken: currentToken ? "exists" : "missing",
-      })
+      setProgress(60)
+      setCurrentStepIndex(2)
 
       if (response && response.success) {
         const currentUserState = store.getState().user
-
-        // Verify we have response data
-        if (response.id || response.email || response.firstName) {
-          const userData = {
-            token: currentUserState.token,
-            user: response,
-            selectedOrganization: response.selectedOrganization || currentUserState.selectedOrganization,
-            selectedCompany: response.selectedCompany || null,
-          }
-
-          console.log("Dispatching updated user data to Redux:", {
-            tokenPreserved: !!userData.token,
-            userUpdated: !!userData.user,
-            organizationUpdated: !!userData.selectedOrganization,
-            companyUpdated: !!userData.selectedCompany,
-          })
-
-          dispatch(setUserData(userData as any))
-
-          // Update company selection cookie
-          if (userData.selectedCompany) {
-            document.cookie = "has_selected_company=true; path=/"
-          }
-
-          setStatus("add-company-success")
-          setMessage("Company added successfully! Will redirect in a few seconds...")
-          setReadyToRedirect(true)
-        } else {
-          console.warn("Add company succeeded but no user data returned", response)
-          setStatus("add-company-success")
-          setMessage("Company was added but user data may need to be refreshed.")
-          setReadyToRedirect(true)
+        const userData = {
+          token: currentUserState.token, // Preserve existing token
+          user: { ...currentUserState.user, ...response }, // Merge user details
+          selectedOrganization: response.selectedOrganization || currentUserState.selectedOrganization,
+          selectedCompany: response.selectedCompany || currentUserState.selectedCompany || response, // Prioritize newly added company as selected
         }
-      } else if (response && !response.success) {
-        throw new Error(response.message || "Failed to add company")
+        dispatch(setUserData(userData as any))
+        setProgress(90)
+
+        if (userData.selectedCompany) {
+          document.cookie = "has_selected_company=true; path=/; SameSite=Lax; Secure"
+        }
+        setTimeout(() => { // Simulate finalization
+          setCurrentStepIndex(3)
+          setStatus("add-company-success")
+          // Message is set by the status useEffect
+        }, 300);
+
       } else {
-        throw new Error("Failed to add company: Invalid response format")
+        throw new Error(response?.message || "Failed to connect company.")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Add company error:", error)
       setStatus("error")
-      setMessage(error instanceof Error ? error.message : "An error occurred while adding the company")
-
-      setDebug((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : "Unknown error",
-        errorObject: error,
-      }))
+      setMessage(error.message || "Could not connect company. Please try again.")
+      setDebug((prev) => ({ ...prev, error: error.message, errorDetails: error }))
     }
   }
 
   const manualRedirect = () => {
-    // Determine where to redirect based on whether a company is selected
     let redirectPath = getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath
-
-    // For login flow, check if we need to redirect to company selection
     if (status === "success" && !selectedCompany) {
       redirectPath = "/company-selection"
-      console.log(`No company selected, manually redirecting to company selection page...`)
-    } else {
-      console.log(`Manually redirecting to ${redirectPath}...`)
     }
-
     router.push(redirectPath)
   }
 
-  return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-center text-gray-800">QuickBooks Integration</h1>
-
-          {status === "loading" && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-16 h-16 border-4 border-t-blue-600 border-b-blue-600 border-l-transparent border-r-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-600">Processing your request...</p>
-              </div>
-          )}
-
-          {(status === "success" || status === "add-company-success") && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg
-                      className="w-8 h-8 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
+  const renderContent = () => {
+    switch (status) {
+      case "loading":
+        return (
+            <motion.div
+                key="loading"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="space-y-8"
+            >
+              <motion.div variants={itemVariants} className="flex justify-center items-center flex-col">
+                <div className="relative w-20 h-20">
+                  {[...Array(3)].map((_, i) => (
+                      <motion.div
+                          key={i}
+                          className="absolute w-full h-full border-4 border-blue-500 rounded-full"
+                          initial={{ opacity: 0.5, scale: 0.6, rotate: i * 30 }}
+                          animate={{ opacity: [0.5, 0.2, 0.5], scale: [0.6, 1, 0.6], rotate: i * 30 + 360 }}
+                          transition={{ duration: 2 + i*0.2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                          style={{ borderStyle: i % 2 === 0 ? 'solid' : 'dashed' }}
+                      />
+                  ))}
+                  <Building2 className="w-10 h-10 text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </div>
-                <p className="text-green-600 font-medium">{message}</p>
+              </motion.div>
 
-                {/* Current token status - Show for both login and add company flows */}
-                <div className="mt-4 p-3 bg-gray-50 rounded w-full">
-                  <p className="font-medium">Token in Redux: {currentToken?.accessToken ? "✅ Yes" : "❌ No"}</p>
-                  <p className="font-medium">User in Redux: {currentUser?.id ? "✅ Yes" : "❌ No"}</p>
-                  <p className="font-medium">Company Selected: {selectedCompany ? "✅ Yes" : "❌ No"}</p>
-                  <p className="font-medium">Operation: {status === "success" ? "Login" : "Add Company"}</p>
-                  <p className="font-medium">Next Step: {selectedCompany ? "Dashboard" : "Company Selection"}</p>
+              <motion.p variants={itemVariants} className="text-center text-lg font-medium text-gray-700">
+                {steps[currentStepIndex]?.label || "Processing..."}
+              </motion.p>
+
+              <motion.div variants={itemVariants} className="w-full max-w-md mx-auto space-y-3 px-4">
+                {steps.map((step, index) => {
+                  const Icon = step.icon
+                  const isActive = index === currentStepIndex
+                  const isCompleted = index < currentStepIndex
+
+                  return (
+                      <motion.div
+                          key={step.label}
+                          variants={progressStepVariants}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                          className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm border border-gray-200"
+                          custom={index}
+                          transition={{delay: index * 0.1}}
+                      >
+                        <motion.div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300
+                        ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-400"}`}
+                            animate={isActive ? { scale: [1, 1.1, 1] } : {}}
+                            transition={isActive ? { duration: 0.8, repeat: Number.POSITIVE_INFINITY, ease:"easeInOut" } : {}}
+                        >
+                          {isCompleted ? <CheckCircle2 size={18} /> : <Icon size={18} />}
+                        </motion.div>
+                        <span className={`font-medium ${isCompleted ? "text-green-600" : isActive ? "text-blue-600" : "text-gray-500"}`}>
+                      {step.label}
+                    </span>
+                        {isActive && <Loader2 size={18} className="animate-spin text-blue-500 ml-auto" />}
+                      </motion.div>
+                  )
+                })}
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="w-full max-w-md mx-auto space-y-1 px-4">
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-600"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: 0.5, ease: "circOut" }}
+                  />
                 </div>
+                <p className="text-xs text-gray-500 text-right">{Math.round(progress)}% Complete</p>
+              </motion.div>
+            </motion.div>
+        )
+      case "success":
+      case "add-company-success":
+        return (
+            <motion.div
+                key="success"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="space-y-6 text-center"
+            >
+              <motion.div variants={iconVariants} initial="initial" animate="animate" className="flex justify-center">
+                <div className="relative">
+                  <CheckCircle2 className="w-24 h-24 text-green-500" strokeWidth={1.5}/>
+                  {/* Subtle radiating circles */}
+                  {[...Array(3)].map((_, i) => (
+                      <motion.div
+                          key={i}
+                          className="absolute top-0 left-0 w-full h-full rounded-full border-green-500 border-2"
+                          initial={{ scale: 0.5, opacity: 1 }}
+                          animate={{ scale: 2 + i * 0.5, opacity: 0 }}
+                          transition={{
+                            duration: 1.5,
+                            delay: 0.5 + i * 0.2,
+                            ease: "easeOut",
+                            repeat: Number.POSITIVE_INFINITY,
+                            repeatDelay: 2
+                          }}
+                      />
+                  ))}
+                </div>
+              </motion.div>
+              <motion.h2 variants={itemVariants} className="text-3xl font-semibold text-gray-800">
+                {message}
+              </motion.h2>
+              <motion.p variants={itemVariants} className="text-gray-600 max-w-md mx-auto">
+                {selectedCompany || status === "add-company-success"
+                    ? "You will be automatically redirected shortly. Feel free to proceed manually."
+                    : "Your account is set up. Please select a company to continue."}
+              </motion.p>
 
-                <button
+              <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 max-w-lg mx-auto">
+                <div className={`p-3 rounded-lg border ${currentToken?.accessToken ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <ShieldCheck className={`w-6 h-6 mx-auto mb-1 ${currentToken?.accessToken ? 'text-green-600' : 'text-gray-400'}`} />
+                  <p className="text-xs font-medium">Authentication</p>
+                  <p className={`text-xs ${currentToken?.accessToken ? 'text-green-600' : 'text-gray-500'}`}>{currentToken?.accessToken ? "Verified" : "Pending"}</p>
+                </div>
+                <div className={`p-3 rounded-lg border ${currentUser?.id ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <User className={`w-6 h-6 mx-auto mb-1 ${currentUser?.id ? 'text-green-600' : 'text-gray-400'}`} />
+                  <p className="text-xs font-medium">User Profile</p>
+                  <p className={`text-xs ${currentUser?.id ? 'text-green-600' : 'text-gray-500'}`}>{currentUser?.id ? "Loaded" : "Pending"}</p>
+                </div>
+                <div className={`p-3 rounded-lg border ${selectedCompany ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <Briefcase className={`w-6 h-6 mx-auto mb-1 ${selectedCompany ? 'text-green-600' : 'text-gray-400'}`} />
+                  <p className="text-xs font-medium">Company</p>
+                  <p className={`text-xs ${selectedCompany ? 'text-green-600' : 'text-gray-500'}`}>{selectedCompany ? "Selected" : "Not Selected"}</p>
+                </div>
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <Button
                     onClick={manualRedirect}
-                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    size="lg"
+                    className="w-full max-w-xs mx-auto bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105"
                 >
-                  Continue Manually
-                </button>
-              </div>
-          )}
-
-          {status === "error" && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                  <svg
-                      className="w-8 h-8 text-red-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </div>
-                <p className="text-red-600 font-medium">Operation failed</p>
-                <p className="text-gray-600 text-center">{message}</p>
-                <button
+                  {selectedCompany || status === "add-company-success" ? "Go to Dashboard" : "Select Company"}
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </motion.div>
+            </motion.div>
+        )
+      case "error":
+        return (
+            <motion.div
+                key="error"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="space-y-6 text-center"
+            >
+              <motion.div variants={iconVariants} initial="initial" animate="animate" className="flex justify-center">
+                <AlertTriangle className="w-24 h-24 text-red-500" strokeWidth={1.5} />
+              </motion.div>
+              <motion.h2 variants={itemVariants} className="text-3xl font-semibold text-gray-800">
+                Connection Problem
+              </motion.h2>
+              <motion.p variants={itemVariants} className="text-red-600 bg-red-50 p-3 rounded-md max-w-md mx-auto">
+                {message}
+              </motion.p>
+              <motion.div variants={itemVariants}>
+                <Button
                     onClick={() => router.push("/login")}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    size="lg"
+                    variant="outline"
+                    className="w-full max-w-xs mx-auto text-blue-600 border-blue-600 hover:bg-blue-50 text-base font-semibold py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 ease-out transform hover:scale-105"
                 >
                   Return to Login
-                </button>
-              </div>
-          )}
+                </Button>
+              </motion.div>
+            </motion.div>
+        )
+      default:
+        return null
+    }
+  }
 
-          {/* Always show debug in this version */}
-          <div className="mt-8 p-4 border border-gray-200 rounded">
-            <h2 className="text-lg font-medium text-gray-700 mb-2">Debug Information</h2>
-            <div className="text-sm overflow-auto max-h-64">
-              <p>
-                <strong>Status:</strong> {status}
-              </p>
-              <p>
-                <strong>Message:</strong> {message}
-              </p>
-              <p>
-                <strong>Current Redux Token:</strong>{" "}
-                {currentToken?.accessToken ? `${currentToken.accessToken.substring(0, 10)}...` : "Not set"}
-              </p>
-              <p>
-                <strong>Selected Company:</strong> {selectedCompany ? selectedCompany.name : "None"}
-              </p>
-              <p>
-                <strong>Ready to Redirect:</strong> {readyToRedirect ? "Yes" : "No"}
-              </p>
-
-              <div className="mt-4">
-                <h3 className="font-medium">API Response:</h3>
-                <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-36">
-                {apiResponse ? JSON.stringify(apiResponse, null, 2) : "No response yet"}
-              </pre>
-              </div>
-
-              <div className="mt-4">
-                <h3 className="font-medium">Debug State:</h3>
-                <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-36">
-                {JSON.stringify(debug, null, 2)}
-              </pre>
-              </div>
-            </div>
-          </div>
+  return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 selection:bg-blue-100">
+        {/* Subtle background pattern - optional, can be removed for ultra-clean */}
+        <div className="absolute inset-0 opacity-20">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="1" fill="rgba(0, 90, 255, 0.3)" />
+              </pattern>
+              <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                <rect width="100" height="100" fill="url(#smallGrid)"/>
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(0,90,255,0.07)" strokeWidth="1"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
         </div>
+
+        <motion.div
+            className="relative z-10 w-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+        >
+          <Card className="w-full max-w-xl mx-auto shadow-xl border-gray-200/80 bg-white/80 backdrop-blur-lg overflow-hidden">
+            <CardHeader className="border-b border-gray-100 p-6">
+              <motion.div
+                  className="flex items-center justify-between"
+                  initial={{ opacity:0, y: -10}}
+                  animate={{ opacity:1, y:0 }}
+                  transition={{delay: 0.2, duration: 0.4}}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow">
+                    <Building2 className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-semibold text-gray-800">QuickBooks Integration</CardTitle>
+                    <CardDescription className="text-sm text-gray-500">Secure Connection Process</CardDescription>
+                  </div>
+                </div>
+                {/* You can add a small logo here if you have one */}
+              </motion.div>
+            </CardHeader>
+            <CardContent className="p-6 md:p-10 min-h-[450px] flex flex-col justify-center">
+              <AnimatePresence mode="wait">
+                {renderContent()}
+              </AnimatePresence>
+            </CardContent>
+
+            { (status === "error" || Object.keys(debug).length > 0 || apiResponse) && (
+                <motion.div
+                    className="border-t border-gray-100 bg-slate-25"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: (status === "error" ? 0.5 : 1.5), duration: 0.5 }}
+                >
+                  <Collapsible open={showDetails} onOpenChange={setShowDetails} className="px-6 py-3">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                          variant="ghost"
+                          className="w-full text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 font-medium rounded-md"
+                      >
+                        <Info size={14} className="mr-2"/>
+                        <span>{showDetails ? "Hide" : "Show"} Technical Details</span>
+                        <ChevronDown size={16} className={`ml-2 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent asChild>
+                      <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs"
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-semibold text-gray-700 mb-1">Processing Status</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              <p><span className="text-gray-500">Current State:</span> <Badge variant={status === "error" ? "destructive" : "default"}>{status}</Badge></p>
+                              <p><span className="text-gray-500">Redirect Ready:</span> <span className={readyToRedirect ? "text-green-600 font-medium" : ""}>{readyToRedirect ? "Yes" : "No"}</span></p>
+                            </div>
+                          </div>
+                          {apiResponse && (
+                              <div>
+                                <h4 className="font-semibold text-gray-700 mb-1">Last API Response:</h4>
+                                <pre className="bg-white p-2 rounded border border-gray-200 overflow-auto max-h-32 font-mono text-gray-600">
+                          {JSON.stringify(apiResponse, null, 2)}
+                        </pre>
+                              </div>
+                          )}
+                          {Object.keys(debug).length > 0 && (
+                              <div>
+                                <h4 className="font-semibold text-gray-700 mb-1">Debug Log:</h4>
+                                <pre className="bg-white p-2 rounded border border-gray-200 overflow-auto max-h-32 font-mono text-gray-600">
+                          {JSON.stringify(debug, null, 2)}
+                        </pre>
+                              </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </motion.div>
+            )}
+          </Card>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            &copy; {new Date().getFullYear()} Your Company Name. All rights reserved.
+          </p>
+        </motion.div>
       </div>
   )
 }
 
-// Loading fallback component
 function LoadingFallback() {
   return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-center text-gray-800">QuickBooks Integration</h1>
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-16 h-16 border-4 border-t-blue-600 border-b-blue-600 border-l-transparent border-r-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600">Loading...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "circOut" }}
+            className="text-center"
+        >
+          <Card className="w-full max-w-md shadow-lg border-gray-200/80 bg-white/90 backdrop-blur-md p-8 rounded-xl">
+            <motion.div
+                className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-5 shadow-md"
+                animate={{ scale: [1, 1.1, 1], rotate:[0,15,-10,0] }}
+                transition={{ duration: 2.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+            >
+              <Building2 className="w-6 h-6 text-white" />
+            </motion.div>
+            <h1 className="text-xl font-semibold text-gray-800 mb-2">
+              QuickBooks Integration
+            </h1>
+            <p className="text-gray-500 mb-5">Initializing secure connection, please wait...</p>
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <motion.div
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600"
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "0%"}}
+                  transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease:"linear", repeatType: "loop"}}
+                  style={{ width: "100%"}}
+              />
+            </div>
+          </Card>
+        </motion.div>
       </div>
   )
 }
+
 
 export default function QuickbooksCallbackPage() {
   return (
+      // Suspense should ideally wrap a component that might suspend,
+      // CallbackHandler itself does data fetching that might warrant Suspense if it were structured differently
+      // For Next.js 13+ app router, useSearchParams() itself triggers Suspense boundary.
       <Suspense fallback={<LoadingFallback />}>
         <CallbackHandler />
       </Suspense>

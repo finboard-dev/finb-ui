@@ -48,6 +48,11 @@ const Home: FC = () => {
     return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
   });
 
+  const isSidebarOpen = useAppSelector((state) => {
+    const activeChat = state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
+    return activeChat?.chats[0]?.isSidebarOpen ?? true;
+  });
+
   const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
   const activeMessageId = activeChat?.chats[0]?.activeMessageId || null;
   const messages = activeChat?.chats[0]?.messages || [];
@@ -98,9 +103,7 @@ const Home: FC = () => {
   const handlePanelResize = (sizes: number[]) => {
     if (!activeChatId) return;
     const newWidthPercentage = sizes[1];
-    const viewportWidth = window.innerWidth;
-    const maxWidthPercentage = ((viewportWidth * 0.6) / viewportWidth) * 100;
-    const clampedWidth = Math.max(20, Math.min(maxWidthPercentage, newWidthPercentage));
+    const clampedWidth = Math.max(20, Math.min(60, newWidthPercentage));
     if (clampedWidth !== responsePanelWidth) {
       dispatch(setResponsePanelWidth(clampedWidth));
     }
@@ -123,30 +126,45 @@ const Home: FC = () => {
       <main className="flex h-screen overflow-hidden bg-white" style={{ minWidth: 0, minHeight: 0 }}>
         <ToolCallEventListener />
         <ChatSidebar />
-        <div className="flex flex-1 w-full h-full flex-row">
+        <div className="flex flex-1 w-full h-full flex-row" style={{ minWidth: 0 }}> {/* Added minWidth: 0 */}
           {mainContent === "chat" ? (
               activeChatId ? (
                   !showChat && pendingChat && pendingChat.id === activeChatId ? (
                       <NoChatBranding />
                   ) : (
-                      <PanelGroup direction="horizontal" onLayout={handlePanelResize} className="flex-1">
-                        <Panel className="overflow-hidden" defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}>
+                      <PanelGroup
+                          direction="horizontal"
+                          onLayout={handlePanelResize}
+                          className="flex-1"
+                          style={{ minWidth: 0 }} // Added this
+                      >
+                        <Panel
+                            className="overflow-hidden min-w-0" // Added min-w-0
+                            defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
+                        >
                           {isLoadingMessages ? <FinancialReportShimmer /> : <ChatContainer />}
                         </Panel>
                         {isPanelVisible && (
                             <>
-                              <PanelResizeHandle className="w-[0.5px] bg-gray-200 z-50 transition-colors group relative">
+                              <PanelResizeHandle className="w-[0.1px] bg-gray-200 z-50 transition-colors group relative">
                                 <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
                               </PanelResizeHandle>
                               <Panel
                                   ref={responsePanelRef}
                                   defaultSize={responsePanelWidth}
-                                  minSize={20}
-                                  maxSize={Math.min(60, ((window.innerWidth * 0.6) / window.innerWidth) * 100)}
-                                  className="bg-white border-l border-gray-200 overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
-                                  style={{ overflowX: "hidden" }}
+                                  minSize={35}
+                                  maxSize={60}
+                                  className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
+                                  style={{
+                                    overflowX: "hidden",
+                                    minWidth: 0,
+                                    maxWidth: '60%'
+                                  }}
                               >
-                                <ResponsePanel activeMessageId={activeMessageId as any} isOpen={isPanelVisible} />
+                                <ResponsePanel
+                                    activeMessageId={activeMessageId as any}
+                                    isOpen={isPanelVisible}
+                                />
                               </Panel>
                             </>
                         )}
