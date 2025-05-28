@@ -184,6 +184,81 @@ const ChatSidebarClient = () => {
     return `Untitled Chat ${chatIndex + 1}`;
   };
 
+  const getTimeGroup = (lastMessageAt?: string) => {
+    if (!lastMessageAt) return 'Recent';
+    
+    const now = new Date();
+    const messageDate = new Date(lastMessageAt);
+    const diffTime = now.getTime() - messageDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Today
+    if (diffDays === 0 && 
+        now.getDate() === messageDate.getDate() && 
+        now.getMonth() === messageDate.getMonth() && 
+        now.getFullYear() === messageDate.getFullYear()) {
+      return 'Recent';
+    }
+    
+    // Yesterday
+    if (diffDays === 1) {
+      return 'Yesterday';
+    }
+    
+    // This week (within last 7 days)
+    if (diffDays < 7) {
+      return 'This Week';
+    }
+    
+    // This month
+    if (now.getMonth() === messageDate.getMonth() && now.getFullYear() === messageDate.getFullYear()) {
+      return 'This Month';
+    }
+    
+    // Last month
+    const lastMonth = new Date(now);
+    lastMonth.setMonth(now.getMonth() - 1);
+    if (lastMonth.getMonth() === messageDate.getMonth() && lastMonth.getFullYear() === messageDate.getFullYear()) {
+      return 'Last Month';
+    }
+    
+    // Last year
+    if (now.getFullYear() === messageDate.getFullYear()) {
+      return 'This Year';
+    }
+    
+    return 'Last Year';
+  };
+  
+  // Group chats by time periods
+  const groupChatsByTime = () => {
+    const groups: Record<string, AllChats[]> = {
+      'Recent': [],
+      'Yesterday': [],
+      'This Week': [],
+      'This Month': [],
+      'Last Month': [],
+      'This Year': [],
+      'Last Year': []
+    };
+    
+    // Sort chats by lastMessageAt in descending order
+    const sortedChats = [...chats].sort((a, b) => {
+      const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return timeB - timeA;
+    });
+    
+    sortedChats.forEach(chat => {
+      const group = getTimeGroup(chat.lastMessageAt);
+      groups[group].push(chat);
+    });
+    
+    return groups;
+  };
+  
+  const chatGroups = groupChatsByTime();
+  
   return (
       <div
           onClick={handleSidebarClick}
@@ -215,7 +290,7 @@ const ChatSidebarClient = () => {
               </Button>
           )}
         </div>
-
+  
         <div className="border-b border-gray-200">
           {isSidebarOpen ? (
               <div className="p-3">
@@ -225,7 +300,7 @@ const ChatSidebarClient = () => {
               <CollapsedOrganizationDropdown />
           )}
         </div>
-
+  
         <div className="p-4 border-b border-gray-200">
           {isSidebarOpen ? (
               <Button
@@ -247,7 +322,7 @@ const ChatSidebarClient = () => {
               </Button>
           )}
         </div>
-
+  
         <div
             ref={chatListRef}
             id="chat-history-container"
@@ -259,34 +334,42 @@ const ChatSidebarClient = () => {
               </div>
           ) : (
               <>
-
-          {isSidebarOpen && chats.length > 0 && (
-              <div className="pl-5 mb-2">
-                <h3 className="text-xs font-medium text-[#949599] uppercase tracking-wider">Recent Conversations</h3>
-              </div>
-          )}
-
-          <div className={`${isSidebarOpen ? "px-3" : "hidden"} space-y-1 pt-3`}>
-            {chats.map((chat, index) => (
-                <div
-                    key={chat.id}
-                    onClick={() => handleSelectChat(chat.id)}
-                    id={`chat-${chat.id}`}
-                    className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                        chat.id === activeChatId ? "bg-[#EDEDED]" : "hover:bg-[#EDEDED]"
-                    }`}
-                >
-                  <div className="flex items-center space-x-2 truncate flex-1">
-                    {!isSidebarOpen && <MessageSquare className="h-4 w-4 text-gray-500" />}
-                    {isSidebarOpen && <span className="truncate font-serif font-normal text-primary text-sm">{getChatName(index, chat)}</span>}
-                  </div>
+                {isSidebarOpen && !isSidebarOpen && chats.length > 0 && (
+                    <div className="pl-5 mb-2">
+                      <h3 className="text-xs font-medium text-[#949599] uppercase tracking-wider">Recent Conversations</h3>
+                    </div>
+                )}
+  
+                <div className={`${isSidebarOpen ? "px-3" : "hidden"} space-y-3`}>
+                  {Object.entries(chatGroups).map(([group, groupChats]) => 
+                    groupChats.length > 0 && (
+                      <div key={group} className="space-y-1">
+                        <div className="pl-2 mb-1">
+                          <h3 className="text-xs font-medium text-[#949599] uppercase tracking-wider">{group}</h3>
+                        </div>
+                        {groupChats.map((chat, index) => (
+                          <div
+                            key={chat.id}
+                            onClick={() => handleSelectChat(chat.id)}
+                            id={`chat-${chat.id}`}
+                            className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
+                              chat.id === activeChatId ? "bg-[#EDEDED]" : "hover:bg-[#EDEDED]"
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2 truncate flex-1">
+                              {!isSidebarOpen && <MessageSquare className="h-4 w-4 text-gray-500" />}
+                              {isSidebarOpen && <span className="truncate font-serif font-normal text-primary text-sm">{getChatName(index, chat)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+  
+                  {chats.length === 0 && isSidebarOpen && (
+                    <div className="px-2 py-4 text-center text-sm text-gray-500">No conversations yet. Start a new chat!</div>
+                  )}
                 </div>
-            ))}
-
-            {chats.length === 0 && isSidebarOpen && (
-                <div className="px-2 py-4 text-center text-sm text-gray-500">No conversations yet. Start a new chat!</div>
-            )}
-          </div>
               </>
           )
           }

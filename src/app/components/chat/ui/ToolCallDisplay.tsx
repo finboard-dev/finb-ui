@@ -1,55 +1,77 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice";
-import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
-import { Loader2, Code, BarChart2, Table, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useState } from "react"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { setResponsePanelWidth, setActiveMessageId } from "@/lib/store/slices/chatSlice"
+import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
+import {
+    Loader2,
+    Code,
+    BarChart2,
+    Table,
+    ChevronDown,
+    AlertCircle,
+    CheckCircle2,
+    Sparkles,
+    Zap,
+    Eye,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface ToolCallProps {
-    toolCall: {
-        name?: string;
-        args?: any;
-        id?: string;
-        position?: number;
-    } | undefined;
-    isLoading?: boolean;
-    messageId: string;
-    inline?: boolean;
+    toolCall:
+        | {
+        name?: string
+        args?: any
+        id?: string
+        position?: number
+    }
+        | undefined
+    isLoading?: boolean
+    messageId: string
+    inline?: boolean
 }
 
 const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = false }: ToolCallProps) => {
-    const dispatch = useAppDispatch();
-    const { toolCallResponses } = useAppSelector((state) => state.responsePanel);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const response = toolCallResponses.find((resp) => resp?.tool_call_id === toolCall?.id);
-    const isToolCompleted = !!response;
-    const isProcessing = isLoading && !isToolCompleted;
+    const dispatch = useAppDispatch()
+    const { toolCallResponses } = useAppSelector((state) => state.responsePanel)
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [isHovered, setIsHovered] = useState(false)
+
+    const response = toolCallResponses.find((resp) => resp?.tool_call_id === toolCall?.id)
+    const isToolCompleted = !!response
+    const isProcessing = isLoading && !isToolCompleted
+    const hasError = response?.type === "error"
 
     if (!toolCall || !toolCall.id) {
         return (
-            <div className={cn("my-2 transition-all duration-200", inline ? "mx-2" : "mx-0")}>
-                <div className="rounded-lg border border-red-200 bg-red-50 shadow-sm p-3">
-                    <div className="flex items-center gap-2 text-red-600">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>Tool call reference not found</span>
+            <div className={cn("my-3 transition-all duration-300", inline ? "mx-2" : "mx-0")}>
+                <div className="group relative overflow-hidden rounded-xl border border-red-200/50 bg-gradient-to-br from-red-50 to-red-100/50 shadow-lg backdrop-blur-sm">
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-pink-500/5" />
+                    <div className="relative flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 ring-2 ring-red-200/50">
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-red-800">Tool Reference Missing</p>
+                            <p className="text-sm text-red-600/80">Unable to locate tool call information</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        );
+        )
     }
 
     const handleOpenPanel = (toolCallId: string) => {
-        dispatch(setActiveToolCallId(toolCallId));
-        dispatch(setResponsePanelWidth(500));
-        dispatch(setActiveMessageId(messageId));
+        dispatch(setActiveToolCallId(toolCallId))
+        dispatch(setResponsePanelWidth(500))
+        dispatch(setActiveMessageId(messageId))
         const event = new CustomEvent("toolCallSelected", {
             detail: { toolCallId, messageId },
-        });
-        window.dispatchEvent(event);
-    };
+        })
+        window.dispatchEvent(event)
+    }
 
     const handleViewResults = () => {
         if (toolCall?.id != null) {
@@ -60,119 +82,280 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
 
     const getToolIcon = (toolName: string | undefined) => {
         if (!toolName) {
-            return <Code className="w-4 h-4" />;
+            return <Code className="h-5 w-5" />
         }
 
-        const toolType = toolName.toLowerCase();
+        const toolType = toolName.toLowerCase()
         if (toolType.includes("graph") || toolType.includes("chart") || toolType.includes("visualizationV1")) {
-            return <BarChart2 className="w-4 h-4" />;
+            return <BarChart2 className="h-5 w-5" />
         } else if (toolType.includes("table") || toolType.includes("sheet") || toolType.includes("data")) {
-            return <Table className="w-4 h-4" />;
+            return <Table className="h-5 w-5" />
         } else {
-            return <Code className="w-4 h-4" />;
+            return <Code className="h-5 w-5" />
         }
-    };
+    }
 
     const formatToolName = (name: string | undefined) => {
-        if (!name) return "Tool Call";
+        if (!name) return "Tool Call"
 
-        const simpleName = name.split("/").pop() || name;
+        const simpleName = name.split("/").pop() || name
         return simpleName
             .replace(/_/g, " ")
             .replace(/([A-Z])/g, " $1")
-            .replace(/^\$w/, (c) => c.toUpperCase());
-    };
+            .replace(/^\w/, (c) => c.toUpperCase())
+            .trim()
+    }
+
+    const getStatusConfig = () => {
+        if (isProcessing) {
+            return {
+                gradient: "from-blue-50 via-indigo-50 to-purple-50",
+                border: "border-blue-200/60",
+                ring: "ring-blue-500/20",
+                iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600",
+                iconColor: "text-white",
+                statusIcon: <Loader2 className="h-4 w-4 animate-spin" />,
+                statusText: "Processing",
+                statusColor: "text-blue-700",
+                accent: "bg-gradient-to-r from-blue-500/10 to-indigo-500/10",
+            }
+        }
+
+        if (hasError) {
+            return {
+                gradient: "from-red-50 via-rose-50 to-pink-50",
+                border: "border-red-200/60",
+                ring: "ring-red-500/20",
+                iconBg: "bg-gradient-to-br from-red-500 to-rose-600",
+                iconColor: "text-white",
+                statusIcon: <AlertCircle className="h-4 w-4" />,
+                statusText: "Error",
+                statusColor: "text-red-700",
+                accent: "bg-gradient-to-r from-red-500/10 to-rose-500/10",
+            }
+        }
+
+        if (isToolCompleted) {
+            return {
+                gradient: "from-emerald-50 via-green-50 to-teal-50",
+                border: "border-emerald-200/60",
+                ring: "ring-emerald-500/20",
+                iconBg: "bg-gradient-to-br from-emerald-500 to-teal-600",
+                iconColor: "text-white",
+                statusIcon: <CheckCircle2 className="h-4 w-4" />,
+                statusText: "Completed",
+                statusColor: "text-emerald-700",
+                accent: "bg-gradient-to-r from-emerald-500/10 to-teal-500/10",
+            }
+        }
+
+        return {
+            gradient: "from-slate-50 via-gray-50 to-zinc-50",
+            border: "border-gray-200/60",
+            ring: "ring-gray-500/20",
+            iconBg: "bg-gradient-to-br from-gray-500 to-slate-600",
+            iconColor: "text-white",
+            statusIcon: null,
+            statusText: "Pending",
+            statusColor: "text-gray-700",
+            accent: "bg-gradient-to-r from-gray-500/10 to-slate-500/10",
+        }
+    }
+
+    const statusConfig = getStatusConfig()
 
     const renderArgs = () => {
         if (!toolCall?.args || Object.keys(toolCall.args).length === 0) {
-            return <span className="text-gray-500">No arguments provided</span>;
+            return (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                    <div className="text-center">
+                        <Code className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm">No arguments provided</p>
+                    </div>
+                </div>
+            )
         }
 
         try {
             return (
-                <div className="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-96">
-                    <pre className="whitespace-pre-wrap">{JSON.stringify(toolCall.args, null, 2)}</pre>
+                <div className="relative overflow-hidden rounded-lg border border-gray-200/50 bg-gradient-to-br from-gray-50 to-slate-50">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                    <pre className="p-4 text-sm overflow-auto max-h-96 text-gray-800 leading-relaxed">
+            {JSON.stringify(toolCall.args, null, 2)}
+          </pre>
                 </div>
-            );
+            )
         } catch (error) {
-            return <span className="text-gray-500">Unable to parse arguments</span>;
+            return (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                    <div className="text-center">
+                        <AlertCircle className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm">Unable to parse arguments</p>
+                    </div>
+                </div>
+            )
         }
-    };
+    }
 
     const renderError = () => {
-        if (response?.type === "error") {
+        if (hasError) {
+            let errorMessage = "An unexpected error occurred while processing this tool call."
+            
+            if (response && response.data) {
+                if (typeof response.data === 'string') {
+                    errorMessage = response.data
+                } else if (typeof response.data === 'object') {
+                    // Handle the case where data might be an object with error information
+                    if (response.data.error) {
+                        errorMessage = response.data.error
+                    } else {
+                        try {
+                            errorMessage = JSON.stringify(response.data)
+                        } catch (e) {
+                            // Keep default message if JSON stringification fails
+                        }
+                    }
+                }
+            }
+            
             return (
-                <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-md">
-                    <AlertCircle className="w-5 h-5" />
-                    <span>{response.data || "An error occurred while processing this tool call."}</span>
+                <div className="relative overflow-hidden rounded-lg border border-red-200/50 bg-gradient-to-br from-red-50 to-rose-50">
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-rose-500/5" />
+                    <div className="relative flex items-start gap-3 p-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 ring-2 ring-red-200/50 mt-0.5">
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h5 className="font-medium text-red-800 mb-1">Execution Error</h5>
+                            <p className="text-sm text-red-700 leading-relaxed">
+                                {errorMessage}
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            );
+            )
         }
-        return null;
-    };
-
-    const getBorderColor = () => {
-        if (isProcessing) return "border-blue-200";
-        if (response?.type === "error") return "border-red-200";
-        if (isToolCompleted) return "border-green-200";
-        return "border-gray-200";
-    };
-
-    const getHeaderBgColor = () => {
-        if (isProcessing) return "bg-blue-50";
-        if (response?.type === "error") return "bg-red-50";
-        if (isToolCompleted) return "bg-green-50";
-        return "bg-gray-50";
-    };
+        return null
+    }
 
     return (
-        <div className={cn("my-2 transition-all duration-200", inline ? "mx-2" : "mx-0")}>
-            <div className={`rounded-lg border ${getBorderColor()} bg-white shadow-sm hover:shadow-md transition-shadow`}>
+        <div className={cn("my-4 transition-all duration-300", inline ? "mx-2" : "mx-0")}>
+            <div
+                className={cn(
+                    "group relative overflow-hidden rounded-xl border shadow-lg backdrop-blur-sm transition-all duration-300",
+                    statusConfig.border,
+                    `bg-gradient-to-br ${statusConfig.gradient}`,
+                    isHovered && "shadow-xl scale-[1.02] ring-4",
+                    isHovered && statusConfig.ring,
+                )}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* Animated background accent */}
                 <div
-                    className={`flex items-center justify-between p-3 cursor-pointer ${getHeaderBgColor()} rounded-t-lg hover:bg-opacity-80 transition-colors`}
+                    className={cn(
+                        "absolute inset-0 opacity-50 transition-opacity duration-300",
+                        statusConfig.accent,
+                        isHovered && "opacity-70",
+                    )}
+                />
+
+                {/* Shimmer effect for processing state */}
+                {isProcessing && (
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                )}
+
+                {/* Header */}
+                <div
+                    className="relative flex items-center justify-between p-4 cursor-pointer transition-all duration-200 hover:bg-white/30"
                     onClick={() => setIsExpanded(!isExpanded)}
                 >
-                    <div className="flex items-center gap-2">
-                        {getToolIcon(toolCall?.name)}
-                        <span className="font-medium text-gray-800">{formatToolName(toolCall?.name)}</span>
-                        {isProcessing && <span className="text-xs text-blue-600 font-medium">Processing...</span>}
-                        {isToolCompleted && response?.type !== "error" && <span className="text-xs text-green-600 font-medium">Completed</span>}
-                        {response?.type === "error" && <span className="text-xs text-red-600 font-medium">Error</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {isProcessing && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
-                        {isExpanded ? (
-                            <ChevronUp className="w-5 h-5 text-gray-500" />
-                        ) : (
-                            <ChevronDown className="w-5 h-5 text-gray-500" />
-                        )}
-                    </div>
-                </div>
-
-                {isExpanded && (
-                    <div className="p-4 space-y-4 border-t border-gray-200">
-                        <div>
-                            <h4 className="font-semibold text-gray-700 mb-2">Arguments</h4>
-                            {renderArgs()}
+                    <div className="flex items-center gap-4">
+                        {/* Tool Icon */}
+                        <div
+                            className={cn(
+                                "flex h-12 w-12 items-center justify-center rounded-xl shadow-lg transition-all duration-300",
+                                statusConfig.iconBg,
+                                statusConfig.iconColor,
+                                isHovered && "scale-110 shadow-xl",
+                            )}
+                        >
+                            {getToolIcon(toolCall?.name)}
                         </div>
 
-                        {renderError()}
+                        {/* Tool Info */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-gray-900 truncate">{formatToolName(toolCall?.name)}</h3>
+                                {isProcessing && <Sparkles className="h-4 w-4 text-blue-500 animate-pulse" />}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {statusConfig.statusIcon}
+                                <span className={cn("text-sm font-medium", statusConfig.statusColor)}>{statusConfig.statusText}</span>
+                                {isToolCompleted && !hasError && (
+                                    <div className="flex items-center gap-1 text-xs text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                        <Zap className="h-3 w-3" />
+                                        Ready
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-                        {isToolCompleted && response?.type !== "error" && toolCall?.id && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleViewResults}
-                                className="w-full h-9 text-sm"
-                            >
-                                View Results
-                            </Button>
-                        )}
+                    {/* Expand Button */}
+                    {/*<div className="flex items-center gap-2">*/}
+                    {/*    <div*/}
+                    {/*        className={cn(*/}
+                    {/*            "flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200",*/}
+                    {/*            "bg-white/50 hover:bg-white/80 shadow-sm",*/}
+                    {/*            isExpanded && "rotate-180",*/}
+                    {/*        )}*/}
+                    {/*    >*/}
+                    {/*        <ChevronDown className="h-4 w-4 text-gray-600" />*/}
+                    {/*    </div>*/}
+                    {/*</div>*/}
+                </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                    <div className="relative border-t border-white/50 bg-white/20 backdrop-blur-sm">
+                        <div className="p-6 space-y-6">
+                            {/* Arguments Section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100">
+                                        <Code className="h-3 w-3 text-gray-600" />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-800">Arguments</h4>
+                                </div>
+                                {renderArgs()}
+                            </div>
+
+                            {/* Error Display */}
+                            {renderError()}
+
+                            {/* Action Button */}
+                            {isToolCompleted && !hasError && toolCall?.id && (
+                                <Button
+                                    onClick={handleViewResults}
+                                    className={cn(
+                                        "w-full h-12 text-sm font-medium transition-all duration-200",
+                                        "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700",
+                                        "text-white shadow-lg hover:shadow-xl hover:scale-[1.02]",
+                                        "border-0 rounded-lg",
+                                    )}
+                                >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Results
+                                    <Sparkles className="h-4 w-4 ml-2" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
         </div>
-    );
-};
+    )
+}
 
-export default ToolCallDisplay;
+export default ToolCallDisplay

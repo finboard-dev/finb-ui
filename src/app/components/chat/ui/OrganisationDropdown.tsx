@@ -98,15 +98,10 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     dispatch(clearAllChats());
 
     try {
-      // First set the selected company in the UI
       dispatch(setSelectedCompany(company));
-
-      // Make the API call
       const response = await fetcher.post("/companies/current", {
         company_id: company?.id,
       });
-
-      // Only set the current company from the response
       dispatch(setCurrentCompany(response));
 
       document.cookie = "has_selected_company=true; path=/";

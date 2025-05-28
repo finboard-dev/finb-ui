@@ -158,6 +158,7 @@ export const chatSlice = createSlice({
           name: conv.name,
           thread_id: conv.threadId,
           assistantId: conv.assistantId,
+          lastMessageAt: conv.lastMessageAt,
           chats: [
             {
               ...(existingChat?.chats[0] || initialChatState),
@@ -195,6 +196,7 @@ export const chatSlice = createSlice({
         name: "New Chat",
         thread_id: uuidv4(),
         assistantId: action.payload.assistantId,
+        lastMessageAt: new Date().toISOString(),
         chats: [
           {
             ...initialChatState,
@@ -262,9 +264,12 @@ export const chatSlice = createSlice({
     },
     addMessage(state, action: PayloadAction<{ chatId: string; message: MessageType }>) {
       const { chatId, message } = action.payload;
+      const now = new Date().toISOString();
+      
       if (state.pendingChat && state.pendingChat.id === chatId) {
         if (state.pendingChat.chats[0]) {
           state.pendingChat.chats[0].messages.push(message);
+          state.pendingChat.lastMessageAt = now;
           if (message.role === "user") {
             state.chats.unshift(state.pendingChat);
             state.activeChatId = state.pendingChat.id;
@@ -276,6 +281,7 @@ export const chatSlice = createSlice({
       const chat = state.chats.find((c) => c.id === chatId);
       if (chat && chat.chats[0]) {
         chat.chats[0].messages.push(message);
+        chat.lastMessageAt = now;
       }
     },
     updateMessage(state, action: PayloadAction<{ chatId: string; message: MessageType }>) {
