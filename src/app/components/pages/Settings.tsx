@@ -254,14 +254,13 @@ const Settings = () => {
                                         <TableCell className="px-4 py-3">{source.id.substring(0, 8)}...</TableCell>
                                         <TableCell className="px-4 py-3">
                                             {source.status === "CONNECTED" && (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
+                                                <button
+                                                    className="text-red-600 cursor-pointer hover:text-red-800 underline-offset-1"
                                                     onClick={() => handleDisconnect(source.id)}
                                                     disabled={isConnecting}
                                                 >
                                                     Disconnect
-                                                </Button>
+                                                </button>
                                             )}
                                             {(source.status === "DISCONNECTED" || source.status === "EXPIRED") && (
                                                 <button onClick={() => handleConnect(source.id)} disabled={isConnecting}>

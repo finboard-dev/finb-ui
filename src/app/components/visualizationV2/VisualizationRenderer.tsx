@@ -5,59 +5,96 @@ import type { EChartsOption } from 'echarts';
 
 interface EChartsRendererProps {
     config: EChartsOption;
+    style?: React.CSSProperties;
 }
 
-const EChartsRenderer: React.FC<EChartsRendererProps> = ({ config }) => {
+const EChartsRenderer: React.FC<EChartsRendererProps> = ({ config, style }) => {
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstance = useRef<echarts.EChartsType | null>(null);
 
     useEffect(() => {
+        // Clean up previous instance
+        if (chartInstance.current) {
+            chartInstance.current.dispose();
+        }
+
         if (!chartRef.current) return;
 
-        // Initialize with SVG renderer
+        // Initialize chart
         chartInstance.current = echarts.init(chartRef.current, undefined, {
             renderer: 'svg',
             useDirtyRect: false
         });
 
+        // Handle window resize
+        const handleResize = () => {
+            if (chartInstance.current) {
+                chartInstance.current.resize();
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        // Set up ResizeObserver for container size changes
         const resizeObserver = new ResizeObserver(() => {
-            chartInstance.current?.resize();
+            if (chartInstance.current) {
+                chartInstance.current.resize();
+            }
         });
 
         resizeObserver.observe(chartRef.current);
 
-        return () => {
-            resizeObserver.disconnect();
-            chartInstance.current?.dispose();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!chartInstance.current) return;
-
-        // Set responsive options
-        const responsiveOptions: EChartsOption = {
-            ...config,
+        // Set options with defaults for responsive layout
+        const defaultConfig: EChartsOption = {
             grid: {
-                ...config.grid,
                 containLabel: true,
                 left: '3%',
                 right: '4%',
                 bottom: '3%',
                 top: '3%'
-            }
+            },
+            ...config
         };
 
-        chartInstance.current.setOption(responsiveOptions);
+        try {
+            chartInstance.current.setOption(defaultConfig);
+        } catch (error) {
+            console.error('Error setting chart options:', error);
+        }
+
+        // Cleanup
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            resizeObserver.disconnect();
+            if (chartInstance.current) {
+                chartInstance.current.dispose();
+            }
+        };
     }, [config]);
+
+    useEffect(() => {
+        // Handle immediate resize after mounting
+        const timer = setTimeout(() => {
+            if (chartInstance.current) {
+                chartInstance.current.resize();
+            }
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <div
             ref={chartRef}
-            className="w-full h-full min-h-[400px]"
-            style={{ height: '100%', width: '100%' }}
+            style={{
+                width: '100%',
+                height: '100%',
+                minHeight: '400px',
+                ...style
+            }}
+            className="echarts-visualization"
         />
     );
 };
 
-export default EChartsRenderer;
+export default React.memo(EChartsRenderer);

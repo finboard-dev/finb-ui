@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
-export type ToolCallResponseType = 'table' | 'graph' | 'code' | 'error' | 'text';
+export type ToolCallResponseType = 'table' | 'graph' | 'code' | 'error' | 'text' | 'python';
 
 export interface ToolCallResponse {
   id: string;

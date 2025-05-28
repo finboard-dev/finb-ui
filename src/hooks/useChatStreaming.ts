@@ -179,9 +179,6 @@ export const useChatStream = () => {
                       } else if (sidePanelData.type === "graph") {
                         dataType = "graph"
                         dataContent = sidePanelData
-                        // if (typeof dataContent === "object" && dataContent !== null && !dataContent.$schema) {
-                        //   dataContent.$schema = "https://vega.github.io/schema/vega-lite/v5.json"
-                        // }
                       }
 
                       const toolCallId =

@@ -31,6 +31,11 @@ interface OrganizationDropdownProps {
   onCompanyChange?: () => void; // Optional callback for when company changes
 }
 
+enum CompanyStatus {
+    ACTIVE = "ACTIVE",
+    INACTIVE = "INACTIVE",
+}
+
 export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCompanyChange }) => {
   const [error, setError] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -77,7 +82,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     try {
       const redirectUrl = await initAddQuickBookAccount();
       if (redirectUrl) {
-        window.open(redirectUrl, "_blank");
+        window.open(redirectUrl, "_self");
       } else {
         console.error("No redirect URL provided");
       }
@@ -98,15 +103,10 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
     dispatch(clearAllChats());
 
     try {
-      // First set the selected company in the UI
       dispatch(setSelectedCompany(company));
-
-      // Make the API call
       const response = await fetcher.post("/companies/current", {
         company_id: company?.id,
       });
-
-      // Only set the current company from the response
       dispatch(setCurrentCompany(response));
 
       document.cookie = "has_selected_company=true; path=/";
@@ -159,7 +159,8 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
             <span className="text-xs font-semibold">
               {selectedCompany?.name.substring(0, 2).toUpperCase() || "SC"}
             </span>
-              <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white"></div>
+              <div className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white
+              ${selectedCompany?.status === CompanyStatus.ACTIVE ? "bg-green-500" : "bg-red-500"}`}></div>
             </div>
             <div className="flex flex-col">
             <span className="text-sm font-medium text-gray-900 line-clamp-1">
@@ -191,32 +192,40 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({ onCo
                           org.companies.map((company) => (
                               <div
                                   key={company.id}
-                                  className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
+                                  className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
                                       company.id === selectedCompany?.id
                                           ? "bg-primary/10 text-primary"
                                           : "text-gray-700 hover:bg-gray-50"
-                                  } ${isLoading && company.id === selectedCompany?.id ? "opacity-50 cursor-not-allowed" : ""}`}
+                                  } ${isLoading && company.id === selectedCompany?.id ? "opacity-50 cursor-not-allowed" : ""}
+                                  ${company.status !== CompanyStatus.ACTIVE ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
                                   onClick={() => {
-                                    if (!isLoading) {
+                                    if (!isLoading && company.status === CompanyStatus.ACTIVE) {
                                       handleOrganizationSelect(org);
                                       handleCompanySelect(company);
                                     }
                                   }}
                                   id={`click-company-${company.id}`}
+                                  title={company.status !== CompanyStatus.ACTIVE ? `This company is ${company.status}` : ""}
                               >
                                 <div
-                                    className={`flex h-6 w-6 items-center justify-center rounded-md 
-                        ${
+                                    className={`relative flex h-6 w-6 items-center justify-center rounded-md 
+                                                      ${
                                         company.id === selectedCompany?.id
                                             ? "bg-primary/20 text-primary"
                                             : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
                                     }`}
                                 >
-                        <span className="text-xs font-medium">
-                          {company.name.substring(0, 2).toUpperCase()}
-                        </span>
+                                                      <span className="text-xs font-medium">
+                                                        {company.name.substring(0, 2).toUpperCase()}
+                                                      </span>
+                                <div className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white 
+                                ${company.status === CompanyStatus.ACTIVE ? "bg-green-500" : "bg-red-500"}`}></div>
                                 </div>
-                                <span className="flex-grow text-sm">{company.name}</span>
+                                <div className="flex flex-grow items-center">
+                                  <span className="text-sm">{company.name}</span>
+                                  {/*<div className={`ml-2 h-2 w-2 rounded-full */}
+                                  {/*${company.status === CompanyStatus.ACTIVE ? "bg-green-500" : "bg-red-500"}`}></div>*/}
+                                </div>
                                 {company.id === selectedCompany?.id && (
                                     isLoading ? (
                                         <Loader2 className="h-4 w-4 text-primary animate-spin" />
@@ -283,10 +292,12 @@ export const CollapsedOrganizationDropdown: React.FC = () => {
           {isLoading ? (
               <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
           ) : selectedCompany ? (
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/80 text-white">
-            <span className="text-xs text-white font-semibold">
-              {selectedCompany.name.substring(0, 1).toUpperCase()}
-            </span>
+              <div className="relative flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/80 text-white">
+                <span className="text-xs text-white font-semibold">
+                  {selectedCompany.name.substring(0, 1).toUpperCase()}
+                </span>
+                <div className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white
+                ${selectedCompany.status === CompanyStatus.ACTIVE ? "bg-green-500" : "bg-red-500"}`}></div>
               </div>
           ) : (
               <Building className="h-4 w-4 text-gray-500" />
