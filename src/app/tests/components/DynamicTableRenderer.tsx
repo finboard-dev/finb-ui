@@ -406,10 +406,10 @@ export default function DynamicTable({
   }
 
   return (
-      <div className="w-full rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="w-full rounded-lg border border-gray-300 shadow-sm overflow-hidden">
         {/* Table Title Section */}
         {(title || description) && (
-            <div className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="bg-white border-b border-gray-300 px-6 py-4">
               <div className="flex items-center justify-between">
                 {title && <h2 className="text-xl font-semibold text-gray-800">{title}</h2>}
 
@@ -434,111 +434,109 @@ export default function DynamicTable({
         )}
 
         <div className="w-full">
-          {/* Table container with fixed header and scrollable body */}
-          <div>
-            {/* Header section - fixed */}
-            <div className="bg-gray-50 sticky top-0 z-10">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {/* Add an extra column for row group indicators if we have row groups */}
-                      {rowGroups.length > 0 && enableCollapsing && (
-                          <th className="w-10 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <span className="sr-only">Group</span>
-                          </th>
-                      )}
+          {/* Table container with scrollable body */}
+          <div className="overflow-y-auto" style={{ maxHeight }}>
+            <table className="min-w-full">
+              {/* Header section - sticky */}
+              <thead className="bg-gray-50 sticky top-0 z-10">
+              {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-gray-300">
+                    {/* Add an extra column for row group indicators if we have row groups */}
+                    {rowGroups.length > 0 && enableCollapsing && (
+                        <th className="w-10 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300 bg-gray-50">
+                          <span className="sr-only">Group</span>
+                        </th>
+                    )}
 
-                      {headerGroup.headers.map((header) => (
-                          <th
-                              key={header.id}
-                              onClick={header.column.getToggleSortingHandler()}
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                          >
-                            <div className="flex items-center">
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              <span className="ml-1">
+                    {headerGroup.headers.map((header, index) => (
+                        <th
+                            key={header.id}
+                            onClick={header.column.getToggleSortingHandler()}
+                            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer bg-gray-50 ${
+                                index < headerGroup.headers.length - 1 ? 'border-r border-gray-300' : ''
+                            }`}
+                        >
+                          <div className="flex items-center">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            <span className="ml-1">
                             {{
                               asc: <ChevronUp className="w-4 h-4" />,
                               desc: <ChevronDown className="w-4 h-4" />,
                             }[header.column.getIsSorted() as string] || ""}
                           </span>
-                            </div>
-                          </th>
-                      ))}
-                    </tr>
-                ))}
-                </thead>
-              </table>
-            </div>
+                          </div>
+                        </th>
+                    ))}
+                  </tr>
+              ))}
+              </thead>
 
-            {/* Body section - scrollable */}
-            <div className="overflow-y-auto" style={{ maxHeight }}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRows.map((row, rowIndex) => {
-                  const actualRowIndex = visibleRows[rowIndex]
+              {/* Body section */}
+              <tbody className="bg-white">
+              {filteredRows.map((row, rowIndex) => {
+                const actualRowIndex = visibleRows[rowIndex]
 
-                  // Find if this row is the first row of any group
-                  const rowGroup = rowGroups.find((g) => g.rows[0] === actualRowIndex)
-                  const isGroupStart = !!rowGroup
+                // Find if this row is the first row of any group
+                const rowGroup = rowGroups.find((g) => g.rows[0] === actualRowIndex)
+                const isGroupStart = !!rowGroup
 
-                  // Get indentation level
-                  const indentLevel = getRowIndentation(actualRowIndex)
-                  const isTotal = String(row.getValue("Account") || "")
-                      .toLowerCase()
-                      .includes("total")
+                // Get indentation level
+                const indentLevel = getRowIndentation(actualRowIndex)
+                const isTotal = String(row.getValue("Account") || "")
+                    .toLowerCase()
+                    .includes("total")
 
-                  return (
-                      <tr
-                          key={row.id}
-                          className={`hover:bg-gray-50 ${isTotal ? "font-semibold" : ""} ${
-                              isGroupStart && rowGroup?.level === 0 ? "border-t-2 border-gray-300" : ""
-                          }`}
-                      >
-                        {/* Row group toggle button */}
-                        {rowGroups.length > 0 && enableCollapsing && (
-                            <td className="w-10 px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {isGroupStart && (
-                                  <button
-                                      onClick={() => toggleRowGroup(rowGroup.id)}
-                                      className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                                      title={rowGroup.isCollapsed ? "Expand group" : "Collapse group"}
-                                  >
-                                    {rowGroup.isCollapsed ? (
-                                        <ChevronRight className="w-4 h-4 text-gray-600" />
-                                    ) : (
-                                        <ChevronDown className="w-4 h-4 text-gray-600" />
-                                    )}
-                                  </button>
-                              )}
+                return (
+                    <tr
+                        key={row.id}
+                        className={`hover:bg-gray-50 border-b border-gray-200 ${isTotal ? "font-semibold" : ""} ${
+                            isGroupStart && rowGroup?.level === 0 ? "border-t-2 border-gray-400" : ""
+                        }`}
+                    >
+                      {/* Row group toggle button */}
+                      {rowGroups.length > 0 && enableCollapsing && (
+                          <td className="w-10 px-2 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-300">
+                            {isGroupStart && (
+                                <button
+                                    onClick={() => toggleRowGroup(rowGroup.id)}
+                                    className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                                    title={rowGroup.isCollapsed ? "Expand group" : "Collapse group"}
+                                >
+                                  {rowGroup.isCollapsed ? (
+                                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                                  ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-600" />
+                                  )}
+                                </button>
+                            )}
+                          </td>
+                      )}
+
+                      {row.getVisibleCells().map((cell, cellIndex) => {
+                        // Apply indentation to the first column only
+                        const isFirstColumn = cellIndex === 0
+                        const indentStyle =
+                            isFirstColumn && indentLevel > 0 ? { paddingLeft: `${indentLevel * 20 + 24}px` } : {}
+
+                        return (
+                            <td
+                                key={cell.id}
+                                className={`px-6 py-4 whitespace-nowrap text-sm ${
+                                    isTotal ? "text-gray-900" : "text-gray-500"
+                                } ${
+                                    cellIndex < row.getVisibleCells().length - 1 ? 'border-r border-gray-300' : ''
+                                }`}
+                                style={indentStyle}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             </td>
-                        )}
-
-                        {row.getVisibleCells().map((cell, cellIndex) => {
-                          // Apply indentation to the first column only
-                          const isFirstColumn = cellIndex === 0
-                          const indentStyle =
-                              isFirstColumn && indentLevel > 0 ? { paddingLeft: `${indentLevel * 20 + 24}px` } : {}
-
-                          return (
-                              <td
-                                  key={cell.id}
-                                  className={`px-6 py-4 whitespace-nowrap text-sm ${
-                                      isTotal ? "text-gray-900" : "text-gray-500"
-                                  }`}
-                                  style={indentStyle}
-                              >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </td>
-                          )
-                        })}
-                      </tr>
-                  )
-                })}
-                </tbody>
-              </table>
-            </div>
+                        )
+                      })}
+                    </tr>
+                )
+              })}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

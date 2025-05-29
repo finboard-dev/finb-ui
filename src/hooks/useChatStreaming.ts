@@ -185,6 +185,11 @@ export const useChatStream = () => {
                           parsedResponse.content?.tool_call_id || toolCalls[toolCalls.length - 1]?.id || uuidv4()
                       const toolName = toolCalls.find((tc) => tc.id === toolCallId)?.name || "unknown"
 
+                      // If there's a user_request in sidePanelData, ensure it gets passed through
+                      if (sidePanelData.user_request) {
+                        dataContent.user_request = sidePanelData.user_request;
+                      }
+                      
                       dispatch(
                           addToolCallResponse({
                             id: uuidv4(),
@@ -197,13 +202,32 @@ export const useChatStream = () => {
                       )
 
                       dispatch(setActiveToolCallId(toolCallId))
-                      dispatch(setResponsePanelWidth(30))
+                      
+                      // Only open response panel for graph and table types
+                      if (dataType === "graph" || dataType === "table") {
+                        // Check if content is renderable before showing panel
+                        let shouldShowPanel = false;
+                        
+                        if (dataType === "graph") {
+                          const schema = dataContent?.schema || dataContent;
+                          shouldShowPanel = !!schema;
+                        } else if (dataType === "table") {
+                          const tableData = Array.isArray(dataContent) ? 
+                            dataContent : 
+                            dataContent?.report_table || dataContent?.data || dataContent;
+                          shouldShowPanel = !!tableData;
+                        }
+                        
+                        if (shouldShowPanel) {
+                          dispatch(setResponsePanelWidth(500));
+                        }
+                      }
                     } catch (error) {
                       console.error("Error processing side panel data:", error)
                       const toolCallId =
                           parsedResponse.content?.tool_call_id || toolCalls[toolCalls.length - 1]?.id || uuidv4()
                       const toolName = toolCalls.find((tc) => tc.id === toolCallId)?.name || "unknown"
-
+                  
                       dispatch(
                           addToolCallResponse({
                             id: uuidv4(),
@@ -214,9 +238,9 @@ export const useChatStream = () => {
                             messageId: assistantMessageId,
                           }),
                       )
-
+                  
                       dispatch(setActiveToolCallId(toolCallId))
-                      dispatch(setResponsePanelWidth(30))
+                      // Don't open response panel for errors
                     }
                   },
               )
