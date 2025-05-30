@@ -1,16 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { v4 as uuidv4 } from 'uuid';
 
-export type ToolCallResponseType = 'table' | 'graph' | 'code' | 'error' | 'text' | 'python';
+export type ToolCallResponseType = 'table' | 'graph' | 'code' | 'error' | 'text' | 'python'
 
 export interface ToolCallResponse {
   id: string;
   tool_call_id: string;
   tool_name: string;
-  type: ToolCallResponseType;
+  type: ToolCallResponseType | any;
   data: any;
   messageId?: string;
   createdAt?: string;
+  userRequest?: any; // Add field to store user request separately if needed
 }
 
 export interface SavedResponseData extends ResponsePanelState {

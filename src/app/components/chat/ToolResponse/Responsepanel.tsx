@@ -108,7 +108,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
   const [isCompact, setIsCompact] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const [mainTab, setMainTab] = useState<"Output" | "History">("Output");
-  const [outputView, setOutputView] = useState<"visual" | "code" | "json">("visual"); // Added "json"
+  const [outputView, setOutputView] = useState<"visual" | "code">("visual");
   const [isSaveDropdownOpen, setIsSaveDropdownOpen] = useState(false);
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const user = useAppSelector((state) => state.user.user);
@@ -125,31 +125,107 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
 
   const displayedResponses = activeMessageId ? filteredResponsesForMessage : toolCallResponses;
 
-  const getAvailableViews = (response: ToolCallResponse | undefined): Array<"visual" | "code" | "json"> => {
+  const getAvailableViews = (response: ToolCallResponse | undefined): Array<"visual" | "code"> => {
     if (!response) return [];
+    
     if (response.type === "graph") {
-      return ["visual", "code", "json"]; // Visual, Python Code, Graph JSON
+      const views: Array<"visual" | "code"> = ["visual"];
+      
+      // Only add Code tab if Python code exists
+      const pythonCode = getPythonCode(response);
+      if (pythonCode) {
+        views.push("code");
+      }
+      
+      return views;
+    } else if (response.type === "table") {
+      // For tables, show visual (table) and code (JSON) views
+      return ["visual"];
+    } else if (response.type === "error") {
+      // For errors, only show visual (the error message)
+      return ["visual"];
+    } else if (response.type === "python" || response.type === "code") {
+      // For code responses, only show code view
+      return ["code"];
     }
-    return ["visual", "code"]; // For other types
+    
+    // Default for other types
+    return ["visual"];
   };
 
   useEffect(() => {
     const handleToolCallSelected = (event: Event) => {
       const customEvent = event as CustomEvent<{ toolCallId: string; messageId: string }>;
       const { toolCallId, messageId } = customEvent.detail;
-      dispatch(setActiveToolCallId(toolCallId));
-      dispatch(setResponsePanelWidth(500)); // Or your default width
-      if (messageId !== activeMessageId) {
-        dispatch(setActiveMessageId(messageId));
-      }
+      
+      // Find the selected response
       const selectedResponse = toolCallResponses.find(r => r.tool_call_id === toolCallId);
-      const availableViews = getAvailableViews(selectedResponse);
-      if (availableViews.length > 0) {
-        setOutputView(availableViews[0]);
-      } else {
-        setOutputView("visual");
+      
+      // Only proceed if we have a valid response
+      if (selectedResponse) {
+        // Always set the active tool call ID and message ID regardless of whether we open the panel
+        dispatch(setActiveToolCallId(toolCallId));
+        if (messageId !== activeMessageId) {
+          dispatch(setActiveMessageId(messageId));
+        }
+        
+        // Check for specific "Invalid data format provided" error message
+        const hasInvalidDataFormatError = 
+          (typeof selectedResponse.data === 'string' && 
+            selectedResponse.data.includes("Invalid data format provided")) ||
+          (typeof selectedResponse.data === 'object' && 
+            selectedResponse.data && 
+            (selectedResponse.data.error === "Invalid data format provided" || 
+             selectedResponse.data.localError === "Invalid data format provided"));
+        
+        // If it has the specific error message, don't open the panel
+        if (hasInvalidDataFormatError) {
+          return;
+        }
+        
+        // For table type, check if report_table exists
+        if (selectedResponse.type === "table") {
+          try {
+            const processedData = typeof selectedResponse.data === 'string'
+              ? JSON.parse(selectedResponse.data || '{}')
+              : selectedResponse.data;
+              
+            // Don't open panel if report_table is missing
+            if (!processedData || !processedData.report_table) {
+              return;
+            }
+          } catch (e) {
+            // If parsing fails, don't open the panel
+            return;
+          }
+        }
+        
+        // For graph type, verify we can render it
+        if (selectedResponse.type === "graph" && !canRenderGraph(selectedResponse.data)) {
+          return;
+        }
+        
+        // For table type, verify we can render it and it has report_table
+        if (selectedResponse.type === "table" && !canRenderTable(selectedResponse.data)) {
+          return;
+        }
+        
+        // For non-visualizable types, don't open the panel
+        if (selectedResponse.type !== "graph" && selectedResponse.type !== "table") {
+          return;
+        }
+        
+        // If we made it here, open the panel
+        dispatch(setResponsePanelWidth(500)); // Open the panel
+        
+        const availableViews = getAvailableViews(selectedResponse);
+        if (availableViews.length > 0) {
+          setOutputView(availableViews[0]);
+        } else {
+          setOutputView("visual");
+        }
+        setMainTab("Output");
       }
-      setMainTab("Output");
     };
 
     window.addEventListener("toolCallSelected", handleToolCallSelected);
@@ -174,13 +250,152 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
     }
   }, [displayedResponses, activeToolCallId, dispatch]);
 
+  // Determine if a renderer for tables and graphs can display the content
+  const canRenderGraph = (data: any): boolean => {
+    try {
+      if (!data) return false;
+      const graphData = typeof data === 'string' ? JSON.parse(data) : data;
+      return !!(graphData?.schema || graphData);
+    } catch {
+      return false;
+    }
+  };
+  
+  const canRenderTable = (data: any): boolean => {
+    try {
+      if (!data) return false;
+      
+      // Only check for specific error patterns that we know cause issues
+      // This is a much more targeted approach than before
+      
+      // Check for specific error message strings
+      if (typeof data === 'string') {
+        if (data.includes("Invalid data format provided")) {
+          return false;
+        }
+        
+        // Try to parse string data to check for error objects
+        try {
+          const parsedData = JSON.parse(data);
+          
+          // Only check for specific error messages
+          if (parsedData && typeof parsedData === 'object' && 
+              (parsedData.error === "Invalid data format provided" || 
+               parsedData.localError === "Invalid data format provided")) {
+            return false;
+          }
+          
+          // For table type, we require report_table to be present
+          if (!parsedData.report_table) {
+            return false;
+          }
+          
+          // For parsed data, continue with the parsed value
+          data = parsedData;
+        } catch {
+          // If it's not valid JSON, we'll treat string data as non-renderable
+          return false;
+        }
+      }
+      
+      // For object data, check only for specific error messages
+      if (data && typeof data === 'object') {
+        if (data.error === "Invalid data format provided" || 
+            data.localError === "Invalid data format provided") {
+          return false;
+        }
+        
+        // Specifically require report_table for table data
+        if (!data.report_table) {
+          return false;
+        }
+      }
+      
+      // Process data to find the actual table content
+      const dataToRender = data?.report_table;
+      
+      // Minimal structural validation - just ensure we have something to render
+      if (!dataToRender) return false;
+      
+      // Allow empty arrays - the table renderer should handle this gracefully
+      if (Array.isArray(dataToRender)) {
+        return true;
+      }
+      
+      // Object data should be allowed, even if empty - the renderer will decide how to display it
+      if (typeof dataToRender === 'object') {
+        return true;
+      }
+      
+      // If we get here, the data is a primitive (non-object, non-array) value
+      // These typically can't be rendered as tables
+      return false;
+    } catch {
+      // For any other errors, default to false - don't try to render invalid data
+      return false;
+    }
+  };
+  
   const currentActiveResponse = displayedResponses.find(
       (response) => response.tool_call_id === activeToolCallId
   );
 
+  // This first useEffect prevents auto-opening for invalid data formats on mount
+  useEffect(() => {
+    // This runs once on component mount - check if current active response should show panel
+    if (currentActiveResponse && responsePanelWidth > 0) {
+      // Check for specific invalid data format errors
+      const hasInvalidDataFormatError = 
+        (typeof currentActiveResponse.data === 'string' && 
+          currentActiveResponse.data.includes("Invalid data format provided")) ||
+        (typeof currentActiveResponse.data === 'object' && 
+          currentActiveResponse.data && 
+          (currentActiveResponse.data.error === "Invalid data format provided" || 
+           currentActiveResponse.data.localError === "Invalid data format provided"));
+      
+      if (hasInvalidDataFormatError) {
+        // Immediately close panel for known invalid format errors
+        dispatch(setResponsePanelWidth(0));
+        return;
+      }
+      
+      // For tables, check if report_table is present
+      if (currentActiveResponse.type === "table") {
+        try {
+          // For tables, check if report_table exists
+          const processedData = typeof currentActiveResponse.data === 'string' 
+            ? JSON.parse(currentActiveResponse.data || '{}') 
+            : currentActiveResponse.data;
+          
+          // Close panel if report_table doesn't exist
+          if (!processedData || !processedData.report_table) {
+            dispatch(setResponsePanelWidth(0));
+            return;
+          }
+        } catch (e) {
+          // If parsing fails, don't show panel
+          dispatch(setResponsePanelWidth(0));
+          return;
+        }
+      }
+      
+      // For graphs, we should validate more strictly
+      if (currentActiveResponse.type === "graph" && !canRenderGraph(currentActiveResponse.data)) {
+        dispatch(setResponsePanelWidth(0));
+        return;
+      }
+      
+      // For non-visualizable types, close the panel
+      if (currentActiveResponse.type !== "graph" && currentActiveResponse.type !== "table") {
+        dispatch(setResponsePanelWidth(0));
+      }
+    }
+  }, []); // Empty dependency array to run only on mount
+  
   useEffect(() => {
     if (currentActiveResponse) {
       const availableViews = getAvailableViews(currentActiveResponse);
+      
       // If current outputView is not valid for this response type, or if it's not the first one upon switching to a new response
       if (availableViews.length > 0 && !availableViews.includes(outputView)) {
         setOutputView(availableViews[0]);
@@ -189,10 +404,47 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
         // If you always want the first tab on response change, even if current view is valid:
         // setOutputView(availableViews[0]);
       }
+      
+      // Check for specific "Invalid data format provided" error
+      const hasInvalidDataFormatError = 
+        (typeof currentActiveResponse.data === 'string' && 
+          currentActiveResponse.data.includes("Invalid data format provided")) ||
+        (typeof currentActiveResponse.data === 'object' && 
+          currentActiveResponse.data && 
+          (currentActiveResponse.data.error === "Invalid data format provided" || 
+           currentActiveResponse.data.localError === "Invalid data format provided"));
+      
+      if (hasInvalidDataFormatError) {
+        // Close panel for invalid data format errors
+        dispatch(setResponsePanelWidth(0));
+      } else if (currentActiveResponse.type === "table") {
+        try {
+          // For tables, check if report_table exists
+          const processedData = typeof currentActiveResponse.data === 'string' 
+            ? JSON.parse(currentActiveResponse.data || '{}') 
+            : currentActiveResponse.data;
+          
+          // Close panel if report_table doesn't exist
+          if (!processedData || !processedData.report_table) {
+            dispatch(setResponsePanelWidth(0));
+          }
+        } catch (e) {
+          // If parsing fails, don't show panel
+          dispatch(setResponsePanelWidth(0));
+        }
+      } else if (currentActiveResponse.type === 'graph') {
+        // For graphs, validate the data structure
+        if (!canRenderGraph(currentActiveResponse.data)) {
+          dispatch(setResponsePanelWidth(0));
+        }
+      } else if (currentActiveResponse.type !== 'graph' && currentActiveResponse.type !== 'table') {
+        // Don't show panel for non-graph, non-table responses
+        dispatch(setResponsePanelWidth(0));
+      }
     } else {
       setOutputView("visual"); // Default if no active response
     }
-  }, [currentActiveResponse, mainTab]); // outputView removed from deps to avoid loop, manage externally
+  }, [currentActiveResponse, mainTab, dispatch]); // outputView removed from deps to avoid loop, manage externally
 
   const handleClosePanel = () => {
     dispatch(setResponsePanelWidth(0));
@@ -283,7 +535,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
   };
 
 
-  const renderOutputContentArea = (response: ToolCallResponse | undefined, view: "visual" | "code" | "json") => {
+  const renderOutputContentArea = (response: ToolCallResponse | undefined, view: "visual" | "code") => {
     if (!response) {
       return (
           <div className="w-full h-[450px] flex items-center justify-center text-gray-400">
@@ -291,10 +543,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
           </div>
       );
     }
-
+  
     const fixedHeightClass = "h-[450px] flex flex-col";
     const pythonCode = getPythonCode(response);
-
+  
     const safeParseJSON = (data: any) => {
       if (typeof data === 'string') {
         try { return JSON.parse(data); } catch { return data; }
@@ -302,7 +554,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
       return data;
     };
     const processedData = safeParseJSON(response.data);
-
+  
     if (view === "visual") {
       switch (response.type) {
         case "graph":
@@ -316,7 +568,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
           }
           break;
         case "table":
-          const tableData = Array.isArray(processedData) ? processedData : processedData?.report_table || processedData?.data || processedData;
+          const tableData = processedData?.report_table;
           if (tableData) {
             return (
                 <div className="w-full h-full flex-1 rounded-md bg-white">
@@ -327,6 +579,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
                     error={null}
                     maxHeight="420px"
                   />
+                </div>
+            );
+          } else {
+            return (
+                <div className={`w-full ${fixedHeightClass} flex items-center justify-center text-gray-400 border border-gray-300 rounded-md bg-white`}>
+                  <p>No table data available. Missing report_table property.</p>
                 </div>
             );
           }
@@ -358,7 +616,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
     } else if (view === "code") {
       let codeContentValue: string | null = null;
       let language = "plaintext";
-
+  
       if (response.type === "graph") {
         if (pythonCode) {
           codeContentValue = pythonCode;
@@ -370,9 +628,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
               </div>
           );
         }
-      } else if (response.type === "table") {
-        codeContentValue = processedData?.user_request ? JSON.stringify(processedData.user_request, null, 2) : JSON.stringify(processedData, null, 2);
-        language = "json";
       } else if (response.type === "python") { // Specifically for "python" type response
         codeContentValue = pythonCode || (typeof processedData === 'string' ? processedData : JSON.stringify(processedData, null, 2));
         language = "python"; // Assume it's always python for this type
@@ -391,29 +646,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({ activeMessageId, isOpen, 
         codeContentValue = typeof processedData === 'string' ? processedData : JSON.stringify(processedData, null, 2);
         language = "json";
       }
-
+  
       if (codeContentValue !== null) {
         return (
             <div className={`${fixedHeightClass} w-full border border-gray-300 rounded-md overflow-hidden bg-white`}>
               <Editor height="100%" width="100%" language={language} theme="vs-light" value={codeContentValue} options={{ readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }} />
-            </div>
-        );
-      }
-    } else if (view === "json") { // Specifically for the "JSON" tab
-      if (response.type === "graph") {
-        const graphConfig = processedData?.schema || processedData;
-        const jsonContent = typeof graphConfig === 'string' ? graphConfig : JSON.stringify(graphConfig, null, 2);
-        return (
-            <div className={`${fixedHeightClass} w-full border border-gray-300 rounded-md overflow-hidden bg-white`}>
-              <Editor height="100%" width="100%" language="json" theme="vs-light" value={jsonContent} options={{ readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true }} />
-            </div>
-        );
-      } else {
-        // This tab is primarily for graphs; hide or show a message for other types.
-        // For now, this case should ideally not be reached if getAvailableViews is respected.
-        return (
-            <div className={`${fixedHeightClass} w-full flex items-center justify-center text-gray-400 border border-gray-300 rounded-md bg-white`}>
-              <p>JSON view not applicable for this response type.</p>
             </div>
         );
       }

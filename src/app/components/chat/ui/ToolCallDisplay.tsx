@@ -72,12 +72,18 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
         })
         window.dispatchEvent(event)
     }
-
+    
     const handleViewResults = () => {
-        if (toolCall?.id != null) {
-            dispatch(setActiveToolCallId(toolCall?.id))
-        }
-        dispatch(setResponsePanelWidth(500))
+      // Don't dispatch if the View Results button shouldn't be shown
+      // This prevents accidental panel opening when data is invalid
+      if (!canDisplayInResponsePanel()) {
+        return;
+      }
+      
+      if (toolCall?.id != null) {
+        dispatch(setActiveToolCallId(toolCall?.id))
+      }
+      dispatch(setResponsePanelWidth(500))
     }
 
     const getToolIcon = (toolName: string | undefined) => {
@@ -177,12 +183,57 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
         }
 
         try {
+            // Check if there's a user_request in the response
+            const responseData = response?.data;
+            let userRequest = null;
+            
+            if (responseData) {
+                if (typeof responseData === 'string') {
+                    try {
+                        const parsed = JSON.parse(responseData);
+                        userRequest = parsed.user_request || parsed.userrequest;
+                    } catch (e) {
+                        // Not JSON, continue with regular display
+                    }
+                } else if (typeof responseData === 'object') {
+                    userRequest = responseData.user_request || responseData.userrequest;
+                }
+            }
+            
+            // If we have a user_request, display it
+            if (userRequest) {
+                return (
+                    <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-lg border border-gray-200/50 bg-gradient-to-br from-gray-50 to-slate-50F">
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent" />
+                            <div className="p-3 border-b border-gray-100 bg-white">
+                                <h4 className="text-sm font-medium text-gray-800">User Request</h4>
+                            </div>
+                            <pre className="p-4 text-sm overflow-auto bg-white max-h-60 text-gray-800 leading-relaxed">
+                                {JSON.stringify(userRequest, null, 2)}
+                            </pre>
+                        </div>
+                        
+                        <div className="relative overflow-hidden rounded-lg border border-gray-200/50 bg-gradient-to-br from-gray-50 to-slate-50">
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                            <div className="p-3 border-b border-gray-100 bg-white">
+                                <h4 className="text-sm font-medium text-gray-800">Tool Arguments</h4>
+                            </div>
+                            <pre className="p-4 text-sm overflow-auto bg-white max-h-60 text-gray-800 leading-relaxed">
+                                {JSON.stringify(toolCall.args, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                )
+            }
+            
+            // Default display if no user_request
             return (
                 <div className="relative overflow-hidden rounded-lg border border-gray-200/50 bg-gradient-to-br from-gray-50 to-slate-50">
                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
                     <pre className="p-4 text-sm overflow-auto max-h-96 text-gray-800 leading-relaxed">
-            {JSON.stringify(toolCall.args, null, 2)}
-          </pre>
+                        {JSON.stringify(toolCall.args, null, 2)}
+                    </pre>
                 </div>
             )
         } catch (error) {
@@ -236,6 +287,63 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
             )
         }
         return null
+    }
+    
+    // Check if the response can be displayed in the ResponsePanel
+    const canDisplayInResponsePanel = () => {
+        if (!response) return false;
+        
+        // Check for specific error messages
+        const hasInvalidDataFormatError = 
+            (typeof response.data === 'string' && 
+              response.data.includes("Invalid data format provided")) ||
+            (typeof response.data === 'object' && 
+              response.data && 
+              (response.data.error === "Invalid data format provided" || 
+               response.data.localError === "Invalid data format provided"));
+              
+        if (hasInvalidDataFormatError) {
+            return false;
+        }
+        
+        // For table type, verify the report_table property exists and is valid
+        if (response.type === "table") {
+            try {
+                const data = typeof response.data === 'string' 
+                    ? JSON.parse(response.data) 
+                    : response.data;
+                
+                // Ensure the report_table property exists and is not null/undefined
+                if (!data || !data.report_table) {
+                    return false;
+                }
+                
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        // For graph type, verify schema or data structure exists
+        if (response.type === "graph") {
+            try {
+                const data = typeof response.data === 'string'
+                    ? JSON.parse(response.data)
+                    : response.data;
+                
+                // Check for valid graph data structure
+                if (!data || (!data.schema && !data.data)) {
+                    return false;
+                }
+                
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        // Don't show view button for other response types
+        return false;
     }
 
     return (
@@ -334,8 +442,8 @@ const ToolCallDisplay = ({ toolCall, isLoading = false, messageId, inline = fals
                             {/* Error Display */}
                             {renderError()}
 
-                            {/* Action Button */}
-                            {isToolCompleted && !hasError && toolCall?.id && (
+                            {/* Action Button - Only show when panel can actually be opened */}
+                            {isToolCompleted && !hasError && toolCall?.id && canDisplayInResponsePanel() && (
                                 <Button
                                     onClick={handleViewResults}
                                     className={cn(
