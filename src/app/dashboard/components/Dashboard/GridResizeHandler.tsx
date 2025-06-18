@@ -14,12 +14,12 @@ interface GridResizeHandlerProps {
 export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 const GridResizeHandler = ({
-                             itemId,
-                             onResizeStart,
-                             onResizeEnd,
-                             layouts,
-                             setLayouts,
-                           }: GridResizeHandlerProps) => {
+  itemId,
+  onResizeStart,
+  onResizeEnd,
+  layouts,
+  setLayouts,
+}: GridResizeHandlerProps) => {
   const isDraggingRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
   const resizeDirectionRef = useRef<ResizeDirection | null>(null);
@@ -104,40 +104,40 @@ const GridResizeHandler = ({
   }, []);
 
   return (
-      <>
-        <div
-            className="absolute top-0 left-4 right-4 h-2 cursor-n-resize"
-            onMouseDown={(e) => handleMouseDown(e, "n")}
-        />
-        <div
-            className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize"
-            onMouseDown={(e) => handleMouseDown(e, "s")}
-        />
-        <div
-            className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize"
-            onMouseDown={(e) => handleMouseDown(e, "e")}
-        />
-        <div
-            className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize"
-            onMouseDown={(e) => handleMouseDown(e, "w")}
-        />
-        <div
-            className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
-            onMouseDown={(e) => handleMouseDown(e, "ne")}
-        />
-        <div
-            className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
-            onMouseDown={(e) => handleMouseDown(e, "nw")}
-        />
-        <div
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-            onMouseDown={(e) => handleMouseDown(e, "se")}
-        />
-        <div
-            className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
-            onMouseDown={(e) => handleMouseDown(e, "sw")}
-        />
-      </>
+    <>
+      <div
+        className="absolute top-0 left-4 right-4 h-2 cursor-n-resize"
+        onMouseDown={(e) => handleMouseDown(e, "n")}
+      />
+      <div
+        className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize"
+        onMouseDown={(e) => handleMouseDown(e, "s")}
+      />
+      <div
+        className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize"
+        onMouseDown={(e) => handleMouseDown(e, "e")}
+      />
+      <div
+        className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize"
+        onMouseDown={(e) => handleMouseDown(e, "w")}
+      />
+      <div
+        className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize"
+        onMouseDown={(e) => handleMouseDown(e, "ne")}
+      />
+      <div
+        className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize"
+        onMouseDown={(e) => handleMouseDown(e, "nw")}
+      />
+      <div
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+        onMouseDown={(e) => handleMouseDown(e, "se")}
+      />
+      <div
+        className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize"
+        onMouseDown={(e) => handleMouseDown(e, "sw")}
+      />
+    </>
   );
 };
 

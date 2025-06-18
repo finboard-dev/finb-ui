@@ -399,7 +399,7 @@ const Settings = () => {
                         <Select value={roleFilter} onValueChange={setRoleFilter}>
                             <SelectTrigger className="w-32 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                 <SelectValue className="text-gray-900" />
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                                {/*<ChevronDown className="h-4 w-4 text-gray-500" />*/}
                             </SelectTrigger>
                             <SelectContent className="bg-white border border-gray-200 shadow-lg rounded-md">
                                 <SelectItem value="All Roles" className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50">
