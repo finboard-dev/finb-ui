@@ -40,3 +40,4 @@ export interface DraggingBlock {
     width: number;  // Default width for the react-grid-layout item.
     height: number; // Default height for the react-grid-layout item.
 }
+

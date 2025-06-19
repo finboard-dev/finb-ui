@@ -11,7 +11,6 @@ import * as echarts from "echarts";
 import html2canvas from "html2canvas";
 import type { Block, DashboardItem, DraggingBlock } from "./types";
 
-// Updated initial data with new block types
 const initialBlocksData: Block[] = [
   {
     id: "global-graph-line-01",
@@ -305,9 +304,6 @@ export default function DashboardPage() {
     []
   );
 
-  // The rest of the component remains largely the same, this is a subset of changes.
-  // ... (useEffect, handleSaveDashboard, handleLoadDashboard, etc.)
-
   useEffect(() => {
     let isMounted = true;
     const updatePreviews = async () => {
@@ -456,7 +452,7 @@ export default function DashboardPage() {
         onNewDashboard={handleNewDashboard}
         isEditing={isEditing}
       />
-      <div className="flex-1 flex flex-col overflow-x-hidden ml-60">
+      <div className={`flex-1 flex flex-col overflow-x-hidden`}>
         <DashboardSpecificHeader
           isEditing={isEditing}
           setIsEditing={setIsEditing}

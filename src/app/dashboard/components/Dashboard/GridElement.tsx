@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import MetricsCard from "./MetricsCard";
+import MetricsCard from "../ui/MetricsCard";
 
 // Updated dynamic imports for new components
 const RestrictedChart = dynamic(
