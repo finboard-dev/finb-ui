@@ -728,7 +728,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               <div
                 className={`w-full ${fixedHeightClass} flex-1 border border-gray-300 rounded-md p-2 bg-white`}
               >
-                <RestrictedChart data={graphData} height={400} />
+                <RestrictedChart data={graphData} />
               </div>
             );
           }

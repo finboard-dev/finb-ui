@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Layout, Responsive, WidthProvider } from "react-grid-layout";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import GridElement from "./GridElement";
+// import GridElement from "./GridElement"; // Removed
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import type {
@@ -13,8 +13,12 @@ import type {
   DashboardItem,
   DraggingBlock,
 } from "../../types";
-import { LayoutGridIcon } from "lucide-react";
+import { LayoutGridIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
+import MetricsCard from "../ui/MetricsCard";
+import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
+import dynamic from "next/dynamic";
+import RestrictedChart from "@/app/tests/echarts/page";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -25,9 +29,9 @@ interface DashboardViewProps {
     items: DashboardItem[] | ((prevItems: DashboardItem[]) => DashboardItem[])
   ) => void;
   blocks: Block[];
-  setBlocks: (blocksUpdater: (prevBlocks: Block[]) => Block[]) => void;
+  // setBlocks: (blocksUpdater: (prevBlocks: Block[]) => Block[]) => void; // Removed
   draggingBlock: DraggingBlock | null;
-  onAddBlock?: (itemId: string) => void;
+  // onAddBlock?: (itemId: string) => void; // Removed
   isEditing: boolean;
 }
 
@@ -101,7 +105,7 @@ export default function DashboardView({
   setDashboardItems,
   blocks,
   draggingBlock,
-  onAddBlock,
+  // onAddBlock, // Removed
   isEditing,
 }: DashboardViewProps) {
   const [dragOverIndicator, setDragOverIndicator] = useState(false);
@@ -208,10 +212,10 @@ export default function DashboardView({
         ...prevItems,
         newItem,
       ]);
-      if (onAddBlock) onAddBlock(newItemId);
+      // if (onAddBlock) onAddBlock(newItemId); // Removed
       toast.success(`"${blockToAdd.title}" added to dashboard!`);
     },
-    [draggingBlock, blocks, currentCols, onAddBlock, setDashboardItems]
+    [draggingBlock, blocks, currentCols, setDashboardItems] // Removed onAddBlock from dependencies
   );
 
   const handleDragOverWrapper = useCallback(
@@ -256,19 +260,103 @@ export default function DashboardView({
         const blockTemplate = blocks.find(
           (b) => b.id === dashboardItem?.blockId
         );
-        if (!dashboardItem) return null;
+        if (!dashboardItem || !blockTemplate) {
+          return (
+            <div
+              key={itemLayout.i}
+              className="w-full h-full flex flex-col items-center justify-center text-red-600 p-4 bg-red-50 rounded-md border border-red-200"
+            >
+              <AlertTriangleIcon className="w-8 h-8 mb-2" />
+              <span className="text-sm font-semibold">
+                Component data missing.
+              </span>
+              <p className="text-xs mt-1 text-red-500">{`ID: ${
+                dashboardItem?.blockId || "N/A"
+              }`}</p>
+            </div>
+          );
+        }
+
         return (
           <div
             key={itemLayout.i}
             className="react-grid-item group/item outline-none focus:outline-none"
           >
-            <GridElement
-              item={itemLayout}
-              block={blockTemplate}
-              dashboardItem={dashboardItem}
-              onDelete={onDeleteItem}
-              isEditingDashboard={isEditing}
-            />
+            {blockTemplate.type === "graph" && (
+              <RestrictedChart
+                data={blockTemplate.content}
+                title={blockTemplate.title}
+                subtitle={blockTemplate.subtitle}
+                showDragHandle={isEditing}
+                dragHandleProps={{ className: "drag-handle" }}
+                showMenu={isEditing}
+                onDelete={() => onDeleteItem(itemLayout.i)}
+                onEdit={() =>
+                  toast.info(
+                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
+                  )
+                }
+                onDuplicate={() =>
+                  toast.info(
+                    `Duplicate for "${
+                      blockTemplate?.title || "component"
+                    }" TBD.`
+                  )
+                }
+                className="h-full w-full"
+                style={{ borderRadius: isEditing ? "0px" : "8px" }}
+              />
+            )}
+            {blockTemplate.type === "table" && (
+              <DynamicTable
+                data={blockTemplate.content}
+                title={blockTemplate.title}
+                showDragHandle={isEditing}
+                dragHandleProps={{ className: "drag-handle" }}
+                showMenu={isEditing}
+                onDelete={() => onDeleteItem(itemLayout.i)}
+                onEdit={() =>
+                  toast.info(
+                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
+                  )
+                }
+                onDuplicate={() =>
+                  toast.info(
+                    `Duplicate for "${
+                      blockTemplate?.title || "component"
+                    }" TBD.`
+                  )
+                }
+                className="h-full w-full"
+                style={{ borderRadius: isEditing ? "0px" : "8px" }}
+              />
+            )}
+            {blockTemplate.type === "metric" && (
+              <MetricsCard
+                title={blockTemplate.title}
+                value={blockTemplate.content.value}
+                change={blockTemplate.content.change}
+                changeLabel={blockTemplate.content.changeLabel}
+                showDragHandle={isEditing}
+                dragHandleProps={{ className: "drag-handle" }}
+                showMenu={isEditing}
+                onDelete={() => onDeleteItem(itemLayout.i)}
+                onEdit={() =>
+                  toast.info(
+                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
+                  )
+                }
+                onDuplicate={() =>
+                  toast.info(
+                    `Duplicate for "${
+                      blockTemplate?.title || "component"
+                    }" TBD.`
+                  )
+                }
+                className="h-full w-full"
+                style={{ borderRadius: isEditing ? "0px" : "8px" }}
+              />
+            )}
           </div>
         );
       }),
@@ -322,9 +410,9 @@ export default function DashboardView({
         isResizable={isEditing}
         isDroppable={isEditing}
         onDrop={onDrop}
-        resizeHandles={["se", "sw", "ne", "nw", "e", "w"]}
+        resizeHandles={isEditing ? ["se", "sw", "ne", "nw", "e", "w"] : []}
         draggableHandle=".drag-handle"
-        draggableCancel=".grid-element-button, input, textarea, button, select, .monaco-editor, .echarts-for-react, .no-drag"
+        draggableCancel=".rgl-no-drag, input, textarea, button, select"
         className={cn("min-h-full", !isEditing && "dashboard-view-mode")}
         style={backgroundStyle}
         useCSSTransforms={true}

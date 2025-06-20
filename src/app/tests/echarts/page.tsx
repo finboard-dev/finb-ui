@@ -697,6 +697,8 @@ class ChartBuilderFactory {
 // RestrictedChart Component Props
 export interface RestrictedChartProps {
   data: any;
+  title?: string;
+  subtitle?: string;
   height?: number;
   className?: string;
   style?: CSSProperties;
@@ -711,6 +713,8 @@ export interface RestrictedChartProps {
 // RestrictedChart Component
 const RestrictedChart: React.FC<RestrictedChartProps> = ({
   data,
+  title,
+  subtitle,
   height,
   className = "",
   style = {},
@@ -723,38 +727,58 @@ const RestrictedChart: React.FC<RestrictedChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Validate and process input data
   const processedData = useMemo(() => {
     try {
-      return SchemaValidator.validate(data);
+      const validatedData = SchemaValidator.validate(data);
+      if (title) validatedData.title = title;
+      if (subtitle) validatedData.subtitle = subtitle;
+      return validatedData;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid chart data");
       return { series: [] };
     }
-  }, [data]);
+  }, [data, title, subtitle]);
 
-  // Initialize chart
+  // Initialize chart and handle resize
   useEffect(() => {
     if (!chartRef.current) return;
 
+    // Initialize chart
     try {
-      // Initialize chart
       chartInstance.current = echarts.init(chartRef.current);
-      setIsLoading(false);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to initialize chart"
       );
-      setIsLoading(false);
+      return;
     }
 
+    const chart = chartInstance.current;
+    const chartElement = chartRef.current;
+
+    const resizeChart = () => {
+      chart?.resize();
+    };
+
+    // Use ResizeObserver to handle container resizing
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(resizeChart);
+    });
+    resizeObserver.observe(chartElement);
+
+    // Also handle window resize
+    window.addEventListener("resize", resizeChart);
+
+    // Initial resize
+    resizeChart();
+
     return () => {
-      if (chartInstance.current) {
-        chartInstance.current.dispose();
-      }
+      window.removeEventListener("resize", resizeChart);
+      resizeObserver.disconnect();
+      chart?.dispose();
     };
   }, []);
 
@@ -772,18 +796,6 @@ const RestrictedChart: React.FC<RestrictedChartProps> = ({
     }
   }, [processedData]);
 
-  // Handle resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (chartInstance.current) {
-        chartInstance.current.resize();
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-red-50 text-red-600 p-4 rounded-lg">
@@ -800,60 +812,85 @@ const RestrictedChart: React.FC<RestrictedChartProps> = ({
       )}
       style={style}
     >
-      {(showDragHandle || showMenu) && (
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200">
-          {showDragHandle && (
-            <div
-              {...dragHandleProps}
-              className={cn(
-                "flex items-center text-slate-500 hover:text-slate-700 cursor-grab active:cursor-grabbing",
-                dragHandleProps?.className
+      {(processedData.title || showDragHandle || showMenu) && (
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {showDragHandle && (
+              <div
+                {...dragHandleProps}
+                className={cn(
+                  "flex items-center text-slate-500 hover:text-slate-700 cursor-grab active:cursor-grabbing flex-shrink-0",
+                  dragHandleProps?.className
+                )}
+              >
+                <GripVerticalIcon className="w-5 h-5" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3
+                className="text-base font-semibold text-slate-800 truncate"
+                title={processedData.title}
+              >
+                {processedData.title || "Untitled Chart"}
+              </h3>
+              {processedData.subtitle && (
+                <p
+                  className="text-xs text-slate-500 truncate"
+                  title={processedData.subtitle}
+                >
+                  {processedData.subtitle}
+                </p>
               )}
-            >
-              <GripVerticalIcon className="w-4 h-4" />
             </div>
-          )}
+          </div>
+
           {showMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
-                  <MoreVerticalIcon className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onEdit && (
-                  <DropdownMenuItem onClick={onEdit}>
-                    <Edit3Icon className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                )}
-                {onDuplicate && (
-                  <DropdownMenuItem onClick={onDuplicate}>
-                    <CopyIcon className="mr-2 h-4 w-4" />
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
-                {onDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={onDelete}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2Icon className="mr-2 h-4 w-4" />
-                      Delete
+            <div className="flex-shrink-0 ml-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 ml-auto"
+                  >
+                    <MoreVerticalIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {onEdit && (
+                    <DropdownMenuItem onClick={onEdit}>
+                      <Edit3Icon className="mr-2 h-4 w-4" />
+                      Edit
                     </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  )}
+                  {onDuplicate && (
+                    <DropdownMenuItem onClick={onDuplicate}>
+                      <CopyIcon className="mr-2 h-4 w-4" />
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={onDelete}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2Icon className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
         </div>
       )}
       <div
         ref={chartRef}
-        className="flex-1 w-full"
-        style={{ height: height || "100%" }}
+        className="flex-1 w-full h-full"
+        style={{ height: "100%" }}
       />
     </div>
   );

@@ -25,8 +25,11 @@ export interface DashboardItem {
  */
 export interface Block {
     id: string;           // Unique ID for the block template.
-    type: BlockType;
+    component_id: string;
     title: string;
+    subtitle?: string;
+    type: BlockType;
+    filter: Record<string, any>;
     content: any;         // Data for the block: object for graph/metric, array/object for table.
     previewImage?: string; // Data URL for a preview image.
 }

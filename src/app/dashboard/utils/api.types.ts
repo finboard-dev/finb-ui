@@ -20,6 +20,7 @@ export interface Widget {
   id: string;
   component_id: string;
   title: string;
+  subtitle?: string;
   type: WidgetType;
   filter: Record<string, any>;
   data: any;

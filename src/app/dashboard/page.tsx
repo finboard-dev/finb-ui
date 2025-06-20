@@ -73,8 +73,11 @@ export default function DashboardPage() {
       // Create a Block definition from the widget
       const block: Block = {
         id: widget.component_id, // Use component_id for the block definition
+        component_id: widget.component_id,
         title: widget.title,
+        subtitle: widget.subtitle,
         type: widget.type,
+        filter: widget.filter,
         content: parseWidgetData(widget.data, widget.type),
       };
       newBlocks.push(block);
@@ -153,9 +156,9 @@ export default function DashboardPage() {
             dashboardItems={dashboardItems}
             setDashboardItems={setDashboardItems}
             blocks={viewBlocks}
-            setBlocks={() => {}}
+            // setBlocks={() => {}} // Removed
             draggingBlock={draggingBlock}
-            onAddBlock={() => {}}
+            // onAddBlock={() => {}} // Removed
             isEditing={isEditing}
           />
           {isEditing && (

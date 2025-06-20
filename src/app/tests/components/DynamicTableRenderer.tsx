@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   type ColumnDef,
   flexRender,
@@ -51,6 +51,7 @@ export interface DynamicTableProps {
   showDragHandle?: boolean;
   dragHandleProps?: React.HTMLProps<HTMLDivElement>;
   style?: React.CSSProperties;
+  className?: string; // Added this line
   showMenu?: boolean;
   onDelete?: () => void;
   onEdit?: () => void;
@@ -77,6 +78,7 @@ export default function DynamicTable({
   showDragHandle,
   dragHandleProps,
   style,
+  className, // Destructure className
   showMenu = false,
   onDelete,
   onEdit,
@@ -468,32 +470,44 @@ export default function DynamicTable({
     <div
       className={cn(
         "w-full h-full flex flex-col bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden",
-        style
+        className, // Apply className here
+        style,
+        showDragHandle ? "rounded-none" : "rounded-lg" // Make borders non-rounded when editing for dnd
       )}
     >
       {(showDragHandle || showMenu || title || description) && (
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0 h-[45px]">
+          {" "}
+          {/* Consistent header height */}
+          <div className="flex items-center gap-2 flex-grow min-w-0">
             {showDragHandle && (
               <div
                 {...dragHandleProps}
                 className={cn(
-                  "flex items-center text-slate-500 hover:text-slate-700 cursor-grab active:cursor-grabbing",
+                  "flex items-center text-slate-500 hover:text-slate-700 p-0.5 cursor-grab active:cursor-grabbing",
                   dragHandleProps?.className
                 )}
               >
-                <GripVerticalIcon className="w-4 h-4" />
+                <GripVerticalIcon className="w-5 h-5" />
               </div>
             )}
             {(title || description) && (
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 {title && (
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3
+                    className="text-sm font-semibold text-slate-900 truncate"
+                    title={title}
+                  >
                     {title}
                   </h3>
                 )}
                 {description && (
-                  <p className="text-xs text-slate-500">{description}</p>
+                  <p
+                    className="text-xs text-slate-500 truncate"
+                    title={description}
+                  >
+                    {description}
+                  </p>
                 )}
               </div>
             )}
@@ -501,11 +515,18 @@ export default function DynamicTable({
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 ml-auto rgl-no-drag"
+                >
                   <MoreVerticalIcon className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                className="bg-white shadow-xl border-slate-200 z-[100] rgl-no-drag"
+              >
                 {onEdit && (
                   <DropdownMenuItem onClick={onEdit}>
                     <Edit3Icon className="mr-2 h-4 w-4" />
@@ -523,7 +544,7 @@ export default function DynamicTable({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={onDelete}
-                      className="text-red-600 focus:text-red-600"
+                      className="text-sm text-red-600 hover:!text-red-500 hover:!bg-red-50 focus:!bg-red-50 focus:!text-red-600 opt"
                     >
                       <Trash2Icon className="mr-2 h-4 w-4" />
                       Delete
@@ -581,7 +602,7 @@ export default function DynamicTable({
                 ))}
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {table.getRowModel().rows.map((row) => (
+                {filteredRows.map((row) => (
                   <tr
                     key={row.id}
                     className="hover:bg-slate-50 transition-colors"
