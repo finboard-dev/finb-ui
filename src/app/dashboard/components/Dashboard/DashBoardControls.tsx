@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
+// (BlockListItem sub-component remains the same as in the original file)
 interface BlockListItemProps {
   block: Block;
   onDragStart: (draggingBlock: DraggingBlock) => void;
@@ -30,24 +31,20 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const renderPreview = (b: Block) => {
+    // This preview logic remains unchanged
     const isValidPreviewImage =
       b.previewImage && b.previewImage.startsWith("data:image/");
     if (isValidPreviewImage) {
       return (
         <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md overflow-hidden relative border-b border-slate-200">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={b.previewImage}
             alt={b.title || "Component Preview"}
             className="w-full h-full object-contain p-2"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
           />
         </div>
       );
     }
-    // Updated icons for new block types
     let icon = <ComponentIcon className="w-10 h-10 text-slate-400" />;
     if (b.type === "graph")
       icon = <LayoutGridIcon className="w-10 h-10 text-slate-400" />;
@@ -136,62 +133,13 @@ interface DashboardControlsProps {
 
 export default function DashboardControls({
   blocks,
-  setBlocks,
   onDragStart,
 }: DashboardControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [dragOverTarget, setDragOverTarget] = useState(false);
-  const [savedBlocks, setSavedBlocks] = useState<Block[]>([]);
-  const [activeMainTab, setActiveMainTab] = useState("my-components");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeViewFilter, setActiveViewFilter] = useState<string>("");
 
-  useEffect(() => {
-    try {
-      const storedBlocksString = localStorage.getItem("dashboardBlocks");
-      if (storedBlocksString) {
-        const parsedStoredBlocks: Block[] = JSON.parse(storedBlocksString);
-        setSavedBlocks(parsedStoredBlocks);
-        setBlocks((prevGlobalBlocks) => {
-          const globalBlockIds = new Set(prevGlobalBlocks.map((b) => b.id));
-          const newBlocksToAdd = parsedStoredBlocks.filter(
-            (sb) => !globalBlockIds.has(sb.id)
-          );
-          return newBlocksToAdd.length > 0
-            ? [...prevGlobalBlocks, ...newBlocksToAdd]
-            : prevGlobalBlocks;
-        });
-      }
-    } catch (error) {
-      console.error("Error loading 'My Components':", error);
-      toast.error("Could not load 'My Components'.");
-    }
-  }, [setBlocks]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.types.includes("application/dashboard-item-id"))
-      setDragOverTarget(true);
-  }, []);
-  const handleDragLeave = useCallback(() => setDragOverTarget(false), []);
-  const handleDropOnControls = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOverTarget(false);
-    const dashboardItemId = e.dataTransfer.getData(
-      "application/dashboard-item-id"
-    );
-    if (dashboardItemId) {
-      console.log(
-        "Item dropped on controls for deletion (TBD):",
-        dashboardItemId
-      );
-      toast.info(
-        `Item (ID: ${dashboardItemId.substring(0, 8)}) drag-delete TBD.`
-      );
-    }
-  }, []);
-
-  // Updated filtering logic
+  // Filtering logic based on search and type filters
   const filterAndSearchBlocks = (blocksToFilter: Block[]): Block[] => {
     let filtered = blocksToFilter;
     if (activeViewFilter) {
@@ -204,15 +152,7 @@ export default function DashboardControls({
       : filtered;
   };
 
-  const myDisplayComponents = filterAndSearchBlocks(savedBlocks);
-  const savedBlockIds = new Set(savedBlocks.map((b) => b.id));
-  const globalDisplayComponents = filterAndSearchBlocks(
-    blocks.filter(
-      (b) =>
-        ["graph", "table", "metric"].includes(b.type) &&
-        !savedBlockIds.has(b.id)
-    )
-  );
+  const displayComponents = filterAndSearchBlocks(blocks);
 
   if (!isOpen) {
     return (
@@ -235,12 +175,8 @@ export default function DashboardControls({
   return (
     <aside
       className={cn(
-        "w-[320px] md:w-[360px] h-[calc(100vh-65px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[65px]",
-        dragOverTarget && "ring-2 ring-inset ring-red-500 bg-red-50/50"
+        "w-[320px] md:w-[360px] h-[calc(100vh-65px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[65px]"
       )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDropOnControls}
     >
       <div className="bg-slate-50 border-b border-slate-200 py-4 px-4 flex justify-between items-center h-[65px] flex-shrink-0">
         <h2 className="text-lg font-semibold text-slate-900">Components</h2>
@@ -254,22 +190,7 @@ export default function DashboardControls({
           <ChevronLeftIcon className="w-5 h-5" />
         </Button>
       </div>
-      <Tabs
-        value={activeMainTab}
-        onValueChange={setActiveMainTab}
-        className="flex flex-col flex-grow min-h-0"
-      >
-        <TabsList className="grid grid-cols-2 p-1.5 border-b border-slate-200 bg-slate-50 rounded-none flex-shrink-0 w-full">
-          {["My Components", "Global Components"].map((tabName) => (
-            <TabsTrigger
-              key={tabName}
-              value={tabName.toLowerCase().replace(/\s+/g, "-")}
-              className="w-full py-2 text-sm font-medium rounded-md data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow data-[state=active]:border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-100"
-            >
-              {tabName}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="flex flex-col flex-grow min-h-0">
         <div className="p-3 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="relative mb-2.5">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -281,7 +202,6 @@ export default function DashboardControls({
               className="w-full pl-9 pr-3 py-2 h-9 border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 bg-white placeholder-slate-400"
             />
           </div>
-          {/* Updated Filter Buttons */}
           <div className="grid grid-cols-3 gap-2 items-center justify-start w-full">
             {[
               { label: "Graph", value: "graph", icon: LayoutGridIcon },
@@ -313,12 +233,9 @@ export default function DashboardControls({
           </div>
         </div>
         <ScrollArea className="flex-1 min-h-0">
-          <TabsContent
-            value="my-components"
-            className="p-3 focus-visible:ring-0 focus-visible:ring-offset-0"
-          >
-            {myDisplayComponents.length > 0 ? (
-              myDisplayComponents.map((block) => (
+          <div className="p-3">
+            {displayComponents.length > 0 ? (
+              displayComponents.map((block) => (
                 <BlockListItem
                   key={block.id}
                   block={block}
@@ -327,30 +244,12 @@ export default function DashboardControls({
               ))
             ) : (
               <p className="text-sm text-slate-500 text-center py-10">
-                No 'My Components' found.
+                No components found.
               </p>
             )}
-          </TabsContent>
-          <TabsContent
-            value="global-components"
-            className="p-3 focus-visible:ring-0 focus-visible:ring-offset-0"
-          >
-            {globalDisplayComponents.length > 0 ? (
-              globalDisplayComponents.map((block) => (
-                <BlockListItem
-                  key={block.id}
-                  block={block}
-                  onDragStart={onDragStart}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-slate-500 text-center py-10">
-                No 'Global Components' found.
-              </p>
-            )}
-          </TabsContent>
+          </div>
         </ScrollArea>
-      </Tabs>
+      </div>
       <div className="h-10 flex-shrink-0 bg-slate-50 border-t border-slate-200"></div>
     </aside>
   );

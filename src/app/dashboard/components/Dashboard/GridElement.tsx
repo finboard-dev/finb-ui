@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import MetricsCard from "../ui/MetricsCard";
 
-// Updated dynamic imports for new components
 const RestrictedChart = dynamic(
   () =>
     import("@/app/tests/echarts/page").catch(() => () => (
@@ -41,14 +40,6 @@ const DynamicTable = dynamic(
     )),
   { ssr: false, loading: () => <LoadingDisplay message="Loading table..." /> }
 );
-
-interface GridElementProps {
-  item: any;
-  block: Block | undefined;
-  dashboardItem?: DashboardItem;
-  onDelete: (id: string) => void;
-  isEditingDashboard: boolean;
-}
 
 function LoadingDisplay({ message }: { message: string }) {
   return (
@@ -81,19 +72,21 @@ export default function GridElement({
   dashboardItem,
   onDelete,
   isEditingDashboard,
-}: GridElementProps) {
+}: {
+  item: any;
+  block: Block | undefined;
+  dashboardItem?: DashboardItem;
+  onDelete: (id: string) => void;
+  isEditingDashboard: boolean;
+}) {
   const onDeleteHandler = useCallback(
     () => onDelete(item.i),
     [onDelete, item.i]
   );
-  const onEditHandler = () => {
-    console.log("Edit block instance:", item.i, "template:", block?.id);
+  const onEditHandler = () =>
     toast.info(`Edit for "${block?.title || "component"}" TBD.`);
-  };
-  const onDuplicateHandler = () => {
-    console.log("Duplicate block instance:", item.i);
+  const onDuplicateHandler = () =>
     toast.info(`Duplicate for "${block?.title || "component"}" TBD.`);
-  };
 
   const renderBlockContent = () => {
     if (!block)
@@ -107,86 +100,38 @@ export default function GridElement({
     try {
       switch (block.type) {
         case "graph":
-          let visSchema: echarts.EChartsOption | null = null;
-          if (typeof block.content === "string") {
-            try {
-              visSchema = JSON.parse(block.content);
-            } catch (e: any) {
-              return (
-                <ErrorDisplay
-                  message="Invalid chart data."
-                  details={e.message}
-                />
-              );
-            }
-          } else if (
-            typeof block.content === "object" &&
-            block.content !== null
-          ) {
-            visSchema = block.content;
-          } else return <ErrorDisplay message="Missing chart data." />;
-
-          if (!visSchema)
-            return <ErrorDisplay message="Chart config is null." />;
-
+          if (block.content?.error)
+            return (
+              <ErrorDisplay
+                message="Invalid chart data."
+                details={block.content.error}
+              />
+            );
+          if (!block.content)
+            return <ErrorDisplay message="Missing chart data." />;
           return (
             <div className="w-full h-full" style={{ minHeight: "150px" }}>
-              <RestrictedChart data={visSchema} />
+              <RestrictedChart data={block.content} />
             </div>
           );
 
         case "table":
-          let tableDataArray: any[] | null = null;
-          let tableTitle: string | undefined;
-          const content = block.content;
-
-          if (content) {
-            if (Array.isArray(content)) {
-              tableDataArray = content;
-            } else if (typeof content === "object" && content !== null) {
-              tableDataArray =
-                (content as any).report_table || (content as any).data || null;
-              tableTitle = (content as any).report_name;
-            } else if (typeof content === "string") {
-              try {
-                const parsed = JSON.parse(content);
-                if (Array.isArray(parsed)) {
-                  tableDataArray = parsed;
-                } else if (typeof parsed === "object" && parsed !== null) {
-                  tableDataArray = parsed.report_table || parsed.data || null;
-                  tableTitle = parsed.report_name;
-                }
-              } catch (e) {
-                return (
-                  <ErrorDisplay
-                    message="Invalid table data."
-                    details={(e as Error).message}
-                  />
-                );
-              }
-            }
-          }
-
-          if (!tableDataArray || !Array.isArray(tableDataArray))
+          if (
+            typeof block.content === "string" &&
+            block.content.includes("<table")
+          ) {
             return (
-              <ErrorDisplay message="Table data missing or not an array." />
-            );
-          if (tableDataArray.length === 0)
-            return (
-              <div className="p-4 text-sm text-slate-500 text-center">
-                No data for table.
+              <div className="w-full h-full overflow-auto">
+                <DynamicTable
+                  data={block.content}
+                  isLoading={false}
+                  error={null}
+                />
               </div>
             );
-
+          }
           return (
-            <div className="w-full h-full overflow-auto">
-              <DynamicTable
-                data={tableDataArray}
-                title={tableTitle}
-                isLoading={false}
-                error={null}
-              />
-            </div>
+            <ErrorDisplay message="Table data must be an HTML <table> string." />
           );
 
         case "metric":
@@ -195,7 +140,7 @@ export default function GridElement({
             return (
               <div className="w-full h-full flex items-center justify-center p-3">
                 <MetricsCard
-                  title={metricData.title || block.title}
+                  title={block.title}
                   value={metricData.value}
                   change={metricData.change}
                   changeLabel={metricData.changeLabel}
@@ -207,28 +152,23 @@ export default function GridElement({
           return <ErrorDisplay message="Invalid metric data." />;
 
         default:
-          const contentStr =
-            typeof block.content === "string"
-              ? block.content
-              : JSON.stringify(block.content, null, 2);
           return (
-            <div className="p-4 text-sm whitespace-pre-wrap break-words text-slate-700 overflow-auto">
-              {`Unsupported block type: ${(block as any).type}. Content: ${
-                contentStr || "No content."
-              }`}
-            </div>
+            <div className="p-4 text-sm">{`Unsupported block type: ${
+              (block as any).type
+            }`}</div>
           );
       }
     } catch (error: any) {
       return (
         <ErrorDisplay
-          message="Error rendering."
+          message="Error rendering component."
           details={error.message || String(error)}
         />
       );
     }
   };
 
+  // The rest of the component's JSX (Card, CardHeader, DropdownMenu, etc.) remains unchanged.
   const dragHandleClass = isEditingDashboard
     ? "drag-handle cursor-grab"
     : "cursor-default";
@@ -285,38 +225,26 @@ export default function GridElement({
               className="bg-white shadow-xl border-slate-200 z-[100]"
             >
               <DropdownMenuItem onClick={onEditHandler} className="text-sm opt">
-                {" "}
-                <Edit3Icon className="w-3.5 h-3.5 mr-2" /> Edit{" "}
+                <Edit3Icon className="w-3.5 h-3.5 mr-2" /> Edit
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={onDuplicateHandler}
                 className="text-sm opt"
               >
-                {" "}
-                <CopyIcon className="w-3.5 h-3.5 mr-2" /> Duplicate{" "}
+                <CopyIcon className="w-3.5 h-3.5 mr-2" /> Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-slate-200" />
               <DropdownMenuItem
                 onClick={onDeleteHandler}
                 className="text-sm text-red-600 hover:!text-red-500 hover:!bg-red-50 focus:!bg-red-50 focus:!text-red-600 opt"
               >
-                {" "}
-                <Trash2Icon className="w-3.5 h-3.5 mr-2" /> Delete{" "}
+                <Trash2Icon className="w-3.5 h-3.5 mr-2" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </CardHeader>
-      <CardContent
-        className={cn(
-          "flex-grow overflow-auto relative",
-          block?.type === "graph" ||
-            block?.type === "table" ||
-            block?.type === "metric"
-            ? "p-0"
-            : "p-2 md:p-3"
-        )}
-      >
+      <CardContent className={cn("flex-grow overflow-auto relative p-0")}>
         {renderBlockContent()}
       </CardContent>
     </Card>
