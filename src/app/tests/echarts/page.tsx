@@ -260,415 +260,219 @@ class ChartTypeDetector {
   }
 }
 
-// Abstract Base Chart Builder
 abstract class BaseChartBuilder {
-  protected data: AllowedInput;
-  protected chartType: string;
+  protected input: any;
+  protected themeColors: string[] = [
+    "#5470c6",
+    "#91cc75",
+    "#fac858",
+    "#ee6666",
+    "#73c0de",
+    "#3ba272",
+    "#fc8452",
+    "#9a60b4",
+    "#ea7ccc",
+  ];
 
-  constructor(data: AllowedInput, chartType: string) {
-    this.data = data;
-    this.chartType = chartType;
+  constructor(input: any) {
+    this.input = input;
   }
 
-  protected createBaseConfig(): EChartsOption {
+  protected getAllColors(): string[] {
+    return this.themeColors;
+  }
+
+  protected createBaseConfig(): any {
     return {
       color: this.getAllColors(),
       backgroundColor: "transparent",
       title: { show: false },
-      tooltip: this.createTooltip(),
-      legend: this.createLegend(),
-      grid: this.createGrid(),
-    };
-  }
-
-  private getAllColors(): string[] {
-    return [
-      ...THEME.colors.primary,
-      ...THEME.colors.secondary,
-      ...THEME.colors.success,
-      ...THEME.colors.danger,
-      ...THEME.colors.accent,
-    ];
-  }
-
-  protected createTooltip(): any {
-    return {
-      trigger: "axis",
-      confine: true,
-      axisPointer: {
-        type: "cross",
-        lineStyle: { color: THEME.colors.neutral[4], width: 1, type: "dashed" },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        backgroundColor: "white",
+        borderWidth: 0,
+        textStyle: { color: "black" },
       },
-      backgroundColor: "#ffffff",
-      borderColor: THEME.colors.neutral[5],
-      borderWidth: 1,
-      borderRadius: 8,
-      padding: [10, 15],
-      textStyle: {
-        color: THEME.colors.neutral[1],
-        fontSize: THEME.font.sizes.value,
-        fontFamily: THEME.font.family,
+      legend: {
+        type: "scroll",
+        orient: "horizontal",
+        left: "center",
+        top: "top",
+        data: this.input.series.map((s: any) => s.name || "Unnamed Series"),
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { color: "#333" },
       },
-      extraCssText: "box-shadow: 0 6px 24px rgba(0,0,0,0.1);",
-    };
-  }
-
-  protected createLegend(): any {
-    return {
-      show: this.data.series.length > 1,
-      bottom: 10,
-      left: "center",
-      itemWidth: 14,
-      itemHeight: 10,
-      itemGap: 25,
-      textStyle: {
-        color: THEME.colors.neutral[2],
-        fontSize: THEME.font.sizes.legend,
-        fontFamily: THEME.font.family,
+      grid: {
+        left: "3%",
+        right: "4%",
+        bottom: "5%",
+        containLabel: true,
       },
-      type: "scroll",
-      pageIconColor: THEME.colors.primary[0],
-      pageIconInactiveColor: THEME.colors.neutral[3],
-    };
-  }
-
-  protected createGrid(): any {
-    return {
-      containLabel: true,
-      left: THEME.spacing.chart.left,
-      right: THEME.spacing.chart.right,
-      top: THEME.spacing.chart.top,
-      bottom: THEME.spacing.chart.bottom,
     };
   }
 
   protected createXAxis(): any {
     return {
       type: "category",
-      data: this.data.xAxisData || [],
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5], width: 1 },
-      },
-      axisTick: {
-        show: true,
-        alignWithLabel: true,
-        lineStyle: { color: THEME.colors.neutral[5] },
-      },
+      data: this.input.xAxisData,
+      axisLine: { lineStyle: { color: "#999" } },
+      axisTick: { alignWithLabel: true },
       axisLabel: {
-        color: THEME.colors.neutral[3],
-        fontSize: THEME.font.sizes.label,
-        fontFamily: THEME.font.family,
-        margin: 12,
-        interval: "auto",
-        hideOverlap: true,
-        rotate: this.shouldRotateLabels() ? 30 : 0,
-        formatter: (value: any) => {
-          const str = String(value);
-          return str.length > 18 ? str.substring(0, 15) + "..." : str;
-        },
+        rotate: this.shouldRotateLabels() ? 45 : 0,
+        color: "#666",
       },
-      splitLine: { show: false },
     };
   }
 
   protected createYAxis(): any {
     return {
       type: "value",
-      name: this.data.yAxisLabel,
-      splitNumber: 5,
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5], width: 1 },
-      },
-      axisTick: { show: false },
-      axisLabel: {
-        color: THEME.colors.neutral[3],
-        fontSize: THEME.font.sizes.label,
-        fontFamily: THEME.font.family,
-        margin: 12,
-        formatter: this.formatValue,
-      },
-      splitLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[6], type: "dashed", width: 1 },
-      },
+      name: this.input.yAxisLabel || "",
+      axisLine: { lineStyle: { color: "#999" } },
+      axisLabel: { color: "#666" },
+      splitLine: { lineStyle: { color: "#e8e8e8" } },
     };
-  }
-
-  private formatValue(value: any): string {
-    if (typeof value === "number" && isFinite(value)) {
-      if (Math.abs(value) >= 1e12) return (value / 1e12).toFixed(1) + "T";
-      if (Math.abs(value) >= 1e9) return (value / 1e9).toFixed(1) + "B";
-      if (Math.abs(value) >= 1e6) return (value / 1e6).toFixed(1) + "M";
-      if (Math.abs(value) >= 1e3) return (value / 1e3).toFixed(1) + "K";
-      if (Math.abs(value) < 1 && Math.abs(value) > 0) return value.toFixed(2);
-      return String(Math.round(value));
-    }
-    return String(value);
   }
 
   protected shouldRotateLabels(): boolean {
-    return this.data.xAxisData ? this.data.xAxisData.length > 8 : false;
+    return this.input.xAxisData.length > 8;
   }
 
-  protected addDataZoom(config: EChartsOption): void {
-    if (this.data.xAxisData && this.data.xAxisData.length > 12) {
-      const endPercentage = Math.min(
-        100,
-        (12 / this.data.xAxisData.length) * 100
-      );
-      config.dataZoom = [
-        {
-          type: "slider",
-          xAxisIndex: 0,
-          filterMode: "filter",
-          start: 0,
-          end: endPercentage,
-          height: 20,
-          bottom: 35,
-          handleStyle: { color: THEME.colors.primary[0] },
-          borderColor: THEME.colors.neutral[5],
-          textStyle: { color: THEME.colors.neutral[3], fontSize: 10 },
-          showDetail: false,
-        },
-        {
-          type: "inside",
-          xAxisIndex: 0,
-          filterMode: "filter",
-          start: 0,
-          end: endPercentage,
-        },
-      ];
+  protected shouldAddDataZoom(): boolean {
+    return this.input.xAxisData.length > 12;
+  }
 
-      (config.grid as any).bottom = 85;
-      (config.legend as any).bottom = 10;
+  protected addDataZoom(option: any): void {
+    if (this.shouldAddDataZoom()) {
+      option.dataZoom = [
+        { type: "slider", start: 0, end: 100 },
+        { type: "inside", start: 0, end: 100 },
+      ];
     }
   }
 
-  abstract build(): EChartsOption;
+  abstract build(): any;
 }
 
-// Area Chart Builder
-class AreaChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createAreaSeries();
-
-    this.addDataZoom(config);
-    return config;
-  }
-
-  private createAreaSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
-      type: "line",
-      data: series.data,
-      stack: series.stack,
-      areaStyle: { opacity: 0.8 },
-      smooth: true,
-      lineStyle: {
-        width: 2,
-        shadowColor: "rgba(0,0,0,0.1)",
-        shadowBlur: 4,
-        shadowOffsetY: 1,
-      },
-      symbol: "circle",
-      symbolSize: 4,
-      showSymbol: Array.isArray(series.data) && series.data.length < 50,
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        lineStyle: { width: 3 },
-        symbolSize: 6,
-      },
-    }));
-  }
-}
-
-// Bar Chart Builder
 class BarChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createBarSeries();
-
-    (config.tooltip as any).trigger = "axis";
-    (config.tooltip as any).axisPointer.type = "shadow";
-
-    this.addDataZoom(config);
-    return config;
-  }
-
-  private createBarSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
       type: "bar",
-      data: series.data,
-      stack: series.stack,
-      barMaxWidth: THEME.dimensions.barMaxWidth,
-      barGap: "20%",
-      barCategoryGap: "40%",
-      itemStyle: {
-        borderRadius: 0,
-        borderWidth: 0,
-      },
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: "rgba(0,0,0,0.2)",
-        },
-      },
+      data: s.data,
+      stack: s.stack || null,
+      barMaxWidth: 40,
+      barGap: "30%",
     }));
+    this.addDataZoom(option);
+    return option;
   }
 }
 
-// Line Chart Builder
 class LineChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createLineSeries();
-
-    this.addDataZoom(config);
-    return config;
-  }
-
-  private createLineSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
       type: "line",
-      data: series.data,
+      data: s.data,
       smooth: true,
-      lineStyle: {
-        width: 3,
-        shadowColor: "rgba(0,0,0,0.15)",
-        shadowBlur: 6,
-        shadowOffsetY: 2,
-      },
-      symbol: "circle",
-      symbolSize: 6,
-      showSymbol: Array.isArray(series.data) && series.data.length < 50,
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        lineStyle: { width: 4 },
-        symbolSize: 8,
-      },
+      lineStyle: { width: 2 },
     }));
+    this.addDataZoom(option);
+    return option;
   }
 }
 
-// Pie Chart Builder
 class PieChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
+  build(): any {
+    // Start with the base configuration
+    const option = this.createBaseConfig();
 
-    config.xAxis = { show: false };
-    config.yAxis = { show: false };
-    config.grid = { show: false, containLabel: false };
+    // Hide xAxis and yAxis for pie charts
+    option.xAxis = { show: false };
+    option.yAxis = { show: false };
+    option.tooltip = { trigger: "item" };
 
-    (config.tooltip as any).trigger = "item";
-    delete (config.tooltip as any).axisPointer;
+    // Ensure series is an array; default to empty array if undefined or not an array
+    const series = Array.isArray(this.input.series) ? this.input.series : [];
 
-    config.series = this.createPieSeries();
-    return config;
-  }
+    // Map over series to create pie chart configuration
+    option.series = series.map((s: any) => {
+      // Ensure data is an array; default to empty array if undefined or not an array
+      const data = Array.isArray(s.data) ? s.data : [];
+      return {
+        name: s.name || "Unnamed Series", // Default name if missing
+        type: "pie",
+        radius: "50%",
+        center: ["50%", "50%"],
+        data: data,
+      };
+    });
 
-  private createPieSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
-      type: "pie",
-      data: series.data,
-      radius: THEME.dimensions.pieRadius,
-      center: ["50%", "50%"],
-      avoidLabelOverlap: false,
-      minAngle: 5,
-      itemStyle: {
-        borderRadius: 6,
-        borderColor: "#fff",
-        borderWidth: 2,
-        shadowColor: "rgba(0,0,0,0.1)",
-        shadowBlur: 8,
-      },
-      label: { show: false },
-      labelLine: { show: false },
-      emphasis: {
-        scale: true,
-        scaleSize: 8,
-        itemStyle: {
-          shadowBlur: 15,
-          shadowColor: "rgba(0,0,0,0.25)",
-        },
-      },
-    }));
+    return option;
   }
 }
 
-// Mixed Chart Builder
+class AreaChartBuilder extends BaseChartBuilder {
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
+      type: "line",
+      data: s.data,
+      areaStyle: { opacity: 0.2 },
+      smooth: true,
+      lineStyle: { width: 2 },
+    }));
+    this.addDataZoom(option);
+    return option;
+  }
+}
+
 class MixedChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createDualYAxis();
-    config.series = this.createMixedSeries();
-
-    (config.grid as any).right = 50;
-    this.addDataZoom(config);
-    return config;
-  }
-
-  private createDualYAxis(): any[] {
-    const primaryAxis = this.createYAxis();
-    const secondaryAxis = {
-      ...primaryAxis,
-      position: "right",
-      splitLine: { show: false },
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5] },
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = [
+      this.createYAxis(),
+      {
+        type: "value",
+        axisLine: { lineStyle: { color: "#999" } },
+        axisLabel: { color: "#666" },
+        splitLine: { show: false },
       },
-    };
-
-    return [primaryAxis, secondaryAxis];
-  }
-
-  private createMixedSeries(): any[] {
-    return this.data.series.map((series, index) => {
-      const yAxisIndex = series.type === "line" ? 1 : 0;
-
+    ];
+    option.series = this.input.series.map((s: any, index: number) => {
       const baseSeries = {
-        name: series.name,
-        data: series.data,
-        yAxisIndex,
+        name: s.name,
+        type: s.type,
+        data: s.data,
+        yAxisIndex: s.type === "bar" ? 0 : 1,
       };
-
-      if (series.type === "bar") {
+      if (s.type === "bar") {
         return {
           ...baseSeries,
-          type: "bar",
-          barMaxWidth: THEME.dimensions.barMaxWidth,
-          itemStyle: { borderRadius: 0 },
+          stack: s.stack || null,
+          barMaxWidth: 40,
+          barGap: "30%",
         };
-      } else if (series.type === "line") {
-        return {
-          ...baseSeries,
-          type: "line",
-          smooth: true,
-          lineStyle: { width: 3 },
-          symbol: "circle",
-          symbolSize: 6,
-        };
+      } else if (s.type === "line") {
+        return { ...baseSeries, smooth: true, lineStyle: { width: 2 } };
       }
-
-      return { ...baseSeries, type: series.type };
+      return baseSeries;
     });
+    this.addDataZoom(option);
+    return option;
   }
 }
 
@@ -679,17 +483,17 @@ class ChartBuilderFactory {
 
     switch (chartType) {
       case "bar":
-        return new BarChartBuilder(data, chartType);
+        return new BarChartBuilder(data);
       case "line":
-        return new LineChartBuilder(data, chartType);
+        return new LineChartBuilder(data);
       case "pie":
-        return new PieChartBuilder(data, chartType);
+        return new PieChartBuilder(data);
       case "area":
-        return new AreaChartBuilder(data, chartType);
+        return new AreaChartBuilder(data);
       case "mixed":
-        return new MixedChartBuilder(data, chartType);
+        return new MixedChartBuilder(data);
       default:
-        return new BarChartBuilder(data, chartType);
+        return new BarChartBuilder(data);
     }
   }
 }
@@ -813,7 +617,7 @@ const RestrictedChart: React.FC<RestrictedChartProps> = ({
       style={style}
     >
       {(processedData.title || showDragHandle || showMenu) && (
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-slate-200">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {showDragHandle && (
               <div

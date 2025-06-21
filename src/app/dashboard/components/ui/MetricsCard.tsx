@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import { useCallback, useMemo } from "react";
 import {
   ArrowDownIcon,
@@ -26,7 +28,7 @@ interface MetricsCardProps {
   changeLabel?: string;
   formatValue?: (value: number | string) => string;
   className?: string;
-  style?: React.CSSProperties; // Added this line
+  style?: React.CSSProperties;
   showDragHandle?: boolean;
   dragHandleProps?: React.HTMLProps<HTMLDivElement>;
   showMenu?: boolean;
@@ -42,7 +44,7 @@ export default function MetricsCard({
   changeLabel,
   formatValue = (val) => val.toString(),
   className,
-  style, // Destructure style
+  style,
   showDragHandle,
   dragHandleProps,
   showMenu,
@@ -53,10 +55,18 @@ export default function MetricsCard({
   const isPositive = change && change > 0;
   const isNegative = change && change < 0;
 
-  // Format the value for display
+  // Professional value formatting
   const formattedValue = useMemo(() => {
     if (typeof value === "number") {
-      return value.toLocaleString("en-IN"); // Format with commas for Indian locale
+      // Currency formatting
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1)}M`;
+      } else if (value >= 1000) {
+        return `$${(value / 1000).toFixed(1)}K`;
+      } else if (value < 1 && value > 0) {
+        return value.toFixed(2);
+      }
+      return `$${value.toLocaleString("en-US")}`;
     }
     return String(value);
   }, [value]);
@@ -71,29 +81,33 @@ export default function MetricsCard({
     <div
       className={cn(
         "flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden",
+        "min-w-[160px] min-h-[100px]", // Reduced minimum dimensions
         className,
-        showDragHandle ? "rounded-none" : "rounded-lg" // Make borders non-rounded when editing for dnd
+        showDragHandle ? "rounded-none" : "rounded-lg"
       )}
-      style={style} // Apply style here
+      style={{
+        ...style,
+        minWidth: Math.max(160, (style?.minWidth as number) || 0),
+        minHeight: Math.max(100, (style?.minHeight as number) || 0),
+      }}
     >
+      {/* Header Section - Compact */}
       {(showDragHandle || showMenu || title) && (
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0 h-[45px]">
-          {" "}
-          {/* Consistent header height */}
+        <div className="flex items-center justify-between px-3 py-2 bg-white border-slate-200 flex-shrink-0 min-h-[40px]">
           <div className="flex items-center gap-1.5 flex-grow min-w-0">
             {showDragHandle && (
               <div
                 {...dragHandleProps}
                 className={cn(
-                  "flex items-center text-slate-400 hover:text-slate-600 p-0.5 cursor-grab active:cursor-grabbing",
+                  "flex items-center text-slate-400 hover:text-slate-600 p-0.5 cursor-grab active:cursor-grabbing flex-shrink-0",
                   dragHandleProps?.className
                 )}
               >
-                <GripVerticalIcon className="h-5 w-5" />
+                <GripVerticalIcon className="h-4 w-4" />
               </div>
             )}
             <h3
-              className="text-sm font-semibold text-slate-700 truncate"
+              className="text-xs font-medium text-slate-600 truncate leading-tight"
               title={title}
             >
               {title}
@@ -103,10 +117,10 @@ export default function MetricsCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-md transition-colors duration-150 cursor-pointer rgl-no-drag"
+                  className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1 rounded transition-colors duration-150 cursor-pointer rgl-no-drag flex-shrink-0"
                   aria-label="More options"
                 >
-                  <MoreVerticalIcon className="h-4 w-4" />
+                  <MoreVerticalIcon className="h-3 w-3" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -114,17 +128,14 @@ export default function MetricsCard({
                 className="bg-white shadow-xl border-slate-200 z-[100] rgl-no-drag"
               >
                 {onEdit && (
-                  <DropdownMenuItem
-                    onClick={onEditHandler}
-                    className="text-sm opt"
-                  >
+                  <DropdownMenuItem onClick={onEditHandler} className="text-sm">
                     <Edit3Icon className="w-3.5 h-3.5 mr-2" /> Edit
                   </DropdownMenuItem>
                 )}
                 {onDuplicate && (
                   <DropdownMenuItem
                     onClick={onDuplicateHandler}
-                    className="text-sm opt"
+                    className="text-sm"
                   >
                     <CopyIcon className="w-3.5 h-3.5 mr-2" /> Duplicate
                   </DropdownMenuItem>
@@ -135,7 +146,7 @@ export default function MetricsCard({
                 {onDelete && (
                   <DropdownMenuItem
                     onClick={onDeleteHandler}
-                    className="text-sm text-red-600 hover:!text-red-500 hover:!bg-red-50 focus:!bg-red-50 focus:!text-red-600 opt"
+                    className="text-sm text-red-600 hover:!text-red-500 hover:!bg-red-50 focus:!bg-red-50 focus:!text-red-600"
                   >
                     <Trash2Icon className="w-3.5 h-3.5 mr-2" /> Delete
                   </DropdownMenuItem>
@@ -146,33 +157,43 @@ export default function MetricsCard({
         </div>
       )}
 
-      <div
-        className={cn(
-          "flex-grow flex flex-col items-center justify-center p-4 min-h-[100px]" // Added min-h to prevent squishing
-        )}
-      >
-        <span className="text-2xl font-semibold text-slate-900 leading-none">
-          {" "}
-          {/* Increased font size for value */}
-          {formattedValue}
-        </span>
+      {/* Content Section - Left Aligned, Professional */}
+      <div className="flex-grow flex flex-col justify-center px-3 py-3 min-h-[60px] overflow-hidden">
+        {/* Main Value - Left Aligned */}
+        <div className="w-full">
+          <div
+            className="text-2xl font-bold text-slate-900 leading-none truncate"
+            title={formattedValue}
+          >
+            {formattedValue}
+          </div>
+        </div>
+
+        {/* Change Indicator - Left Aligned */}
         {change !== undefined && (
           <div
             className={cn(
-              "flex items-center text-sm font-medium mt-1", // Added margin-top for spacing
+              "flex items-center text-sm font-medium mt-1.5 w-full",
               isPositive && "text-emerald-600",
-              isNegative && "text-red-600"
+              isNegative && "text-red-600",
+              change === 0 && "text-slate-500"
             )}
           >
-            {isPositive ? (
-              <ArrowUpIcon className="w-4 h-4 mr-0.5" />
-            ) : isNegative ? (
-              <ArrowDownIcon className="w-4 h-4 mr-0.5" />
-            ) : null}
-            {formattedChange}%
-            {changeLabel && (
-              <span className="ml-1 text-slate-500">{changeLabel}</span>
-            )}
+            <div className="flex items-center gap-1">
+              {isPositive ? (
+                <ArrowUpIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              ) : isNegative ? (
+                <ArrowDownIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              ) : null}
+              <span className="text-sm">
+                {formattedChange}%
+                {changeLabel && (
+                  <span className="ml-1 text-slate-500 text-xs">
+                    {changeLabel}
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
         )}
       </div>
