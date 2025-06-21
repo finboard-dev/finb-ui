@@ -1,7 +1,7 @@
 export const data = {
   "uid": "XERO_DASH_001",
   "title": "Xero Financial Dashboard",
-  "view_only": true,
+  "view_only": false,
   "links": [
     { "title": "LOG IN", "url": "/login", "type": "primary" },
     { "title": "TALK TO EXPERT", "url": "/expert", "type": "secondary" }
