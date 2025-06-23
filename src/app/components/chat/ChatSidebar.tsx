@@ -51,12 +51,6 @@ const ChatSidebarClient = () => {
   const companies = useAppSelector((state) => state.user.companies);
 
   useEffect(() => {
-    if (companies && companies.length === 0) {
-      router.push("/company-selection");
-    }
-  }, [companies, router]);
-
-  useEffect(() => {
     setSearchParams(new URLSearchParams(window.location.search));
   }, []);
 
@@ -372,7 +366,7 @@ const ChatSidebarClient = () => {
         id="chat-history-container"
         className="flex-1 overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
       >
-        {chatConversations.length === 0 ? (
+        {isSidebarOpen && chatConversations.length === 0 ? (
           <div className="px-2 py-4 text-center text-sm text-gray-500">
             No conversations yet. Start a new chat!
           </div>

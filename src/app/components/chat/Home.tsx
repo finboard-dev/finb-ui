@@ -23,12 +23,13 @@ import {
   selectSelectedCompany,
   setSelectedCompany,
   Company,
+  setCompanies,
 } from "@/lib/store/slices/userSlice";
 // import { setDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
 import { setMainContent, toggleComponent } from "@/lib/store/slices/uiSlice";
 import { store } from "@/lib/store/store";
-import { getCurrentCompany } from "@/lib/api/allCompany";
+import { getAllCompany, getCurrentCompany } from "@/lib/api/allCompany";
 import { useRouter } from "next/navigation";
 
 interface ToolCallResponse {
@@ -41,7 +42,9 @@ const Home: FC = () => {
   const isLoadingMessages = useAppSelector(
     (state) => state.chat.isLoadingMessages
   );
-  const selectedCompany = useAppSelector(selectSelectedCompany) as Company & {
+  const selectedCompany: any = useAppSelector(
+    selectSelectedCompany
+  ) as Company & {
     assistants?: any[];
   };
   const availableAssistants: any[] = selectedCompany?.assistants || [];
@@ -50,6 +53,9 @@ const Home: FC = () => {
   const mainContent = useAppSelector((state) => state.ui.mainContent);
   const [error, setError] = useState<string | null>(null);
   const companies = useAppSelector((state) => state.user.companies);
+  const selectedOrganization = useAppSelector(
+    (state) => state.user.selectedOrganization
+  );
   const router = useRouter();
 
   const activeChat = useAppSelector((state) => {
@@ -98,6 +104,25 @@ const Home: FC = () => {
   }, [dispatch, availableAssistants, activeChatId]);
 
   useEffect(() => {
+    async function fetchCompanies() {
+      try {
+        const response = await getAllCompany();
+        const mappedCompanies = (response?.data || response || []).map(
+          (company: any) => ({
+            ...company,
+            name: company.companyName,
+            status: company.isActive ? "ACTIVE" : "INACTIVE",
+          })
+        );
+        dispatch(setCompanies(mappedCompanies));
+      } catch (err) {
+        console.error("Failed to fetch companies", err);
+      }
+    }
+    fetchCompanies();
+  }, [selectedOrganization, dispatch]);
+
+  useEffect(() => {
     const handleCompanySelect = async () => {
       setError(null);
       try {
@@ -127,8 +152,11 @@ const Home: FC = () => {
     handleCompanySelect();
   }, [dispatch, selectedCompanyId]);
 
+  console.log(selectedCompany.name);
+
   useEffect(() => {
-    if (companies && companies.length === 0) {
+    if (!selectedCompany?.name) {
+      console.log("home company");
       router.push("/company-selection");
     }
   }, [companies, router]);

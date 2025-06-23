@@ -175,24 +175,30 @@ function CallbackHandler() {
     }
   }, [searchParams]); // Removed debug from dependencies to avoid loop if it contains non-serializable data
 
+  console.log(selectedCompany, "selectedCompany");
+
   useEffect(() => {
     if (
       readyToRedirect &&
       (status === "success" || status === "add-company-success") &&
-      currentToken?.accessToken
+      currentToken?.accessToken &&
+      typeof selectedCompany !== "undefined"
     ) {
-      let redirectPath =
-        getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
-      if (status === "success" && !selectedCompany) {
-        redirectPath = "/company-selection";
-        console.log("No company selected, will redirect to company selection.");
-      } else {
-        console.log(`Token verified, will redirect to ${redirectPath}.`);
-      }
-
       const timer = setTimeout(() => {
+        // Check the latest value of selectedCompany at the time of redirect
+        let redirectPath =
+          getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
+        if (status === "success" && !selectedCompany) {
+          console.log("company-selection outh");
+          redirectPath = "/company-selection";
+          console.log(
+            "No company selected, will redirect to company selection."
+          );
+        } else {
+          console.log(`Token verified, will redirect to ${redirectPath}.`);
+        }
         router.push(redirectPath);
-      }, AUTO_REDIRECT_DELAY_MS); // Auto-redirect after some time on success screen
+      }, AUTO_REDIRECT_DELAY_MS);
       return () => clearTimeout(timer);
     }
   }, [readyToRedirect, currentToken, router, status, selectedCompany]);
@@ -344,6 +350,8 @@ function CallbackHandler() {
     let redirectPath =
       getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
     if (status === "success" && !selectedCompany) {
+      console.log("company selection aouth 2");
+
       redirectPath = "/company-selection";
     }
     router.push(redirectPath);
