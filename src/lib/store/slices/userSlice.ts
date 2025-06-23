@@ -8,9 +8,27 @@ interface CompanyRole {
 
 interface Company {
   id: string;
-  name: string;
-  status: string;
-  role?: CompanyRole;
+  userId?: string;
+  syncToken?: string | null;
+  folderId?: string | null;
+  companyName: string;
+  realmId?: string | null;
+  isActive: boolean;
+  templateFolderId?: string | null;
+  created?: string;
+  updated?: string;
+  lastSyncTime?: string;
+  currency?: string;
+  country?: string | null;
+  startDate?: string;
+  financialYearStart?: string;
+  isMultiEntity?: boolean;
+  subEntities?: string[];
+  pnlConsolidation?: boolean;
+  balanceSheetConsolidation?: boolean;
+  cashFlowConsolidation?: boolean;
+  accessLevel?: string;
+  status?: string; // for compatibility with UI logic
 }
 
 interface OrganizationRole {
@@ -64,6 +82,7 @@ interface UserState {
   user: User | null;
   selectedOrganization: Organization | null;
   selectedCompany: Company | null;
+  companies: Company[];
 }
 
 // Initial state
@@ -72,6 +91,7 @@ const initialState: UserState = {
   user: null,
   selectedOrganization: null,
   selectedCompany: null,
+  companies: [],
 };
 
 // Create the slice
@@ -195,6 +215,10 @@ const userSlice = createSlice({
       state.selectedOrganization = null;
       state.selectedCompany = null;
     },
+
+    setCompanies: (state, action: PayloadAction<Company[]>) => {
+      state.companies = action.payload;
+    },
   },
 });
 
@@ -205,6 +229,7 @@ export const {
   setSelectedOrganization,
   setSelectedCompany,
   clearUserData,
+  setCompanies,
 } = userSlice.actions;
 
 export const selectedCompanyId = (state: { user: UserState }) =>
@@ -232,10 +257,13 @@ export const selectOrganizationPermissions = (state: { user: UserState }) =>
     state.user?.selectedOrganization?.role?.permissions || [];
 
 export const selectCompanyPermissions = (state: { user: UserState }) =>
-    state.user?.selectedCompany?.role?.permissions || [];
+  [];
 
 export const selectUserPermissions = (state: { user: UserState }) =>
     state.user?.user?.role?.permissions || [];
+
+export const selectCompanies = (state: { user: UserState }) =>
+  state.user?.companies || [];
 
 export type {
   User,

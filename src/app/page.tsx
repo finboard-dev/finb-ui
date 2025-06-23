@@ -10,26 +10,27 @@ import Sidebar from "./components/common/Sidebar";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 
 const Page = () => {
-    const dispatch = useDispatch();
-    const userId = useSelectedUserId();
-    const isLoading = store.getState().loading.isCompanyDropDownLoading === true;
+  const dispatch = useDispatch();
+  const userId = useSelectedUserId();
+  // const isLoading = store.getState().loading.isCompanyDropDownLoading === true;
+  const isLoading = false;
 
-    useClickEventTracking();
+  useClickEventTracking();
 
-    return (
+  return (
+    <>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+          <LoadingAnimation message={"switching company... Please wait!"} />
+        </div>
+      ) : (
         <>
-            {isLoading ? (
-                <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-                    <LoadingAnimation message={"switching company... Please wait!"} />
-                </div>
-            ) : (
-                <>
-                    <Sidebar />
-                    <Home />
-                </>
-            )}
+          <Sidebar />
+          <Home />
         </>
-    );
+      )}
+    </>
+  );
 };
 
 export default Page;

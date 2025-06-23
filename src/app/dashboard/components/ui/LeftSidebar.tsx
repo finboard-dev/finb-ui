@@ -33,11 +33,12 @@ const navItems = [
 ];
 
 interface AppSidebarProps {
-  savedDashboards: { id: string; name: string }[];
-  onLoadDashboard: (id: string) => void;
-  currentDashboardId: string | null;
-  onNewDashboard: () => void;
-  isEditing: boolean;
+  savedDashboards?: { id: string; name: string }[];
+  onLoadDashboard?: (id: string) => void;
+  currentDashboardId?: string | null;
+  onNewDashboard?: () => void;
+  isEditing?: boolean;
+  collapsible?: boolean;
 }
 
 export default function AppSidebar({
@@ -46,19 +47,18 @@ export default function AppSidebar({
   currentDashboardId,
   onNewDashboard,
   isEditing,
+  collapsible = true,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [isDashboardSectionOpen, setIsDashboardSectionOpen] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Expand dashboard section when on /dashboard
   useEffect(() => {
     if (pathname === "/dashboard") {
       setIsDashboardSectionOpen(true);
     }
   }, [pathname]);
 
-  // Navigation link component
   const NavLink = ({
     href,
     icon: Icon,
@@ -103,14 +103,16 @@ export default function AppSidebar({
                 FinB AI
               </h1>
             </Link>
-            <Button
-              onClick={() => setIsSidebarOpen(false)}
-              variant="ghost"
-              size="icon"
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <ChevronLeftIcon className="h-5 w-5" />
-            </Button>
+            {collapsible && (
+              <Button
+                onClick={() => setIsSidebarOpen(false)}
+                variant="ghost"
+                size="icon"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <ChevronLeftIcon className="h-5 w-5" />
+              </Button>
+            )}
           </div>
 
           <nav className="flex-grow px-3 py-4 space-y-1.5 overflow-y-auto overflow-x-hidden">
@@ -123,14 +125,14 @@ export default function AppSidebar({
                 <Button
                   variant={
                     pathname === "/dashboard" ||
-                    savedDashboards.some((d) => d.id === currentDashboardId)
+                    savedDashboards?.some((d) => d.id === currentDashboardId)
                       ? "secondary"
                       : "ghost"
                   }
                   className={cn(
                     "w-full text-sm font-medium justify-between pr-2",
                     pathname === "/dashboard" ||
-                      savedDashboards.some((d) => d.id === currentDashboardId)
+                      savedDashboards?.some((d) => d.id === currentDashboardId)
                       ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   )}
@@ -140,13 +142,13 @@ export default function AppSidebar({
                     className="flex items-center gap-3"
                     onClick={(e) => {
                       if (pathname !== "/dashboard" && !currentDashboardId)
-                        onNewDashboard();
+                        onNewDashboard?.();
                       else if (
                         pathname === "/dashboard" &&
                         !currentDashboardId &&
                         !isEditing
                       )
-                        onNewDashboard();
+                        onNewDashboard?.();
                     }}
                   >
                     <LayoutDashboardIcon className="h-5 w-5 flex-shrink-0" />
@@ -164,7 +166,7 @@ export default function AppSidebar({
                   variant="ghost"
                   className="w-full justify-start text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 pl-3"
                   onClick={() => {
-                    onNewDashboard();
+                    onNewDashboard?.();
                     if (pathname !== "/dashboard") {
                       /* Consider navigation */
                     }
@@ -173,7 +175,7 @@ export default function AppSidebar({
                   <FilePlus2Icon className="h-4 w-4 mr-2" />
                   New Dashboard
                 </Button>
-                {savedDashboards.length > 0 && (
+                {savedDashboards && savedDashboards.length > 0 && (
                   <div className="mt-1 pt-1 border-t border-gray-200">
                     <h4 className="text-xs font-semibold text-gray-500 px-2 py-1 uppercase">
                       Saved
@@ -192,7 +194,7 @@ export default function AppSidebar({
                             ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
                             : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                         )}
-                        onClick={() => onLoadDashboard(dashboard.id)}
+                        onClick={() => onLoadDashboard?.(dashboard.id)}
                         title={dashboard.name}
                       >
                         <ListChecksIcon className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -219,10 +221,10 @@ export default function AppSidebar({
           {/* Settings */}
           <div className="mt-auto p-3 border-t border-gray-200">
             <NavLink
-              href="/settings"
+              href="/dashboard/settings"
               icon={SettingsIcon}
               label="Settings"
-              isCurrent={pathname === "/settings"}
+              isCurrent={pathname === "/dashboard/settings"}
             />
           </div>
         </aside>
