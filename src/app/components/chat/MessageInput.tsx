@@ -154,10 +154,7 @@ export default function MessageInput({
       tool.category.toLowerCase().includes(mentionFilter.toLowerCase())
   );
 
-  const validSelectedCompany = !!(
-    selectedCompany &&
-    (selectedCompany.companyName || selectedCompany.name)
-  );
+  const validSelectedCompany = !!(selectedCompany && selectedCompany.name);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -763,15 +760,13 @@ export default function MessageInput({
             <div className="relative">
               <div
                 className={`flex items-center min-h-fit border ${
-                  !selectedCompany?.companyName
+                  !selectedCompany?.name
                     ? "border-dashed border-gray-300 text-gray-400"
                     : "border-gray-200 bg-gray-50 text-gray-700"
                 } rounded-lg px-2.5 py-1.5 cursor-default text-sm h-9`}
               >
-                {selectedCompany?.companyName || selectedCompany?.name ? (
-                  <span>
-                    {selectedCompany.companyName || selectedCompany.name}
-                  </span>
+                {selectedCompany?.name ? (
+                  <span>{selectedCompany.name}</span>
                 ) : (
                   <span>Connect company</span>
                 )}

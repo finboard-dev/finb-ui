@@ -234,7 +234,7 @@ const CompanySelectionPage = () => {
             >
               <Building2 className="h-6 w-6 text-gray-400" />
               <div>
-                <p className="font-medium">{company.companyName}</p>
+                <p className="font-medium">{company.name}</p>
                 <p
                   className={`text-sm ${
                     company.isActive ? "text-[#4CAF50]" : "text-red-500"

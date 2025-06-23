@@ -129,7 +129,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
+    <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
       {!dashboardData.view_only && (
         <AppSidebar
           savedDashboards={[]}

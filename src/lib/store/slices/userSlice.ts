@@ -11,7 +11,7 @@ interface Company {
   userId?: string;
   syncToken?: string | null;
   folderId?: string | null;
-  companyName: string;
+  name: string;
   realmId?: string | null;
   isActive: boolean;
   templateFolderId?: string | null;
@@ -120,7 +120,6 @@ const userSlice = createSlice({
         return initialState;
       }
 
-      // Set token if it exists
       if (token) {
         state.token = token;
       }

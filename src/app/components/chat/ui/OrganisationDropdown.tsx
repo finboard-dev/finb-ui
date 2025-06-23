@@ -158,8 +158,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
         <div className="flex items-center gap-2.5">
           <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 text-white shadow-inner">
             <span className="text-xs font-semibold">
-              {selectedCompany?.companyName?.substring(0, 2).toUpperCase() ||
-                "SC"}
+              {selectedCompany?.name?.substring(0, 2).toUpperCase() || "SC"}
             </span>
             <div
               className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white
@@ -172,7 +171,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-gray-900 line-clamp-1">
-              {selectedCompany?.companyName || "Select Company"}
+              {selectedCompany?.name || "Select Company"}
             </span>
             <span className="text-xs text-gray-500 line-clamp-1">
               {selectedOrganization?.name}
@@ -225,7 +224,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                       }`}
                     >
                       <span className="text-xs font-medium">
-                        {company.companyName.substring(0, 2).toUpperCase()}
+                        {company.name.substring(0, 2).toUpperCase()}
                       </span>
                       <div
                         className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white ${
@@ -236,7 +235,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                       ></div>
                     </div>
                     <div className="flex flex-grow items-center">
-                      <span className="text-sm">{company.companyName}</span>
+                      <span className="text-sm">{company.name}</span>
                     </div>
                     {isSelected && <Check className="h-4 w-4 text-primary" />}
                   </div>
@@ -295,9 +294,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                             }`}
                           >
                             <span className="text-xs font-medium">
-                              {company.companyName
-                                .substring(0, 2)
-                                .toUpperCase()}
+                              {company.name.substring(0, 2).toUpperCase()}
                             </span>
                             <div
                               className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white ${
@@ -308,9 +305,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                             ></div>
                           </div>
                           <div className="flex flex-grow items-center">
-                            <span className="text-sm">
-                              {company.companyName}
-                            </span>
+                            <span className="text-sm">{company.name}</span>
                           </div>
                           {isSelected && (
                             <Check className="h-4 w-4 text-primary" />
@@ -373,8 +368,8 @@ export const CollapsedOrganizationDropdown: React.FC = () => {
         ) : selectedCompany ? (
           <div className="relative flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/80 text-white">
             <span className="text-xs text-white font-semibold">
-              {selectedCompany && selectedCompany.companyName
-                ? selectedCompany.companyName.substring(0, 1).toUpperCase()
+              {selectedCompany && selectedCompany.name
+                ? selectedCompany.name.substring(0, 1).toUpperCase()
                 : "SC"}
             </span>
             <div
