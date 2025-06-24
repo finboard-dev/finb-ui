@@ -25,6 +25,7 @@ import {
   XCircle,
   Clock,
   ShieldCheck,
+  Trash2Icon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  getOrganizationCompanies,
+  getOrganizationUsers,
+  addOrganizationUser,
+  deleteOrganizationUser,
+  updateOrganizationUser,
+} from "@/lib/api/roles&Permissions";
+import {
+  Dialog as AlertDialog,
+  DialogContent as AlertDialogContent,
+  DialogHeader as AlertDialogHeader,
+  DialogTitle as AlertDialogTitle,
+  DialogFooter as AlertDialogFooter,
+} from "@/components/ui/dialog";
 
 interface DataSource {
   id: string;
@@ -73,9 +88,17 @@ interface DataSource {
   last_refreshed_at: string;
 }
 
+// Add enum for roles
+const USER_ROLES = {
+  ADMIN: "ADMIN",
+  MEMBER: "MEMBER",
+  EXTERNAL_MEMBER: "EXTERNAL_MEMBER",
+};
+
 const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const state = store.getState();
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,60 +108,42 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
   const user = store.getState().user.selectedCompany;
   const company_id = user?.id;
+  const organizationId = state.user.selectedOrganization?.id;
 
   // Use actual user data from Redux store
   const userData = store.getState().user.user;
 
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: userData
-        ? `${userData.firstName} ${userData.lastName}`
-        : "Aakash Bhardwaj",
-      email: userData?.email || "draftaakash@gmail.com",
-      role: userData?.role?.name || "Super Admin",
-      companies: [
-        "Finboard",
-        "Amazon",
-        "Tesla",
-        "Stripe",
-        "FindOnline",
-        "Coca Cola",
-      ],
-      companyAccess: "Finboard, Amazon, 5 more",
-    },
-    {
-      id: 2,
-      name: "Aakash Bhardwaj",
-      email: "draftaakash@gmail.com",
-      role: "Member",
-      companies: ["Finboard", "Amazon", "Tesla", "Stripe", "FindOnline"],
-      companyAccess: "Finboard, Amazon, 5 more",
-    },
-    {
-      id: 3,
-      name: "Aakash Bhardwaj",
-      email: "draftaakash@gmail.com",
-      role: "Member",
-      companies: [],
-      companyAccess: "No Company",
-    },
-  ]);
+  const isSuperAdmin = userData?.role?.id === "SUPER_ADMIN";
+
+  const [orgUsers, setOrgUsers] = useState<any[]>([]);
+  const [orgCompanies, setOrgCompanies] = useState<any[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Super admin");
-  const [companyPermissions, setCompanyPermissions] = useState({
+  const [inviteRole, setInviteRole] = useState(USER_ROLES.ADMIN);
+  const [inviteCompanies, setInviteCompanies] = useState<string[]>([]);
+  const [selectAllCompanies, setSelectAllCompanies] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [originalCompanyAccess, setOriginalCompanyAccess] = useState<string[]>(
+    []
+  );
+  const [companyAccessDraft, setCompanyAccessDraft] = useState<string[]>([]);
+
+  const companyPermissions = {
     Finboard: "Full Access",
     Amazon: "No Access",
     Tesla: "No Access",
     Stripe: "Full Access",
     FindOnline: "Full Access",
     "Coca Cola": "Full Access",
-  });
+  };
 
   const fetchData = async () => {
     try {
@@ -162,6 +167,32 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
       setError("No company selected");
     }
   }, [company_id]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const users = await getOrganizationUsers();
+      setOrgUsers(users || []);
+    };
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      const companies = await getOrganizationCompanies();
+      setOrgCompanies(companies || []);
+    };
+    fetchCompanies();
+  }, []);
+
+  useEffect(() => {
+    if (showCompanyModal && selectedUser) {
+      setCompanyAccessDraft(
+        (selectedUser.accessibleCompanies || [])
+          .filter((c: any) => c.status === "ACTIVE")
+          .map((c: any) => c.id)
+      );
+    }
+  }, [showCompanyModal, selectedUser]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -500,39 +531,16 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                 className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-32 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <SelectValue className="text-gray-900" />
-                {/*<ChevronDown className="h-4 w-4 text-gray-500" />*/}
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-gray-200 shadow-lg rounded-md">
-                <SelectItem
-                  value="All Roles"
-                  className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
-                >
-                  All Roles
-                </SelectItem>
-                <SelectItem
-                  value="Super Admin"
-                  className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
-                >
-                  Super Admin
-                </SelectItem>
-                <SelectItem
-                  value="Member"
-                  className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
-                >
-                  Member
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Role filter can be kept or removed as needed */}
           </div>
-          <Button
-            onClick={() => setShowInviteModal(true)}
-            className="bg-gray-800 hover:bg-gray-900 text-white border-gray-800 px-4 py-2 rounded-md font-medium"
-          >
-            Add users
-          </Button>
+          {isSuperAdmin && (
+            <Button
+              onClick={() => setShowInviteModal(true)}
+              className="bg-gray-800 hover:bg-gray-900 text-white border-gray-800 px-4 py-2 rounded-md font-medium"
+            >
+              Add User
+            </Button>
+          )}
         </div>
 
         <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -557,7 +565,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
               </TableRow>
             </TableHeader>
             <TableBody className="bg-white">
-              {users.map((user) => (
+              {filteredOrgUsers.map((user) => (
                 <TableRow
                   key={user.id}
                   className="border-b border-gray-100 bg-white hover:bg-gray-50"
@@ -569,23 +577,43 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                     {user.email}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 bg-white">
-                    {user.role}
+                    {user.roleId === "SUPER_ADMIN" ? "Super Admin" : "Member"}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 bg-white">
+                    {user.roleId === "SUPER_ADMIN" ? (
+                      <span>All companies accessible</span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowCompanyModal(true);
+                          setOriginalCompanyAccess(
+                            (user.accessibleCompanies || [])
+                              .filter((c: any) => c.status === "ACTIVE")
+                              .map((c: any) => c.id)
+                          );
+                        }}
+                        className="flex items-center text-gray-600 hover:text-gray-800 bg-transparent border-none"
+                      >
+                        {user.accessibleCompanies &&
+                        user.accessibleCompanies.length > 0
+                          ? user.accessibleCompanies
+                              .filter((c: any) => c.status === "ACTIVE")
+                              .map((c: any) => c.name)
+                              .join(", ") || "No Company"
+                          : "No Company"}
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="px-6 py-4 bg-white">
                     <button
+                      className="text-gray-400 hover:text-red-600 bg-transparent border-none"
                       onClick={() => {
-                        setSelectedUser(user as any);
-                        setShowCompanyModal(true);
+                        setUserToDelete(user);
+                        setShowDeleteDialog(true);
                       }}
-                      className="flex items-center text-gray-600 hover:text-gray-800 bg-transparent border-none"
                     >
-                      {user.companyAccess}
-                      <ChevronDown className="ml-1 h-4 w-4 text-gray-500" />
-                    </button>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 bg-white">
-                    <button className="text-gray-400 hover:text-red-600 bg-transparent border-none">
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2Icon className="h-4 w-4" />
                     </button>
                   </TableCell>
                 </TableRow>
@@ -605,15 +633,9 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                   </DialogTitle>
                   <p className="text-sm text-gray-500 mt-1">
                     {selectedUser ? selectedUser?.name : ""} has access to{" "}
-                    {Object.keys(companyPermissions).length} companies
+                    {orgCompanies.length} companies
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowCompanyModal(false)}
-                  className="text-gray-400 hover:text-gray-600 bg-transparent border-none p-1"
-                >
-                  <X className="h-5 w-5" />
-                </button>
               </div>
             </DialogHeader>
             <div className="mt-4 bg-white px-6 pb-6">
@@ -622,32 +644,38 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                   <span className="text-gray-600">Name</span>
                   <span className="text-gray-600">Permissions</span>
                 </div>
-                {Object.entries(companyPermissions).map(
-                  ([company, permission]) => (
+                {orgCompanies.map((company) => {
+                  const isActive = company.status === "ACTIVE";
+                  const userHasAccess = selectedUser?.accessibleCompanies?.some(
+                    (c: any) => c.id === company.id && c.status === "ACTIVE"
+                  );
+                  return (
                     <div
-                      key={company}
+                      key={company.id}
                       className="flex justify-between items-center bg-white py-2"
                     >
                       <span className="text-gray-900 font-medium">
-                        {company}
+                        {company.name}
                       </span>
                       <Select
-                        value={permission}
+                        value={
+                          companyAccessDraft.includes(company.id)
+                            ? "Full Access"
+                            : "No Access"
+                        }
+                        disabled={!isActive}
                         onValueChange={(value) =>
-                          setCompanyPermissions((prev) => ({
-                            ...prev,
-                            [company]: value,
-                          }))
+                          handleCompanyAccessChange(company.id, value)
                         }
                       >
                         <SelectTrigger className="w-32 bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                           <SelectValue className="text-gray-900" />
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border border-gray-200 shadow-lg rounded-md">
                           <SelectItem
                             value="Full Access"
                             className="hover:bg-gray-50 focus:bg-gray-50"
+                            disabled={!isActive}
                           >
                             <span className="text-green-600 font-medium">
                               Full Access
@@ -656,6 +684,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                           <SelectItem
                             value="No Access"
                             className="hover:bg-gray-50 focus:bg-gray-50"
+                            disabled={!isActive}
                           >
                             <span className="text-gray-500 font-medium">
                               No Access
@@ -664,13 +693,14 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                         </SelectContent>
                       </Select>
                     </div>
-                  )
-                )}
+                  );
+                })}
               </div>
               <div className="mt-6 flex justify-end bg-white border-t border-gray-100 pt-4">
                 <Button
-                  onClick={() => setShowCompanyModal(false)}
+                  onClick={handleSaveCompanyAccess}
                   className="bg-gray-800 hover:bg-gray-900 text-white border-gray-800 px-4 py-2 rounded-md font-medium"
+                  disabled={!isCompanyAccessChanged()}
                 >
                   Save changes
                 </Button>
@@ -679,84 +709,313 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
           </DialogContent>
         </Dialog>
 
-        {/* Invite User Modal */}
+        {/* Invite/Manage Users Modal */}
         <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
           <DialogContent className="max-w-md bg-white border border-gray-200 shadow-xl rounded-lg">
             <DialogHeader className="bg-white border-b border-gray-100 pb-4">
               <div className="flex items-center justify-between">
                 <div>
                   <DialogTitle className="text-lg font-semibold text-gray-900">
-                    Invite User
+                    Manage Users
                   </DialogTitle>
                   <p className="text-sm text-gray-500 mt-1">
-                    Enter emails and select a role to invite users
+                    Fill in the details to invite a user
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowInviteModal(false)}
-                  className="text-gray-400 hover:text-gray-600 bg-transparent border-none p-1"
-                >
-                  <X className="h-5 w-5" />
-                </button>
               </div>
             </DialogHeader>
             <div className="mt-4 space-y-4 bg-white px-6 pb-6">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name
+                </label>
                 <input
-                  type="email"
-                  placeholder="name@email.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  type="text"
+                  value={inviteFirstName}
+                  onChange={(e) => setInviteFirstName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="First Name"
                 />
               </div>
-              <div className="bg-white">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={inviteLastName}
+                  onChange={(e) => setInviteLastName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Last Name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quickbooks Email
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="name@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Companies
+                </label>
+                <div className="border border-gray-300 rounded-md p-2">
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      checked={selectAllCompanies}
+                      onChange={handleSelectAllCompanies}
+                      disabled={inviteRole === USER_ROLES.ADMIN}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Select All</span>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto">
+                    {orgCompanies
+                      .filter((c) => c.status === "ACTIVE")
+                      .map((company) => (
+                        <div
+                          key={company.id}
+                          className="flex items-center mb-1"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={inviteCompanies.includes(company.id)}
+                            onChange={() => handleCompanySelect(company.id)}
+                            disabled={inviteRole === USER_ROLES.ADMIN}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{company.name}</span>
+                        </div>
+                      ))}
+                    {orgCompanies.filter((c) => c.status === "ACTIVE")
+                      .length === 0 && (
+                      <span className="text-gray-400 text-sm">
+                        No active companies available
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Role
                 </label>
-                <p className="text-sm text-gray-500 mb-2">
-                  Choose from available roles
-                </p>
-                <Select value={inviteRole} onValueChange={setInviteRole}>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(val) =>
+                    setInviteRole(val as keyof typeof USER_ROLES)
+                  }
+                >
                   <SelectTrigger className="w-full bg-white border border-gray-300 text-gray-900 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <SelectValue className="text-gray-900" />
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border border-gray-200 shadow-lg rounded-md">
                     <SelectItem
-                      value="Super admin"
+                      value={USER_ROLES.ADMIN}
                       className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
                     >
-                      Super admin
+                      ADMIN
                     </SelectItem>
                     <SelectItem
-                      value="Member"
+                      value={USER_ROLES.MEMBER}
                       className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
                     >
-                      Member
+                      MEMBER
+                    </SelectItem>
+                    <SelectItem
+                      value={USER_ROLES.EXTERNAL_MEMBER}
+                      className="text-gray-900 hover:bg-gray-50 focus:bg-gray-50"
+                    >
+                      EXTERNAL_MEMBER
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex justify-end pt-4 bg-white border-t border-gray-100">
                 <Button
-                  onClick={() => {
-                    // Handle invite logic here
-                    setShowInviteModal(false);
-                    setInviteEmail("");
-                  }}
+                  onClick={handleSendInvite}
                   className="bg-gray-800 hover:bg-gray-900 text-white border-gray-800 px-4 py-2 rounded-md font-medium"
                 >
-                  Send invite
+                  Add User
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete User Alert Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent className="max-w-md bg-white border border-gray-200 shadow-xl rounded-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Delete</AlertDialogTitle>
+            </AlertDialogHeader>
+            <div className="px-6 pb-6 text-gray-700">
+              Are you sure you want to delete this user? This action cannot be
+              undone.
+            </div>
+            <AlertDialogFooter className="flex justify-end gap-2 px-6 pb-4">
+              <Button
+                className="text-gray-900 border-none shadow-none"
+                variant="secondary"
+                onClick={() => setShowDeleteDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                className="text-white"
+                onClick={handleDeleteUser}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
+
+  const activeCompanies = orgCompanies.filter((c) => c.status === "ACTIVE");
+
+  const handleCompanySelect = (companyId: string) => {
+    if (inviteCompanies.includes(companyId)) {
+      setInviteCompanies(inviteCompanies.filter((id) => id !== companyId));
+      setSelectAllCompanies(false);
+    } else {
+      const newSelected = [...inviteCompanies, companyId];
+      setInviteCompanies(newSelected);
+      if (newSelected.length === activeCompanies.length)
+        setSelectAllCompanies(true);
+    }
+  };
+
+  const handleSelectAllCompanies = () => {
+    if (selectAllCompanies) {
+      setInviteCompanies([]);
+      setSelectAllCompanies(false);
+    } else {
+      setInviteCompanies(activeCompanies.map((c) => c.id));
+      setSelectAllCompanies(true);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    // Validation
+    if (
+      !inviteFirstName.trim() ||
+      !inviteLastName.trim() ||
+      !inviteEmail.trim() ||
+      !inviteRole
+    ) {
+      toast.error("All fields are required.");
+      return;
+    }
+    if (inviteRole !== USER_ROLES.ADMIN && inviteCompanies.length === 0) {
+      toast.error("Please select at least one company.");
+      return;
+    }
+    const formData: any = {
+      organizationId: organizationId,
+      firstName: inviteFirstName,
+      lastName: inviteLastName,
+      email: inviteEmail,
+      role: inviteRole,
+    };
+    if (inviteRole !== USER_ROLES.ADMIN) {
+      formData.companies = inviteCompanies;
+    }
+    try {
+      await addOrganizationUser(formData);
+      toast.success("User invited successfully!");
+      setShowInviteModal(false);
+      setInviteFirstName("");
+      setInviteLastName("");
+      setInviteEmail("");
+      setInviteRole(USER_ROLES.ADMIN);
+      setInviteCompanies([]);
+      setSelectAllCompanies(false);
+      // Refresh user list after adding
+      const users = await getOrganizationUsers();
+      setOrgUsers(users || []);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to invite user.");
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await deleteOrganizationUser({
+        userId: userToDelete.id,
+        organizationId: userToDelete.organizationId,
+      });
+      toast.success("User deleted successfully!");
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+      // Refresh user list
+      const users = await getOrganizationUsers();
+      setOrgUsers(users || []);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete user.");
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const handleCompanyAccessChange = (companyId: string, value: string) => {
+    setCompanyAccessDraft((prev) => {
+      if (value === "Full Access") {
+        return Array.from(new Set([...prev, companyId]));
+      } else {
+        return prev.filter((id) => id !== companyId);
+      }
+    });
+  };
+
+  const isCompanyAccessChanged = () => {
+    // Compare sorted arrays
+    const a = [...originalCompanyAccess].sort();
+    const b = [...companyAccessDraft].sort();
+    return a.length !== b.length || a.some((id, i) => id !== b[i]);
+  };
+
+  const handleSaveCompanyAccess = async () => {
+    if (!selectedUser) return;
+    const payload = {
+      organizationId: selectedUser.organizationId,
+      userId: selectedUser.id,
+      role: selectedUser.roleId,
+      companies: companyAccessDraft,
+    };
+    try {
+      await updateOrganizationUser(payload);
+      toast.success("User access updated successfully!");
+      setShowCompanyModal(false);
+      setSelectedUser(null);
+      // Refresh user list
+      const users = await getOrganizationUsers();
+      setOrgUsers(users || []);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update user access.");
+    }
+  };
+
+  // Filtered users based on search term
+  const filteredOrgUsers = orgUsers.filter((user) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      (user.name && user.name.toLowerCase().includes(term)) ||
+      (user.email && user.email.toLowerCase().includes(term))
+    );
+  });
 
   return (
     <div className="flex-1 mt-12">

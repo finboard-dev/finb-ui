@@ -152,8 +152,6 @@ const Home: FC = () => {
     handleCompanySelect();
   }, [dispatch, selectedCompanyId]);
 
-  console.log(selectedCompany.name);
-
   useEffect(() => {
     if (!selectedCompany?.name) {
       console.log("home company");

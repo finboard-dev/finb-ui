@@ -25,7 +25,7 @@ export const DashboardLoading: React.FC<DashboardLoadingProps> = ({
 
   return (
     <div className="flex items-center justify-center h-screen w-screen">
-      <Card className="w-full border-none bg-white min-h-[400px] max-w-md">
+      <Card className="w-full border-none bg-white max-h-[400px] max-w-md">
         <CardContent className="flex flex-col items-center justify-center p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p className="text-center text-muted-foreground">
@@ -39,8 +39,8 @@ export const DashboardLoading: React.FC<DashboardLoadingProps> = ({
 
 export const DashboardError: React.FC<{ error: string }> = ({ error }) => {
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <Card className="w-full bg-white border-none max-w-md">
+    <div className="flex items-center justify-center w-full h-full">
+      <Card className="w-full bg-white border-none max-h-[400px] max-w-md">
         <CardContent className="flex flex-col items-center justify-center p-8">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h3 className="text-lg font-semibold mb-2">

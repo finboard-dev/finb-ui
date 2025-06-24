@@ -25,7 +25,7 @@ const Page = () => {
         </div>
       ) : (
         <>
-          <Sidebar />
+          {/* <Sidebar /> */}
           <Home />
         </>
       )}
