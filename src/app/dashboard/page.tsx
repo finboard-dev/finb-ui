@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import AppSidebar from "./components/ui/LeftSidebar";
 import DashboardSpecificHeader from "./components/ui/Header";
 import DashboardControls from "./components/Dashboard/DashBoardControls";
 import DashboardView from "./components/Dashboard/DashboardView";
+import {
+  DashboardLoading,
+  DashboardError,
+} from "./components/ui/DashboardLoading";
 
 import { toast } from "sonner";
 import type { Block, DashboardItem, DraggingBlock } from "./types";
-import { data as apiData } from "./utils/api.data";
-import { DashboardData, Widget, WidgetType } from "./utils/api.types";
+import { useDashboard } from "./hooks/useDashboard";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -17,7 +20,13 @@ import { DashboardData, Widget, WidgetType } from "./utils/api.types";
  * @param type - The type of the widget ('graph', 'table', 'metric').
  * @returns The processed content for the Block.
  */
-function parseWidgetData(data: any, type: WidgetType): any {
+function parseWidgetData(data: any, type: "metric" | "graph" | "table"): any {
+  // Handle null or undefined data (widget data is fetched separately)
+  if (!data) {
+    console.warn("Widget data is null or undefined - may still be loading");
+    return null;
+  }
+
   if (type === "graph" && typeof data === "string") {
     try {
       return JSON.parse(data);
@@ -32,50 +41,46 @@ function parseWidgetData(data: any, type: WidgetType): any {
 }
 
 export default function DashboardPage() {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const {
+    structure,
+    currentTabId,
+    currentTabWidgets,
+    loading,
+    error,
+    loadedTabs,
+    initializeDashboard,
+    switchTab,
+    isEditing,
+    setIsEditing,
+  } = useDashboard();
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
   const [viewBlocks, setViewBlocks] = useState<Block[]>([]);
-
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(
     null
   );
 
-  // Initial load of data from the mock API
+  // Initialize dashboard on component mount (only once)
   useEffect(() => {
-    // In a real application, you would fetch this data.
-    const data: DashboardData = apiData as any;
-    setDashboardData(data);
-    // Set mode based on the API flag. `isEditing` is the opposite of `view_only`.
-    setIsEditing(!data.view_only);
-    // Set the first tab as active by default.
-    if (data.tabs && data.tabs.length > 0) {
-      setActiveTabId(data.tabs[0].id);
-    }
-  }, []);
+    initializeDashboard().catch((error) => {
+      console.error("Failed to initialize dashboard:", error);
+    });
+  }, []); // Empty dependency array to run only once
 
-  // This effect runs when the active tab changes, re-rendering the grid.
+  // Transform widgets to blocks and dashboard items when current tab widgets change
   useEffect(() => {
-    if (!dashboardData || !activeTabId) return;
+    if (!currentTabWidgets || currentTabWidgets.length === 0) return;
 
-    const activeTab = dashboardData.tabs.find((t) => t.id === activeTabId);
-    if (!activeTab) return;
-
-    // --- Data Transformation Layer: API -> Internal State ---
     const newBlocks: Block[] = [];
     const newDashboardItems: DashboardItem[] = [];
 
-    activeTab.widgets.forEach((widget: Widget) => {
+    currentTabWidgets.forEach((widget) => {
       // Create a Block definition from the widget
       const block: Block = {
-        id: widget.component_id, // Use component_id for the block definition
+        id: widget.component_id,
         component_id: widget.component_id,
         title: widget.title,
-        subtitle: widget.subtitle,
+        subtitle: "", // Default subtitle since it's not in Widget type
         type: widget.type,
         filter: widget.filter,
         content: parseWidgetData(widget.data, widget.type),
@@ -84,7 +89,7 @@ export default function DashboardPage() {
 
       // Create a DashboardItem for the grid layout from the widget
       const item: DashboardItem = {
-        id: widget.id, // Use widget.id for the unique instance on the grid
+        id: widget.id,
         blockId: widget.component_id,
         x: widget.position.x,
         y: widget.position.y,
@@ -101,36 +106,68 @@ export default function DashboardPage() {
 
     setViewBlocks(uniqueBlocks);
     setDashboardItems(newDashboardItems);
-  }, [dashboardData, activeTabId]);
+  }, [currentTabWidgets]);
 
   const handleSaveDashboard = () => {
-    // This function is now a placeholder as per the request to remove localStorage persistence.
     toast.success(
-      `Dashboard "${dashboardData?.title || "Untitled"}" saved (simulation).`
+      `Dashboard "${structure?.title || "Untitled"}" saved (simulation).`
     );
-    setIsEditing(false); // Switch to view mode after saving
+    setIsEditing(false);
   };
 
   const handleSetIsEditing = (editing: boolean) => {
-    // In a real scenario with a `view_only: false` API response, this would toggle the UI.
-    if (dashboardData?.view_only) {
+    if (structure?.view_only) {
       toast.error("You do not have permission to edit this dashboard.");
       return;
     }
     setIsEditing(editing);
   };
 
-  if (!dashboardData) {
+  const handleTabChange = async (tabId: string) => {
+    try {
+      await switchTab(tabId);
+    } catch (error) {
+      toast.error(
+        `Failed to switch to tab: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  };
+
+  // Show loading state for dashboard structure
+  if (loading.structure) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
+      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
+        <DashboardLoading type="structure" />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
+        <DashboardError error={error} />
+      </div>
+    );
+  }
+
+  // Show loading state if no structure is available
+  if (!structure) {
+    return (
+      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
+        <DashboardLoading
+          type="structure"
+          message="Initializing dashboard..."
+        />
       </div>
     );
   }
 
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-      {!dashboardData.view_only && (
+      {!structure.view_only && (
         <AppSidebar
           savedDashboards={[]}
           onLoadDashboard={() => {}}
@@ -144,31 +181,42 @@ export default function DashboardPage() {
           isEditing={isEditing}
           setIsEditing={handleSetIsEditing}
           onSaveDashboard={handleSaveDashboard}
-          currentDashboardName={dashboardData.title}
-          isViewOnly={dashboardData.view_only}
-          tabs={dashboardData.tabs.map((t) => ({ id: t.id, label: t.title }))}
-          activeTab={activeTabId}
-          onTabChange={setActiveTabId}
+          currentDashboardName={structure.title}
+          isViewOnly={structure.view_only}
+          tabs={structure.tabs.map((t) => ({ id: t.id, label: t.title }))}
+          activeTab={currentTabId}
+          onTabChange={handleTabChange}
+          loadedTabs={loadedTabs}
+          currentTabLoading={loading.widgetData}
         />
-        <main className="flex-1 flex flex-row overflow-hidden relative bg-slate-100">
-          <DashboardView
-            className="flex-grow h-full"
-            dashboardItems={dashboardItems}
-            setDashboardItems={setDashboardItems}
-            blocks={viewBlocks}
-            // setBlocks={() => {}} // Removed
-            draggingBlock={draggingBlock}
-            // onAddBlock={() => {}} // Removed
-            isEditing={isEditing}
-          />
-          {isEditing && (
-            <DashboardControls
+
+        {/* Show loading state for widget data */}
+        {loading.widgetData && (
+          <div className="flex-1 flex items-center justify-center">
+            <DashboardLoading type="widgetData" />
+          </div>
+        )}
+
+        {/* Show main dashboard content */}
+        {!loading.widgetData && (
+          <main className="flex-1 flex flex-row overflow-hidden relative bg-slate-100">
+            <DashboardView
+              className="flex-grow h-full"
+              dashboardItems={dashboardItems}
+              setDashboardItems={setDashboardItems}
               blocks={viewBlocks}
-              setBlocks={() => {}}
-              onDragStart={setDraggingBlock}
+              draggingBlock={draggingBlock}
+              isEditing={isEditing}
             />
-          )}
-        </main>
+            {isEditing && (
+              <DashboardControls
+                blocks={viewBlocks}
+                setBlocks={() => {}}
+                onDragStart={setDraggingBlock}
+              />
+            )}
+          </main>
+        )}
       </div>
     </div>
   );

@@ -44,3 +44,91 @@ export interface DraggingBlock {
     height: number; // Default height for the react-grid-layout item.
 }
 
+// Dashboard Structure Types
+export interface DashboardLink {
+  title: string;
+  url: string;
+  type: 'primary' | 'secondary';
+}
+
+export interface WidgetPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW: number;
+  minH: number;
+}
+
+export interface WidgetFilter {
+  [key: string]: any;
+}
+
+export interface WidgetData {
+  [key: string]: any;
+}
+
+export interface Widget {
+  id: string;
+  component_id: string;
+  title: string;
+  type: 'metric' | 'graph' | 'table';
+  filter: WidgetFilter;
+  position: WidgetPosition;
+}
+
+export interface Tab {
+  id: string;
+  title: string;
+  filter: WidgetFilter;
+  last_refreshed_at: string | null;
+  widgets: Widget[];
+}
+
+export interface DashboardStructure {
+  uid: string;
+  title: string;
+  view_only: boolean;
+  links: DashboardLink[];
+  tabs: Tab[];
+}
+
+// API Response Types
+export interface ApiResponse<T> {
+  code: string;
+  message: string;
+  data: T;
+}
+
+export interface DashboardStructureResponse extends ApiResponse<DashboardStructure> {}
+
+// Widget Data Types
+export interface WidgetDataRequest {
+  dashboardId: string;
+  componentId: string;
+  tabId: string;
+  filter: WidgetFilter;
+}
+
+export interface WidgetDataResponse extends ApiResponse<WidgetData> {}
+
+// Dashboard State Types
+export interface DashboardState {
+  structure: DashboardStructure | null;
+  currentTabId: string | null;
+  widgetData: Record<string, WidgetData>; // key: component_id
+  loadedTabs: Set<string>; // track which tabs have been loaded
+  loading: {
+    structure: boolean;
+    widgetData: boolean;
+  };
+  error: string | null;
+  isEditing: boolean;
+}
+
+// Tab Selection Types
+export interface TabSelection {
+  tabId: string;
+  tab: Tab;
+}
+

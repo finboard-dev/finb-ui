@@ -9,6 +9,8 @@ import {
   EyeIcon,
   EditIcon,
   SaveIcon,
+  CheckIcon,
+  Loader2Icon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,6 +28,8 @@ interface DashboardSpecificHeaderProps {
   tabs: { id: string; label: string }[];
   activeTab: string | null;
   onTabChange: (id: string) => void;
+  loadedTabs?: Set<string>;
+  currentTabLoading?: boolean;
 }
 
 export default function DashboardSpecificHeader({
@@ -37,6 +41,8 @@ export default function DashboardSpecificHeader({
   tabs,
   activeTab,
   onTabChange,
+  loadedTabs = new Set(),
+  currentTabLoading = false,
 }: DashboardSpecificHeaderProps) {
   return (
     <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-20 h-[65px] flex-shrink-0">
@@ -53,15 +59,27 @@ export default function DashboardSpecificHeader({
           className="w-auto ml-4"
         >
           <TabsList className="bg-gray-100 p-1 h-auto rounded-lg">
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 text-gray-600 rounded-md"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
+            {tabs.map((tab) => {
+              const isLoaded = loadedTabs.has(tab.id);
+              const isLoading = activeTab === tab.id && currentTabLoading;
+
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 text-gray-600 rounded-md relative"
+                  disabled={isLoading}
+                >
+                  {isLoading && (
+                    <Loader2Icon className="w-3 h-3 mr-1 animate-spin" />
+                  )}
+                  {/* {isLoaded && !isLoading && (
+                    <CheckIcon className="w-3 h-3 mr-1 text-green-500" />
+                  )} */}
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
             {!isViewOnly && (
               <TabsTrigger
                 value="add-new-tab"

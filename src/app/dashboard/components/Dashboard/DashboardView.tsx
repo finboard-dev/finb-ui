@@ -292,7 +292,7 @@ export default function DashboardView({
           >
             {blockTemplate.type === "graph" && (
               <RestrictedChart
-                data={blockTemplate.content}
+                data={blockTemplate.content || {}}
                 title={blockTemplate.title}
                 subtitle={blockTemplate.subtitle}
                 showDragHandle={isEditing}
@@ -317,7 +317,7 @@ export default function DashboardView({
             )}
             {blockTemplate.type === "table" && (
               <DynamicTable
-                data={blockTemplate.content}
+                data={blockTemplate.content || ""}
                 title={blockTemplate.title}
                 showDragHandle={isEditing}
                 dragHandleProps={{ className: "drag-handle" }}
@@ -342,9 +342,9 @@ export default function DashboardView({
             {blockTemplate.type === "metric" && (
               <MetricsCard
                 title={blockTemplate.title}
-                value={blockTemplate.content.value}
-                change={blockTemplate.content.change}
-                changeLabel={blockTemplate.content.changeLabel}
+                value={blockTemplate.content?.value || 0}
+                change={blockTemplate.content?.change || 0}
+                changeLabel={blockTemplate.content?.changeLabel || ""}
                 showDragHandle={isEditing}
                 dragHandleProps={{ className: "drag-handle" }}
                 showMenu={isEditing}
