@@ -22,6 +22,10 @@ import {
   clearMessages,
   toggleSidebar,
 } from "@/lib/store/slices/chatSlice";
+import {
+  setDropDownLoading,
+  selectDropDownLoading,
+} from "@/lib/store/slices/loadingSlice";
 import { initAddQuickBookAccount } from "@/lib/api/intuitService";
 import { fetcher } from "@/lib/axios/config";
 import { getCurrentCompany } from "@/lib/api/allCompany";
@@ -115,6 +119,10 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
     setError(null);
     dispatch(clearAllChats());
     dispatch(setSelectedOrganization(org));
+
+    // Set loading state to true
+    dispatch(setDropDownLoading(true));
+
     try {
       const response = await getCurrentCompany(company.id);
       dispatch(setSelectedCompany(response?.data || response));
@@ -125,6 +133,9 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
     } catch (err: any) {
       setError("Failed to connect company");
       dispatch(setSelectedCompany(null as any));
+    } finally {
+      // Set loading state to false regardless of success or failure
+      dispatch(setDropDownLoading(false));
     }
   };
 
@@ -348,7 +359,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 export const CollapsedOrganizationDropdown: React.FC = () => {
   const dispatch = useAppDispatch();
   const selectedCompany = useAppSelector(selectSelectedCompany);
-  const isLoading = false;
+  const isLoading = useAppSelector(selectDropDownLoading);
 
   const handleClick = () => {
     dispatch(toggleSidebar());

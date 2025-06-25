@@ -27,10 +27,14 @@ import {
 } from "@/lib/store/slices/userSlice";
 // import { setDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
-import { setMainContent, toggleComponent } from "@/lib/store/slices/uiSlice";
+import {
+  setMainContent,
+  toggleComponent,
+  setActiveSettingsSection,
+} from "@/lib/store/slices/uiSlice";
 import { store } from "@/lib/store/store";
 import { getAllCompany, getCurrentCompany } from "@/lib/api/allCompany";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface ToolCallResponse {
   messageId: string;
@@ -38,6 +42,8 @@ interface ToolCallResponse {
 
 const Home: FC = () => {
   const dispatch = useAppDispatch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isLoadingMessages = useAppSelector(
     (state) => state.chat.isLoadingMessages
@@ -56,7 +62,43 @@ const Home: FC = () => {
   const selectedOrganization = useAppSelector(
     (state) => state.user.selectedOrganization
   );
-  const router = useRouter();
+
+  // Handle settings section from URL parameters
+  useEffect(() => {
+    const sectionFromUrl = searchParams.get("settings-section");
+    if (
+      sectionFromUrl &&
+      ["data-connections", "profile", "security", "users-roles"].includes(
+        sectionFromUrl
+      )
+    ) {
+      dispatch(setActiveSettingsSection(sectionFromUrl as any));
+      // Automatically switch to settings view when settings-section parameter is present
+      dispatch(setMainContent("settings"));
+    }
+  }, [dispatch, searchParams]);
+
+  const handleBackToChat = () => {
+    // Clear settings section from URL when going back to chat
+    const params = new URLSearchParams();
+
+    // Only preserve valid parameters that match current component states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      params.set("sidebar-chat", "open");
+    }
+
+    // Check if organization dropdown is actually open in Redux state
+    const currentState = store.getState();
+    const dropdownOpen =
+      currentState.ui.components["dropdown-organization"]?.isOpen;
+    if (dropdownOpen) {
+      params.set("dropdown-organization", "open");
+    }
+
+    router.push(`?${params.toString()}`, { scroll: false });
+    dispatch(setMainContent("chat"));
+  };
 
   const activeChat = useAppSelector((state) => {
     if (
@@ -252,7 +294,7 @@ const Home: FC = () => {
             <NoChatBranding />
           )
         ) : (
-          <Settings onBackClick={() => dispatch(setMainContent("chat"))} />
+          <Settings onBackClick={handleBackToChat} />
         )}
       </div>
     </main>

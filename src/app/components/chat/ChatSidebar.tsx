@@ -11,6 +11,7 @@ import {
   User,
   MessageSquare,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -37,6 +38,7 @@ import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
+import { store } from "@/lib/store/store";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
@@ -148,6 +150,27 @@ const ChatSidebarClient = () => {
     }
     localStorage.removeItem("thread_id");
     dispatch(setMainContent("chat")); // Ensure chat view is active
+
+    // Clear settings-section URL parameter when starting new chat
+    if (searchParams) {
+      const params = new URLSearchParams();
+
+      // Only preserve valid parameters that match current component states
+      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+      if (sidebarOpen) {
+        params.set("sidebar-chat", "open");
+      }
+
+      // Check if organization dropdown is actually open in Redux state
+      const currentState = store.getState();
+      const dropdownOpen =
+        currentState.ui.components["dropdown-organization"]?.isOpen;
+      if (dropdownOpen) {
+        params.set("dropdown-organization", "open");
+      }
+
+      router.push(`?${params.toString()}`, { scroll: false });
+    }
   };
 
   const handleAssistantChange = (assistantId: string) => {
@@ -166,11 +189,54 @@ const ChatSidebarClient = () => {
     }
     localStorage.removeItem("thread_id");
     dispatch(setMainContent("chat")); // Ensure chat view is active
+
+    // Clear settings-section URL parameter when changing company
+    if (searchParams) {
+      const params = new URLSearchParams();
+
+      // Only preserve valid parameters that match current component states
+      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+      if (sidebarOpen) {
+        params.set("sidebar-chat", "open");
+      }
+
+      // Check if organization dropdown is actually open in Redux state
+      const currentState = store.getState();
+      const dropdownOpen =
+        currentState.ui.components["dropdown-organization"]?.isOpen;
+      if (dropdownOpen) {
+        params.set("dropdown-organization", "open");
+      }
+
+      router.push(`?${params.toString()}`, { scroll: false });
+    }
   };
 
   const handleSelectChat = async (chatId: string) => {
     dispatch(setActiveChatId(chatId));
     dispatch(setMainContent("chat")); // Switch to chat view
+
+    // Clear settings-section URL parameter when switching to chat
+    if (searchParams) {
+      const params = new URLSearchParams();
+
+      // Only preserve valid parameters that match current component states
+      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+      if (sidebarOpen) {
+        params.set("sidebar-chat", "open");
+      }
+
+      // Check if organization dropdown is actually open in Redux state
+      const currentState = store.getState();
+      const dropdownOpen =
+        currentState.ui.components["dropdown-organization"]?.isOpen;
+      if (dropdownOpen) {
+        params.set("dropdown-organization", "open");
+      }
+
+      router.push(`?${params.toString()}`, { scroll: false });
+    }
+
     const chat = chats.find((c: any) => c.id === chatId) || pendingChat;
     if (chat && chat.thread_id) {
       try {
@@ -297,6 +363,15 @@ const ChatSidebarClient = () => {
 
   const chatGroups = groupChatsByTime();
 
+  const handleSettingsClick = () => {
+    // Add settings-section parameter to URL when opening settings
+    if (!searchParams) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("settings-section", "data-connections"); // Default to data-connections
+    router.push(`?${params.toString()}`, { scroll: false });
+    dispatch(setMainContent("settings"));
+  };
+
   return (
     <div
       onClick={handleSidebarClick}
@@ -342,6 +417,36 @@ const ChatSidebarClient = () => {
       <div className="p-4 border-b border-gray-200">
         {isSidebarOpen ? (
           <Button
+            variant="outline"
+            id="dashboard-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push("/dashboard");
+            }}
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-primary justify-start items-center gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Dashboard
+          </Button>
+        ) : (
+          <Button
+            id="dashboard-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push("/dashboard");
+            }}
+            className="rounded-full border-gray-200 bg-white text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            variant="outline"
+            title="Dashboard"
+          >
+            <BarChart3 className="h-4 w-4 text-primary" />
+          </Button>
+        )}
+      </div>
+
+      <div className="p-4 border-b border-gray-200">
+        {isSidebarOpen ? (
+          <Button
             variant="default"
             id="new-chat-button"
             onClick={(e) => handleNewChat(e)}
@@ -366,7 +471,7 @@ const ChatSidebarClient = () => {
         id="chat-history-container"
         className="flex-1 overflow-y-auto py-2 border-b border-gray-200 scroll-smooth"
       >
-        {isSidebarOpen && chatConversations.length === 0 ? (
+        {isSidebarOpen && chats.length === 0 ? (
           <div className="px-2 py-4 text-center text-sm text-gray-500">
             No conversations yet. Start a new chat!
           </div>
@@ -426,25 +531,31 @@ const ChatSidebarClient = () => {
                     <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    id="settings-button"
+                    className="h-8 w-8 hover:bg-gray-200"
+                    onClick={handleSettingsClick}
+                    title="Settings"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
-                  id="settings-button"
+                  id="user-profile-button"
                   className="h-8 w-8 hover:bg-gray-200"
-                  onClick={() => dispatch(setMainContent("settings"))}
+                  title="User Profile"
                 >
-                  <Settings className="h-5 w-5" />
+                  <User className="h-5 w-5" />
                 </Button>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                id="user-profile-button"
-                className="h-8 w-8 hover:bg-gray-200"
-              >
-                <User className="h-5 w-5" />
-              </Button>
+              </div>
             )}
           </div>
         </div>

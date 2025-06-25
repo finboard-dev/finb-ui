@@ -9,12 +9,20 @@ export const getOrganizationCompanies = async () => {
   const state = store.getState();
   const organizationId = state.user.selectedOrganization?.id;
   
+  console.log("getOrganizationCompanies - organizationId:", organizationId);
+  
   if (!organizationId) {
     throw new Error("No organization selected");
   }
 
-  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/organization/${organizationId}/companies`);
-  return response;
+  try {
+    const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/organization/${organizationId}/companies`);
+    console.log("getOrganizationCompanies - API response:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("getOrganizationCompanies - API error:", error);
+    throw error;
+  }
 };
 
 /**
@@ -25,12 +33,20 @@ export const getOrganizationUsers = async () => {
   const state = store.getState();
   const organizationId = state.user.selectedOrganization?.id;
   
+  console.log("getOrganizationUsers - organizationId:", organizationId);
+  
   if (!organizationId) {
     throw new Error("No organization selected");
   }
 
-  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/organization/${organizationId}/users`);
-  return response;
+  try {
+    const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/organization/${organizationId}/users`);
+    console.log("getOrganizationUsers - API response:", response);
+    return response.data || response;
+  } catch (error) {
+    console.error("getOrganizationUsers - API error:", error);
+    throw error;
+  }
 };
 
 

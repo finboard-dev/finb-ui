@@ -8,12 +8,13 @@ import { useSelectedUserId } from "@/hooks/useSelectedUserId";
 import { store } from "@/lib/store/store";
 import Sidebar from "./components/common/Sidebar";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
+import { useAppSelector } from "@/lib/store/hooks";
+import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 
 const Page = () => {
   const dispatch = useDispatch();
   const userId = useSelectedUserId();
-  // const isLoading = store.getState().loading.isCompanyDropDownLoading === true;
-  const isLoading = false;
+  const isLoading = useAppSelector(selectDropDownLoading);
 
   useClickEventTracking();
 
