@@ -32,6 +32,8 @@ import { getCurrentCompany } from "@/lib/api/allCompany";
 import connectToQuickBooksMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg";
 import connectToQuickBooksHoverMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg";
 import Image from "next/image";
+import { useUrlParams } from "@/lib/utils/urlParams";
+import { addConnection } from "@/lib/api/settings";
 
 interface OrganizationDropdownProps {
   onCompanyChange?: () => void;
@@ -50,6 +52,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { updateUrlParamsWithPreservedState, isParamSet } = useUrlParams();
   const componentId = "dropdown-organization";
 
   const user = useSelector(selectUser);
@@ -62,42 +65,32 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
   const companies = useAppSelector((state) => state.user.companies);
 
+  // Get dropdown state from URL parameters (source of truth)
+  const isOpen = isParamSet(componentId, "open");
+
+  // Sync URL parameters to Redux state
   useEffect(() => {
-    const isOpenFromUrl = searchParams.get(componentId) === "open";
     dispatch(
       initializeComponent({
         type: "dropdown",
         id: componentId,
-        isOpenFromUrl,
+        isOpenFromUrl: isOpen,
       })
     );
-  }, [dispatch, searchParams]);
-
-  const isOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, componentId)
-  );
-
-  const updateUrlParams = (isOpen: boolean) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (isOpen) {
-      params.set(componentId, "open");
-    } else {
-      params.delete(componentId);
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  }, [dispatch, componentId, isOpen]);
 
   const handleToggle = () => {
     const newState = !isOpen;
-    dispatch(toggleComponent({ id: componentId, forceState: newState }));
-    updateUrlParams(newState);
+    updateUrlParamsWithPreservedState({
+      [componentId]: newState ? "open" : null,
+    });
   };
 
   const handleAddQuickBooks = async () => {
     try {
-      const redirectUrl = await initAddQuickBookAccount();
-      if (redirectUrl) {
-        window.open(redirectUrl, "_self");
+      const redirectUrl = await addConnection();
+      if (redirectUrl.redirectUrl) {
+        window.open(redirectUrl.redirectUrl, "_self");
       } else {
         console.error("No redirect URL provided");
       }
@@ -128,10 +121,11 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
       dispatch(setSelectedCompany(response?.data || response));
       document.cookie = "has_selected_company=true; path=/";
       dispatch(toggleComponent({ id: componentId, forceState: false }));
-      updateUrlParams(false);
+      updateUrlParamsWithPreservedState({ [componentId]: null });
       if (onCompanyChange) onCompanyChange();
     } catch (err: any) {
-      setError("Failed to connect company");
+      console.error("Error setting current company:", err);
+      setError(err.message || "Error setting current company");
       dispatch(setSelectedCompany(null as any));
     } finally {
       // Set loading state to false regardless of success or failure
@@ -146,7 +140,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         dispatch(toggleComponent({ id: componentId, forceState: false }));
-        updateUrlParams(false);
+        updateUrlParamsWithPreservedState({ [componentId]: null });
       }
     };
 
@@ -334,7 +328,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                 dispatch(
                   toggleComponent({ id: componentId, forceState: false })
                 );
-                updateUrlParams(false);
+                updateUrlParamsWithPreservedState({ [componentId]: null });
                 handleAddQuickBooks();
               }}
               className="cursor-pointer"

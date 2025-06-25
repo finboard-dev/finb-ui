@@ -13,8 +13,9 @@ import { store } from "@/lib/store/store"
 export const useChatStream = () => {
   const dispatch = useAppDispatch()
   const activeChatId = useAppSelector((state) => state.chat.activeChatId)
+  const user = useAppSelector((state) => state.user)
+  const selectedCompanyId = user?.selectedCompany?.id
 
-  // Get the active chat, which could be either the pending chat or a regular chat
   const activeChat = useAppSelector((state) => {
     if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
       return state.chat.pendingChat
@@ -76,7 +77,7 @@ export const useChatStream = () => {
         const chatMessage = {
           message: payload.text,
           threadId: threadId,
-          companyId: getSavedSelectedCompanyId(),
+          companyId: selectedCompanyId,
           toolMentions:
               payload.mentions && payload.mentions.length > 0
                   ? payload.mentions.map((mention) => ({
@@ -86,10 +87,8 @@ export const useChatStream = () => {
                     category: mention.category,
                   }))
                   : undefined,
-          assistantId: selectedAssistantId, // Use the selected assistant ID
+          assistantId: selectedAssistantId,
         }
-
-        // Send the message to the API
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_CHAT}/chat/message`, {
           method: "POST",
           headers: {

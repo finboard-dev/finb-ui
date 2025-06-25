@@ -48,6 +48,9 @@ const uiSlice = createSlice({
           isOpen: isOpenFromUrl || false,
           params: initialParams || {},
         };
+      } else if (isOpenFromUrl !== undefined) {
+        // Update existing component's isOpen state if isOpenFromUrl is provided
+        state.components[componentId].isOpen = isOpenFromUrl;
       }
     },
 

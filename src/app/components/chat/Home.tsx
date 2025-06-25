@@ -25,7 +25,7 @@ import {
   Company,
   setCompanies,
 } from "@/lib/store/slices/userSlice";
-// import { setDropDownLoading } from "@/lib/store/slices/loadingSlice";
+import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
 import {
   setMainContent,
@@ -35,6 +35,8 @@ import {
 import { store } from "@/lib/store/store";
 import { getAllCompany, getCurrentCompany } from "@/lib/api/allCompany";
 import { useRouter, useSearchParams } from "next/navigation";
+import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
+import { useUrlParams } from "@/lib/utils/urlParams";
 
 interface ToolCallResponse {
   messageId: string;
@@ -44,10 +46,12 @@ const Home: FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { updateUrlParamsWithPreservedState } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isLoadingMessages = useAppSelector(
     (state) => state.chat.isLoadingMessages
   );
+  const isCompanyLoading = useAppSelector(selectDropDownLoading);
   const selectedCompany: any = useAppSelector(
     selectSelectedCompany
   ) as Company & {
@@ -79,24 +83,8 @@ const Home: FC = () => {
   }, [dispatch, searchParams]);
 
   const handleBackToChat = () => {
-    // Clear settings section from URL when going back to chat
-    const params = new URLSearchParams();
-
-    // Only preserve valid parameters that match current component states
-    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-    if (sidebarOpen) {
-      params.set("sidebar-chat", "open");
-    }
-
-    // Check if organization dropdown is actually open in Redux state
-    const currentState = store.getState();
-    const dropdownOpen =
-      currentState.ui.components["dropdown-organization"]?.isOpen;
-    if (dropdownOpen) {
-      params.set("dropdown-organization", "open");
-    }
-
-    router.push(`?${params.toString()}`, { scroll: false });
+    // Update URL parameters - remove settings section
+    updateUrlParamsWithPreservedState({ "settings-section": null });
     dispatch(setMainContent("chat"));
   };
 
@@ -229,6 +217,14 @@ const Home: FC = () => {
     }, []);
     return null;
   };
+
+  if (isCompanyLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <LoadingAnimation message={"Switching company... Please wait!"} />
+      </div>
+    );
+  }
 
   return (
     <main

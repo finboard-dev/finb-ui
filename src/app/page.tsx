@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import Home from "./components/chat/Home";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { useClickEventTracking } from "@/hooks/useClickTracking";
 import { useSelectedUserId } from "@/hooks/useSelectedUserId";
@@ -13,10 +13,16 @@ import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 
 const Page = () => {
   const dispatch = useDispatch();
+  const router = useRouter();
   const userId = useSelectedUserId();
   const isLoading = useAppSelector(selectDropDownLoading);
 
   useClickEventTracking();
+
+  useEffect(() => {
+    // Redirect to chat page when accessing the root
+    router.push("/chat");
+  }, [router]);
 
   return (
     <>
@@ -25,10 +31,9 @@ const Page = () => {
           <LoadingAnimation message={"switching company... Please wait!"} />
         </div>
       ) : (
-        <>
-          {/* <Sidebar /> */}
-          <Home />
-        </>
+        <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+          <LoadingAnimation message={"Redirecting to chat..."} />
+        </div>
       )}
     </>
   );

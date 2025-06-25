@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   PlusIcon,
@@ -39,39 +39,33 @@ import { setMainContent } from "@/lib/store/slices/uiSlice";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
 import { store } from "@/lib/store/store";
+import { useUrlParams } from "@/lib/utils/urlParams";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
-    null
-  );
+  const searchParams = useSearchParams();
+  const { updateUrlParamsWithPreservedState, isParamSet } = useUrlParams();
   const componentId = "sidebar-chat";
 
   const chatListRef = useRef<HTMLDivElement>(null);
 
   const companies = useAppSelector((state) => state.user.companies);
 
-  useEffect(() => {
-    setSearchParams(new URLSearchParams(window.location.search));
-  }, []);
+  // Get sidebar state from URL parameters (source of truth)
+  const isSidebarOpen = isParamSet(componentId, "open");
 
+  // Sync URL parameters to Redux state
   useEffect(() => {
-    if (!searchParams) return;
-
-    const isOpenFromUrl = searchParams.get(componentId) === "open";
     dispatch(
       initializeComponent({
         type: "sidebar",
         id: componentId,
-        isOpenFromUrl,
+        isOpenFromUrl: isSidebarOpen,
       })
     );
-  }, [dispatch, searchParams, componentId]);
+  }, [dispatch, componentId, isSidebarOpen]);
 
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, componentId)
-  );
   const firstName = useAppSelector((state) => state.user.user?.firstName);
   const lastName = useAppSelector((state) => state.user.user?.lastName);
   const selectedCompany = useAppSelector(
@@ -113,22 +107,11 @@ const ChatSidebarClient = () => {
     }
   }, [activeChatId, isSidebarOpen]);
 
-  const updateUrlParams = (isOpen: boolean) => {
-    if (!searchParams) return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    if (isOpen) {
-      params.set(componentId, "open");
-    } else {
-      params.delete(componentId);
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
-
   const handleToggle = () => {
     const newState = !isSidebarOpen;
-    dispatch(toggleComponent({ id: componentId, forceState: newState }));
-    updateUrlParams(newState);
+    updateUrlParamsWithPreservedState({
+      [componentId]: newState ? "open" : null,
+    });
   };
 
   const handleSidebarClick = () => {
@@ -149,34 +132,16 @@ const ChatSidebarClient = () => {
       dispatch(initializeNewChat({ assistantId: selectedAssistant.id }));
     }
     localStorage.removeItem("thread_id");
-    dispatch(setMainContent("chat")); // Ensure chat view is active
+    dispatch(setMainContent("chat"));
 
-    // Clear settings-section URL parameter when starting new chat
-    if (searchParams) {
-      const params = new URLSearchParams();
-
-      // Only preserve valid parameters that match current component states
-      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-      if (sidebarOpen) {
-        params.set("sidebar-chat", "open");
-      }
-
-      // Check if organization dropdown is actually open in Redux state
-      const currentState = store.getState();
-      const dropdownOpen =
-        currentState.ui.components["dropdown-organization"]?.isOpen;
-      if (dropdownOpen) {
-        params.set("dropdown-organization", "open");
-      }
-
-      router.push(`?${params.toString()}`, { scroll: false });
-    }
+    // Update URL parameters - remove thread ID for new chat
+    updateUrlParamsWithPreservedState({ id: null });
   };
 
   const handleAssistantChange = (assistantId: string) => {
     dispatch(initializeNewChat({ assistantId }));
     localStorage.removeItem("thread_id");
-    dispatch(setMainContent("chat")); // Ensure chat view is active
+    dispatch(setMainContent("chat"));
   };
 
   const handleCompanyChange = () => {
@@ -188,75 +153,22 @@ const ChatSidebarClient = () => {
       dispatch(initializeNewChat({ assistantId: defaultAssistant.id }));
     }
     localStorage.removeItem("thread_id");
-    dispatch(setMainContent("chat")); // Ensure chat view is active
+    dispatch(setMainContent("chat"));
 
-    // Clear settings-section URL parameter when changing company
-    if (searchParams) {
-      const params = new URLSearchParams();
-
-      // Only preserve valid parameters that match current component states
-      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-      if (sidebarOpen) {
-        params.set("sidebar-chat", "open");
-      }
-
-      // Check if organization dropdown is actually open in Redux state
-      const currentState = store.getState();
-      const dropdownOpen =
-        currentState.ui.components["dropdown-organization"]?.isOpen;
-      if (dropdownOpen) {
-        params.set("dropdown-organization", "open");
-      }
-
-      router.push(`?${params.toString()}`, { scroll: false });
-    }
+    // Update URL parameters - remove thread ID when changing company
+    updateUrlParamsWithPreservedState({ id: null });
   };
 
   const handleSelectChat = async (chatId: string) => {
-    dispatch(setActiveChatId(chatId));
-    dispatch(setMainContent("chat")); // Switch to chat view
-
-    // Clear settings-section URL parameter when switching to chat
-    if (searchParams) {
-      const params = new URLSearchParams();
-
-      // Only preserve valid parameters that match current component states
-      const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-      if (sidebarOpen) {
-        params.set("sidebar-chat", "open");
-      }
-
-      // Check if organization dropdown is actually open in Redux state
-      const currentState = store.getState();
-      const dropdownOpen =
-        currentState.ui.components["dropdown-organization"]?.isOpen;
-      if (dropdownOpen) {
-        params.set("dropdown-organization", "open");
-      }
-
-      router.push(`?${params.toString()}`, { scroll: false });
-    }
-
     const chat = chats.find((c: any) => c.id === chatId) || pendingChat;
+
     if (chat && chat.thread_id) {
-      try {
-        dispatch(setIsLoadingMessages(true));
-        const response = await getChatConversation(chat.thread_id);
-        dispatch(loadChatMessages({ chatId, messages: response.messages }));
-        processToolResponses(response.messages, dispatch);
-        const toolMessages = response.messages.filter(
-          (msg: { type: string }) => msg.type === "tool"
-        );
-        if (toolMessages.length > 0) {
-          const latestToolCallId =
-            toolMessages[toolMessages.length - 1].tool_call_id;
-          dispatch(setActiveToolCallId(latestToolCallId));
-          dispatch(setResponsePanelWidth(30));
-        }
-      } catch (error) {
-        console.error("Failed to load chat messages:", error);
-        dispatch(setIsLoadingMessages(false));
-      }
+      // Update URL parameters with thread ID
+      updateUrlParamsWithPreservedState({ id: chat.thread_id });
+    } else {
+      // Fallback for chats without thread_id (shouldn't happen in normal flow)
+      dispatch(setActiveChatId(chatId));
+      dispatch(setMainContent("chat"));
     }
   };
 
@@ -364,11 +276,10 @@ const ChatSidebarClient = () => {
   const chatGroups = groupChatsByTime();
 
   const handleSettingsClick = () => {
-    // Add settings-section parameter to URL when opening settings
-    if (!searchParams) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("settings-section", "data-connections"); // Default to data-connections
-    router.push(`?${params.toString()}`, { scroll: false });
+    // Update URL parameters with settings section
+    updateUrlParamsWithPreservedState({
+      "settings-section": "data-connections", // Default to data-connections
+    });
     dispatch(setMainContent("settings"));
   };
 
@@ -384,7 +295,10 @@ const ChatSidebarClient = () => {
           <>
             <h2 className="font-medium text-heading text-lg">FinB</h2>
             <Button
-              onClick={handleToggle}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggle();
+              }}
               variant="ghost"
               size="icon"
               className="h-8 w-8 cursor-pointer hover:bg-gray-200"
@@ -394,7 +308,10 @@ const ChatSidebarClient = () => {
           </>
         ) : (
           <Button
-            onClick={handleToggle}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle();
+            }}
             variant="ghost"
             size="icon"
             className="w-full cursor-pointer h-8 hover:bg-gray-200 flex items-center justify-center"

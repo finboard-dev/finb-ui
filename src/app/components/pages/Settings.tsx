@@ -79,13 +79,19 @@ import {
   DialogTitle as AlertDialogTitle,
   DialogFooter as AlertDialogFooter,
 } from "@/components/ui/dialog";
+import { useUrlParams } from "@/lib/utils/urlParams";
+import {
+  addConnection,
+  disconnectConnection,
+  getOrganizationConnections,
+} from "@/lib/api/settings";
 
 interface DataSource {
   id: string;
   name: string;
   type: string;
   status: string;
-  last_refreshed_at: string;
+  lastRefreshedAt: string;
 }
 
 // Add enum for roles
@@ -99,6 +105,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { updateUrlParamsWithPreservedState } = useUrlParams();
   const state = store.getState();
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +158,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const [inviteUserLoading, setInviteUserLoading] = useState(false);
   const [updateUserLoading, setUpdateUserLoading] = useState(false);
 
-  // URL parameter handling for settings section
+  // Handle settings section from URL parameters
   useEffect(() => {
     const sectionFromUrl = searchParams.get("settings-section");
     if (
@@ -167,28 +174,15 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   }, [dispatch, searchParams]);
 
   const updateUrlParams = (section: string) => {
-    const params = new URLSearchParams();
-
-    // Only preserve valid parameters that match current component states
-    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-    if (sidebarOpen) {
-      params.set("sidebar-chat", "open");
-    }
-
-    // Check if organization dropdown is actually open in Redux state
-    const currentState = store.getState();
-    const dropdownOpen =
-      currentState.ui.components["dropdown-organization"]?.isOpen;
-    if (dropdownOpen) {
-      params.set("dropdown-organization", "open");
-    }
+    // Update URL parameters with settings section
+    const updates: Record<string, string | null> = {};
 
     // Add settings section parameter if not default
     if (section && section !== "data-connections") {
-      params.set("settings-section", section);
+      updates["settings-section"] = section;
     }
 
-    router.push(`?${params.toString()}`, { scroll: false });
+    updateUrlParamsWithPreservedState(updates);
   };
 
   const handleSectionChange = (
@@ -210,7 +204,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const data = await getAllDataSources(company_id);
+      const data = await getOrganizationConnections();
       setDataSources(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
@@ -338,9 +332,9 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const handleConnect = async (sourceId: string) => {
     try {
       setIsConnecting(true);
-      const redirectUrl = await initAddQuickBookAccount();
-      if (redirectUrl) {
-        window.open(redirectUrl, "_blank");
+      const redirectUrl = await addConnection();
+      if (redirectUrl.redirectUrl) {
+        window.open(redirectUrl.redirectUrl, "_self");
       } else {
         console.error("No redirect URL provided");
       }
@@ -354,7 +348,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
   const handleDisconnect = async (sourceId: string) => {
     try {
-      const response = await disconnectAccount(sourceId);
+      const response = await disconnectConnection(sourceId);
       console.log(response);
       await fetchData();
     } catch (error) {
@@ -515,13 +509,13 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                       </Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      {formatDate(source.last_refreshed_at)}
+                      {formatDate(source.lastRefreshedAt)}
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       {source.id.substring(0, 8)}...
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      {source.status === "CONNECTED" && (
+                      {source.status === "ACTIVE" && (
                         <button
                           className="text-red-600 cursor-pointer hover:text-red-800 underline-offset-1"
                           onClick={() => handleDisconnect(source.id)}
@@ -530,19 +524,14 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                           Disconnect
                         </button>
                       )}
-                      {(source.status === "DISCONNECTED" ||
-                        source.status === "EXPIRED") && (
+                      {source.status === "INACTIVE" && (
                         <button
                           onClick={() => handleConnect(source.id)}
                           disabled={isConnecting}
                         >
                           <Image
                             src={connectToQuickbooksSmall || "/placeholder.svg"}
-                            alt={
-                              source.status === "EXPIRED"
-                                ? "Reconnect to QuickBooks"
-                                : "Connect to QuickBooks"
-                            }
+                            alt={"Connect to QuickBooks"}
                             onMouseEnter={(e) => {
                               const img = e.currentTarget;
                               img.src = connectToQuickBooksHoverSmall.src;
@@ -1219,23 +1208,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
   const handleBackClick = () => {
     // Clear settings section from URL when going back
-    const params = new URLSearchParams();
-
-    // Only preserve valid parameters that match current component states
-    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
-    if (sidebarOpen) {
-      params.set("sidebar-chat", "open");
-    }
-
-    // Check if organization dropdown is actually open in Redux state
-    const currentState = store.getState();
-    const dropdownOpen =
-      currentState.ui.components["dropdown-organization"]?.isOpen;
-    if (dropdownOpen) {
-      params.set("dropdown-organization", "open");
-    }
-
-    router.push(`?${params.toString()}`, { scroll: false });
+    updateUrlParamsWithPreservedState({ "settings-section": null });
     onBackClick();
   };
 

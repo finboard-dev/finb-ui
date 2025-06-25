@@ -82,12 +82,12 @@ export const addCompany = async (authCode: string, realmId: string | null) => {
     const organisation_id = organisation.id;
 
     try {
-        const response = await fetcher.post(`/companies/add`, {
+        const response = await fetcher.post(`/connection/callback`, {
             "name": "QuickBooks",
-            "realm_id": realmId,
-            "auth_code": authCode,
-            "data_source": "QUICKBOOKS",
-            "organization_id": organisation_id.toString(),
+            "realmId": realmId,
+            "code": authCode,
+            "dataSource": "QUICKBOOKS",
+            "organizationId": organisation_id.toString(),
         });
 
         return {
