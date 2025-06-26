@@ -46,7 +46,7 @@ const Home: FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { navigateToContent } = useUrlParams();
+  const { navigateToContent, navigateToChat } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isLoadingMessages = useAppSelector(
     (state) => state.chat.isLoadingMessages
@@ -83,8 +83,33 @@ const Home: FC = () => {
   }, [dispatch, searchParams]);
 
   const handleBackToChat = () => {
-    // Use the new navigateToContent function to properly navigate back to chat
-    navigateToContent("chat");
+    console.log("handleBackToChat called");
+
+    // Get the current active chat ID from Redux state
+    const currentState = store.getState();
+    const activeChatId = currentState.chat.activeChatId;
+    const chats = currentState.chat.chats;
+
+    console.log("activeChatId:", activeChatId);
+    console.log("chats:", chats);
+
+    // Find the chat with the active chat ID to get its thread_id
+    const activeChat = chats.find((chat: any) => chat.id === activeChatId);
+    const threadId = activeChat?.thread_id;
+
+    console.log("activeChat:", activeChat);
+    console.log("threadId:", threadId);
+
+    if (threadId) {
+      // If we have a thread ID, navigate back to that specific chat
+      console.log("Navigating to chat with threadId:", threadId);
+      navigateToChat(threadId);
+    } else {
+      // Fallback to general chat navigation
+      console.log("Fallback to general chat navigation");
+      navigateToContent("chat");
+    }
+
     dispatch(setMainContent("chat"));
   };
 

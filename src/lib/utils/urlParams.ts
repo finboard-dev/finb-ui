@@ -29,6 +29,8 @@ export const useUrlParams = () => {
    * @param updates - Object with parameter keys and values (null to delete)
    */
   const updateUrlParams = (updates: UrlParamUpdates) => {
+    console.log("updateUrlParams called with updates:", updates);
+    
     const params = new URLSearchParams(searchParams.toString());
     
     Object.entries(updates).forEach(([key, value]) => {
@@ -39,7 +41,10 @@ export const useUrlParams = () => {
       }
     });
     
-    router.push(`/chat?${params.toString()}`, { scroll: false });
+    const newUrl = `/chat?${params.toString()}`;
+    console.log("Navigating to:", newUrl);
+    
+    router.push(newUrl, { scroll: false });
   };
 
   /**
@@ -120,6 +125,8 @@ export const useUrlParams = () => {
    * @param threadId - The thread ID of the chat to navigate to
    */
   const navigateToChat = (threadId: string) => {
+    console.log("navigateToChat called with threadId:", threadId);
+    
     const updates: UrlParamUpdates = {
       "id": threadId,
       "settings-section": null, // Clear settings when going to chat
@@ -136,6 +143,7 @@ export const useUrlParams = () => {
       updates["dropdown-organization"] = "open";
     }
     
+    console.log("navigateToChat updates:", updates);
     updateUrlParams(updates);
   };
 

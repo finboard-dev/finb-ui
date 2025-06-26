@@ -105,7 +105,8 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { navigateToSettings, navigateToContent } = useUrlParams();
+  const { navigateToSettings, navigateToContent, navigateToChat } =
+    useUrlParams();
   const state = store.getState();
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1196,8 +1197,33 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   };
 
   const handleBackClick = () => {
-    // Use the new navigateToContent function to properly navigate back to chat
-    navigateToContent("chat");
+    console.log("handleBackClick called");
+
+    // Get the current active chat ID from Redux state
+    const currentState = store.getState();
+    const activeChatId = currentState.chat.activeChatId;
+    const chats = currentState.chat.chats;
+
+    console.log("activeChatId:", activeChatId);
+    console.log("chats:", chats);
+
+    // Find the chat with the active chat ID to get its thread_id
+    const activeChat = chats.find((chat: any) => chat.id === activeChatId);
+    const threadId = activeChat?.thread_id;
+
+    console.log("activeChat:", activeChat);
+    console.log("threadId:", threadId);
+
+    if (threadId) {
+      // If we have a thread ID, navigate back to that specific chat
+      console.log("Navigating to chat with threadId:", threadId);
+      navigateToChat(threadId);
+    } else {
+      // Fallback to general chat navigation
+      console.log("Fallback to general chat navigation");
+      navigateToContent("chat");
+    }
+
     onBackClick();
   };
 
