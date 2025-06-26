@@ -105,7 +105,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { updateUrlParamsWithPreservedState } = useUrlParams();
+  const { navigateToSettings, navigateToContent } = useUrlParams();
   const state = store.getState();
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -173,23 +173,12 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     }
   }, [dispatch, searchParams]);
 
-  const updateUrlParams = (section: string) => {
-    // Update URL parameters with settings section
-    const updates: Record<string, string | null> = {};
-
-    // Add settings section parameter if not default
-    if (section && section !== "data-connections") {
-      updates["settings-section"] = section;
-    }
-
-    updateUrlParamsWithPreservedState(updates);
-  };
-
   const handleSectionChange = (
     section: "data-connections" | "profile" | "security" | "users-roles"
   ) => {
     dispatch(setActiveSettingsSection(section));
-    updateUrlParams(section);
+    // Use the new navigateToSettings function
+    navigateToSettings(section);
   };
 
   const companyPermissions = {
@@ -1207,8 +1196,8 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   };
 
   const handleBackClick = () => {
-    // Clear settings section from URL when going back
-    updateUrlParamsWithPreservedState({ "settings-section": null });
+    // Use the new navigateToContent function to properly navigate back to chat
+    navigateToContent("chat");
     onBackClick();
   };
 

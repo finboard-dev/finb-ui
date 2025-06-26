@@ -52,7 +52,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { updateUrlParamsWithPreservedState, isParamSet } = useUrlParams();
+  const { isParamSet, toggleComponentState } = useUrlParams();
   const componentId = "dropdown-organization";
 
   const user = useSelector(selectUser);
@@ -81,9 +81,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
   const handleToggle = () => {
     const newState = !isOpen;
-    updateUrlParamsWithPreservedState({
-      [componentId]: newState ? "open" : null,
-    });
+    toggleComponentState(componentId, newState);
   };
 
   const handleAddQuickBooks = async () => {
@@ -121,7 +119,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
       dispatch(setSelectedCompany(response?.data || response));
       document.cookie = "has_selected_company=true; path=/";
       dispatch(toggleComponent({ id: componentId, forceState: false }));
-      updateUrlParamsWithPreservedState({ [componentId]: null });
+      toggleComponentState(componentId, false);
       if (onCompanyChange) onCompanyChange();
     } catch (err: any) {
       console.error("Error setting current company:", err);
@@ -140,7 +138,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         dispatch(toggleComponent({ id: componentId, forceState: false }));
-        updateUrlParamsWithPreservedState({ [componentId]: null });
+        toggleComponentState(componentId, false);
       }
     };
 
@@ -328,7 +326,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                 dispatch(
                   toggleComponent({ id: componentId, forceState: false })
                 );
-                updateUrlParamsWithPreservedState({ [componentId]: null });
+                toggleComponentState(componentId, false);
                 handleAddQuickBooks();
               }}
               className="cursor-pointer"

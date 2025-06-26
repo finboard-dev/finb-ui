@@ -33,6 +33,7 @@ import type { Tool } from "@/types/chat";
 import { selectSelectedCompany } from "@/lib/store/slices/userSlice";
 import Image from "next/image";
 import { Company } from "@/lib/store/slices/userSlice";
+import { useUrlParams } from "@/lib/utils/urlParams";
 
 export type MessageInputProps = {
   placeholder?: string;
@@ -62,6 +63,7 @@ export default function MessageInput({
   const MENTION_DROPDOWN_WIDTH = 288;
 
   const dispatch = useAppDispatch();
+  const { startNewChat } = useUrlParams();
 
   const [inputValue, setInputValue] = useState("");
   const [mentions, setMentions] = useState<MentionType[]>([]);
@@ -577,6 +579,10 @@ export default function MessageInput({
     // If the chat already has messages, create a new chat with the selected assistant
     if (hasMessages) {
       dispatch(initializeNewChat({ assistantId }));
+      // Add a small delay to ensure Redux state is properly updated before URL change
+      setTimeout(() => {
+        startNewChat();
+      }, 0);
     } else {
       // Otherwise, just update the assistant for the current chat
       if (activeChatId) {

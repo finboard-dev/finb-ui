@@ -75,8 +75,21 @@ const ChatPage = () => {
           loadChatData();
         }
       }
+    } else {
+      // No threadId - check if we're navigating to settings
+      const settingsSection = searchParams.get("settings-section");
+
+      if (!settingsSection) {
+        // No threadId and no settings section means we should show a new chat
+        // Check if we have a pendingChat and set it as active
+        if (pendingChat) {
+          dispatch(setActiveChatId(pendingChat.id));
+          dispatch(setMainContent("chat"));
+        }
+      }
+      // If settingsSection exists, don't do anything - let the settings navigation handle it
     }
-  }, [threadId, chats, pendingChat, dispatch]);
+  }, [threadId, chats, pendingChat, dispatch, searchParams]);
 
   return <Home />;
 };

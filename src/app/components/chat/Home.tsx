@@ -46,7 +46,7 @@ const Home: FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { updateUrlParamsWithPreservedState } = useUrlParams();
+  const { navigateToContent } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isLoadingMessages = useAppSelector(
     (state) => state.chat.isLoadingMessages
@@ -83,8 +83,8 @@ const Home: FC = () => {
   }, [dispatch, searchParams]);
 
   const handleBackToChat = () => {
-    // Update URL parameters - remove settings section
-    updateUrlParamsWithPreservedState({ "settings-section": null });
+    // Use the new navigateToContent function to properly navigate back to chat
+    navigateToContent("chat");
     dispatch(setMainContent("chat"));
   };
 

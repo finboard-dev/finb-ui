@@ -45,7 +45,13 @@ const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { updateUrlParamsWithPreservedState, isParamSet } = useUrlParams();
+  const {
+    isParamSet,
+    startNewChat,
+    navigateToChat,
+    navigateToSettings,
+    toggleComponentState,
+  } = useUrlParams();
   const componentId = "sidebar-chat";
 
   const chatListRef = useRef<HTMLDivElement>(null);
@@ -109,9 +115,7 @@ const ChatSidebarClient = () => {
 
   const handleToggle = () => {
     const newState = !isSidebarOpen;
-    updateUrlParamsWithPreservedState({
-      [componentId]: newState ? "open" : null,
-    });
+    toggleComponentState(componentId, newState);
   };
 
   const handleSidebarClick = () => {
@@ -134,14 +138,21 @@ const ChatSidebarClient = () => {
     localStorage.removeItem("thread_id");
     dispatch(setMainContent("chat"));
 
-    // Update URL parameters - remove thread ID for new chat
-    updateUrlParamsWithPreservedState({ id: null });
+    // Add a small delay to ensure Redux state is properly updated before URL change
+    setTimeout(() => {
+      startNewChat();
+    }, 0);
   };
 
   const handleAssistantChange = (assistantId: string) => {
     dispatch(initializeNewChat({ assistantId }));
     localStorage.removeItem("thread_id");
     dispatch(setMainContent("chat"));
+
+    // Add a small delay to ensure Redux state is properly updated before URL change
+    setTimeout(() => {
+      startNewChat();
+    }, 0);
   };
 
   const handleCompanyChange = () => {
@@ -155,16 +166,18 @@ const ChatSidebarClient = () => {
     localStorage.removeItem("thread_id");
     dispatch(setMainContent("chat"));
 
-    // Update URL parameters - remove thread ID when changing company
-    updateUrlParamsWithPreservedState({ id: null });
+    // Add a small delay to ensure Redux state is properly updated before URL change
+    setTimeout(() => {
+      startNewChat();
+    }, 0);
   };
 
   const handleSelectChat = async (chatId: string) => {
     const chat = chats.find((c: any) => c.id === chatId) || pendingChat;
 
     if (chat && chat.thread_id) {
-      // Update URL parameters with thread ID
-      updateUrlParamsWithPreservedState({ id: chat.thread_id });
+      // Use the new navigateToChat function to properly handle navigation
+      navigateToChat(chat.thread_id);
     } else {
       // Fallback for chats without thread_id (shouldn't happen in normal flow)
       dispatch(setActiveChatId(chatId));
@@ -276,10 +289,8 @@ const ChatSidebarClient = () => {
   const chatGroups = groupChatsByTime();
 
   const handleSettingsClick = () => {
-    // Update URL parameters with settings section
-    updateUrlParamsWithPreservedState({
-      "settings-section": "data-connections", // Default to data-connections
-    });
+    // Use the new navigateToSettings function to properly handle navigation
+    navigateToSettings("data-connections");
     dispatch(setMainContent("settings"));
   };
 

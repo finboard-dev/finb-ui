@@ -5,6 +5,17 @@ export interface UrlParamUpdates {
   [key: string]: string | null;
 }
 
+// Define the main content types and their associated parameters
+export type MainContentType = "chat" | "settings";
+export type SettingsSection = "data-connections" | "profile" | "security" | "users-roles";
+
+// Define parameter groups for better organization
+export const PARAM_GROUPS = {
+  CHAT: ["id"], // Chat-specific parameters
+  SETTINGS: ["settings-section"], // Settings-specific parameters
+  UI: ["sidebar-chat", "dropdown-organization"], // UI component states
+} as const;
+
 /**
  * Custom hook to handle URL parameter updates consistently
  * Makes URL parameters the single source of truth for UI state
@@ -51,8 +62,111 @@ export const useUrlParams = () => {
   };
 
   /**
+   * Navigate to a specific main content type with appropriate parameter cleanup
+   * @param content - The main content type to navigate to
+   * @param additionalParams - Additional parameters to set
+   */
+  const navigateToContent = (content: MainContentType, additionalParams: UrlParamUpdates = {}) => {
+    const updates: UrlParamUpdates = { ...additionalParams };
+    
+    // Clear parameters that don't belong to the target content
+    if (content === "chat") {
+      // Clear settings parameters when going to chat
+      updates["settings-section"] = null;
+    } else if (content === "settings") {
+      // Clear chat parameters when going to settings
+      updates["id"] = null;
+    }
+    
+    // Preserve UI component states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      updates["sidebar-chat"] = "open";
+    }
+    
+    const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+    if (dropdownOpen) {
+      updates["dropdown-organization"] = "open";
+    }
+    
+    updateUrlParams(updates);
+  };
+
+  /**
+   * Start a new chat (clears existing chat parameters)
+   * @param assistantId - Optional assistant ID for the new chat
+   */
+  const startNewChat = (assistantId?: string) => {
+    const updates: UrlParamUpdates = {
+      "id": null, // Clear existing chat ID
+    };
+    
+    // Preserve UI states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      updates["sidebar-chat"] = "open";
+    }
+    
+    const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+    if (dropdownOpen) {
+      updates["dropdown-organization"] = "open";
+    }
+    
+    updateUrlParams(updates);
+  };
+
+  /**
+   * Navigate to a specific chat
+   * @param threadId - The thread ID of the chat to navigate to
+   */
+  const navigateToChat = (threadId: string) => {
+    const updates: UrlParamUpdates = {
+      "id": threadId,
+      "settings-section": null, // Clear settings when going to chat
+    };
+    
+    // Preserve UI states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      updates["sidebar-chat"] = "open";
+    }
+    
+    const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+    if (dropdownOpen) {
+      updates["dropdown-organization"] = "open";
+    }
+    
+    updateUrlParams(updates);
+  };
+
+  /**
+   * Navigate to settings with a specific section
+   * @param section - The settings section to navigate to
+   */
+  const navigateToSettings = (section: SettingsSection = "data-connections") => {
+    const updates: UrlParamUpdates = {
+      "settings-section": section,
+      "id": null, // Clear chat ID when going to settings
+    };
+    
+    // Preserve UI states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      updates["sidebar-chat"] = "open";
+    }
+    
+    const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+    if (dropdownOpen) {
+      updates["dropdown-organization"] = "open";
+    }
+    
+    updateUrlParams(updates);
+  };
+
+  /**
    * Update URL parameters while preserving sidebar and dropdown states
    * @param updates - Object with parameter keys and values (null to delete)
+   * @deprecated Use navigateToContent, startNewChat, navigateToChat, or navigateToSettings instead
    */
   const updateUrlParamsWithPreservedState = (updates: UrlParamUpdates) => {
     const finalUpdates: UrlParamUpdates = { ...updates };
@@ -76,10 +190,37 @@ export const useUrlParams = () => {
     updateUrlParams(finalUpdates);
   };
 
+  /**
+   * Toggle a UI component state in URL parameters
+   * @param componentId - The component ID to toggle
+   * @param isOpen - Whether the component should be open
+   */
+  const toggleComponentState = (componentId: string, isOpen: boolean) => {
+    const updates: UrlParamUpdates = {
+      [componentId]: isOpen ? "open" : null,
+    };
+    
+    // Preserve other UI states
+    const otherComponents = ["sidebar-chat", "dropdown-organization"].filter(id => id !== componentId);
+    otherComponents.forEach(id => {
+      const isOtherOpen = searchParams.get(id) === "open";
+      if (isOtherOpen) {
+        updates[id] = "open";
+      }
+    });
+    
+    updateUrlParams(updates);
+  };
+
   return {
     searchParams,
     updateUrlParams,
-    updateUrlParamsWithPreservedState,
+    updateUrlParamsWithPreservedState, // Keep for backward compatibility
+    navigateToContent,
+    startNewChat,
+    navigateToChat,
+    navigateToSettings,
+    toggleComponentState,
     getParam,
     isParamSet,
   };
@@ -105,14 +246,22 @@ export const syncUrlParamsToRedux = (
     },
   });
 
-  // Sync settings section
+  // Sync dropdown state
+  const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+  dispatch({
+    type: "ui/initializeComponent",
+    payload: {
+      type: "dropdown",
+      id: "dropdown-organization",
+      isOpenFromUrl: dropdownOpen,
+    },
+  });
+
+  // Sync settings section and main content
   const settingsSection = searchParams.get("settings-section");
-  if (
-    settingsSection &&
-    ["data-connections", "profile", "security", "users-roles"].includes(
-      settingsSection
-    )
-  ) {
+  const chatId = searchParams.get("id");
+  
+  if (settingsSection && ["data-connections", "profile", "security", "users-roles"].includes(settingsSection)) {
     dispatch({
       type: "ui/setActiveSettingsSection",
       payload: settingsSection,
@@ -120,6 +269,12 @@ export const syncUrlParamsToRedux = (
     dispatch({
       type: "ui/setMainContent",
       payload: "settings",
+    });
+  } else if (chatId) {
+    // If we have a chat ID but no settings section, we're in chat mode
+    dispatch({
+      type: "ui/setMainContent",
+      payload: "chat",
     });
   }
 }; 
