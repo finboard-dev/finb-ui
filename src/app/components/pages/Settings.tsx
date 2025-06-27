@@ -66,13 +66,6 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  getOrganizationCompanies,
-  getOrganizationUsers,
-  addOrganizationUser,
-  deleteOrganizationUser,
-  updateOrganizationUser,
-} from "@/lib/api/roles&Permissions";
-import {
   Dialog as AlertDialog,
   DialogContent as AlertDialogContent,
   DialogHeader as AlertDialogHeader,
@@ -81,10 +74,17 @@ import {
 } from "@/components/ui/dialog";
 import { useUrlParams } from "@/lib/utils/urlParams";
 import {
-  addConnection,
-  disconnectConnection,
-  getOrganizationConnections,
-} from "@/lib/api/settings";
+  useOrganizationConnections,
+  useAddConnection,
+  useDisconnectConnection,
+  useOrganizationCompanies,
+  useOrganizationUsers,
+  useAddOrganizationUser,
+  useUpdateOrganizationUser,
+  useDeleteOrganizationUser,
+} from "@/hooks/useOrganization";
+import { useClearReduxState } from "@/hooks/useClearReduxState";
+import { clearBearerToken } from "@/lib/auth/tokenUtils";
 
 interface DataSource {
   id: string;
@@ -108,8 +108,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const { navigateToSettings, navigateToContent, navigateToChat } =
     useUrlParams();
   const state = store.getState();
-  const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const clearReduxState = useClearReduxState();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [isConnecting, setIsConnecting] = useState(false);
@@ -122,7 +121,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   // Use actual user data from Redux store
   const userData = store.getState().user.user;
 
-  const isSuperAdmin = userData?.role?.id === "SUPER_ADMIN";
+  const isSuperAdmin = userData?.role?.key === "SUPER_ADMIN";
 
   // Debug logging
   console.log("Settings component state:", {
@@ -132,9 +131,6 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     organizationId,
     userData,
   });
-
-  const [orgUsers, setOrgUsers] = useState<any[]>([]);
-  const [orgCompanies, setOrgCompanies] = useState<any[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All Roles");
@@ -158,6 +154,36 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
   const [inviteUserLoading, setInviteUserLoading] = useState(false);
   const [updateUserLoading, setUpdateUserLoading] = useState(false);
+
+  // React Query hooks
+  const {
+    data: dataSources,
+    isLoading: isLoadingConnections,
+    isFetching: isFetchingConnections,
+    error: connectionsError,
+    refetch: refetchConnections,
+  } = useOrganizationConnections();
+  const { data: orgCompanies, isLoading: isLoadingCompanies } =
+    useOrganizationCompanies();
+  const {
+    data: orgUsers,
+    isLoading: isLoadingUsers,
+    isFetching: isFetchingUsers,
+    error: usersError,
+    refetch: refetchUsers,
+  } = useOrganizationUsers();
+
+  // Mutation hooks
+  const addConnectionMutation = useAddConnection();
+  const disconnectConnectionMutation = useDisconnectConnection();
+  const addUserMutation = useAddOrganizationUser();
+  const updateUserMutation = useUpdateOrganizationUser();
+  const deleteUserMutation = useDeleteOrganizationUser();
+
+  // Loading states for individual operations
+  const [disconnectingConnectionId, setDisconnectingConnectionId] = useState<
+    string | null
+  >(null);
 
   // Handle settings section from URL parameters
   useEffect(() => {
@@ -190,88 +216,6 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     FindOnline: "Full Access",
     "Coca Cola": "Full Access",
   };
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getOrganizationConnections();
-      setDataSources(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching data sources:", err);
-      setError("Failed to load data sources. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    setInitialUsersLoading(true);
-    try {
-      console.log("Fetching users for organization:", organizationId);
-      if (!organizationId) {
-        console.error("No organization ID available");
-        toast.error("No organization selected. Please try again.");
-        setOrgUsers([]);
-        return;
-      }
-
-      const users = await getOrganizationUsers();
-      console.log("Users fetched:", users);
-      setOrgUsers(users || []);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Failed to load users. Please try again.");
-      setOrgUsers([]);
-    } finally {
-      setInitialUsersLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    console.log(
-      "Settings useEffect - company_id:",
-      company_id,
-      "organizationId:",
-      organizationId
-    );
-    if (company_id) {
-      fetchData();
-    }
-    if (organizationId) {
-      fetchUsers();
-    } else {
-      setIsLoading(false);
-      setInitialUsersLoading(false);
-      setError("No organization selected");
-    }
-  }, [company_id, organizationId]);
-
-  // Additional effect to handle cases where organizationId might be set after initial mount
-  useEffect(() => {
-    const checkAndFetchUsers = async () => {
-      const currentState = store.getState();
-      const currentOrgId = currentState.user.selectedOrganization?.id;
-      console.log("Additional check - currentOrgId:", currentOrgId);
-
-      if (currentOrgId && !initialUsersLoading && orgUsers.length === 0) {
-        console.log("Organization ID found, fetching users...");
-        await fetchUsers();
-      }
-    };
-
-    // Check after a short delay to allow Redux state to settle
-    const timer = setTimeout(checkAndFetchUsers, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      const companies = await getOrganizationCompanies();
-      setOrgCompanies(companies || []);
-    };
-    fetchCompanies();
-  }, []);
 
   useEffect(() => {
     if (showCompanyModal && selectedUser) {
@@ -322,9 +266,9 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const handleConnect = async (sourceId: string) => {
     try {
       setIsConnecting(true);
-      const redirectUrl = await addConnection();
-      if (redirectUrl.redirectUrl) {
-        window.open(redirectUrl.redirectUrl, "_self");
+      const result = await addConnectionMutation.mutateAsync();
+      if (result.redirectUrl) {
+        window.open(result.redirectUrl, "_self");
       } else {
         console.error("No redirect URL provided");
       }
@@ -332,25 +276,25 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
       console.error(error);
     } finally {
       setIsConnecting(false);
-      await fetchData();
     }
   };
 
   const handleDisconnect = async (sourceId: string) => {
     try {
-      const response = await disconnectConnection(sourceId);
-      console.log(response);
-      await fetchData();
+      setDisconnectingConnectionId(sourceId);
+      await disconnectConnectionMutation.mutateAsync(sourceId);
     } catch (error) {
       console.error("Error disconnecting account:", error);
+    } finally {
+      setDisconnectingConnectionId(null);
     }
   };
 
   const handleLogout = async () => {
     try {
       await logout();
-      dispatch(clearUserData());
-      await persistor.purge();
+      clearBearerToken();
+      await clearReduxState();
       router.push("/login");
       toast.success("Logged out successfully");
     } catch (e) {
@@ -361,9 +305,10 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
   const filteredSources =
     activeTab === "all"
-      ? dataSources
-      : dataSources.filter(
-          (source) => source.status.toLowerCase() === activeTab.toLowerCase()
+      ? dataSources || []
+      : (dataSources || []).filter(
+          (source: any) =>
+            source.status.toLowerCase() === activeTab.toLowerCase()
         );
 
   const renderDataConnections = () => (
@@ -424,7 +369,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
           {/*</Tabs>*/}
         </div>
 
-        {isLoading ? (
+        {isLoadingConnections ? (
           <div className="flex justify-center items-center h-64">
             <span className="text-lg text-gray-600">Loading...</span>
           </div>
@@ -432,10 +377,16 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
           <div className="flex justify-center items-center h-64">
             <span className="text-lg text-gray-600">Connecting...</span>
           </div>
-        ) : error ? (
+        ) : connectionsError ? (
           <div className="text-center py-8">
-            <p className="text-red-600">{error}</p>
-            <Button variant="outline" onClick={fetchData} className="mt-4">
+            <p className="text-red-600">
+              Failed to load data sources. Please try again.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => refetchConnections()}
+              className="mt-4"
+            >
               Try Again
             </Button>
           </div>
@@ -460,7 +411,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-gray-200">
+          <div className="overflow-x-auto max-h-72 rounded-md border border-gray-200">
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 text-left text-sm font-medium text-gray-500 border-b border-gray-200">
@@ -473,7 +424,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSources.map((source) => (
+                {filteredSources.map((source: any) => (
                   <TableRow
                     key={source.id}
                     className="border-b border-gray-300 text-sm"
@@ -509,9 +460,19 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                         <button
                           className="text-red-600 cursor-pointer hover:text-red-800 underline-offset-1"
                           onClick={() => handleDisconnect(source.id)}
-                          disabled={isConnecting}
+                          disabled={
+                            isConnecting ||
+                            disconnectingConnectionId === source.id
+                          }
                         >
-                          Disconnect
+                          {disconnectingConnectionId === source.id ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                              Disconnecting...
+                            </div>
+                          ) : (
+                            "Disconnect"
+                          )}
                         </button>
                       )}
                       {source.status === "INACTIVE" && (
@@ -593,7 +554,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   );
 
   const renderUsersRoles = () => {
-    const filteredOrgUsers = orgUsers.filter((user) => {
+    const filteredOrgUsers = (orgUsers || []).filter((user: any) => {
       const term = searchTerm.trim().toLowerCase();
       if (!term) return true;
       return (
@@ -629,12 +590,12 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
             {isSuperAdmin && (
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => fetchUsers()}
+                  onClick={() => refetchUsers()}
                   variant="outline"
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-md font-medium"
-                  disabled={initialUsersLoading}
+                  disabled={isFetchingUsers}
                 >
-                  {initialUsersLoading ? (
+                  {isFetchingUsers ? (
                     <div className="flex items-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                       Refreshing...
@@ -654,12 +615,21 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-            {initialUsersLoading ? (
+            {isLoadingUsers ? (
               <div className="flex justify-center items-center h-40 w-full">
                 <div className="flex flex-col items-center gap-2">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
                   <span className="text-lg text-gray-600">
                     Loading users...
+                  </span>
+                </div>
+              </div>
+            ) : isFetchingUsers && !orgUsers ? (
+              <div className="flex justify-center items-center h-40 w-full">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
+                  <span className="text-lg text-gray-600">
+                    Refreshing users...
                   </span>
                 </div>
               </div>
@@ -698,7 +668,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredOrgUsers.map((user) => (
+                      filteredOrgUsers.map((user: any) => (
                         <TableRow
                           key={user.id}
                           className="border-b border-gray-100 bg-white hover:bg-gray-50"
@@ -710,9 +680,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                             {user.email}
                           </TableCell>
                           <TableCell className="px-6 py-4 text-gray-600 bg-white">
-                            {user.roleId === "SUPER_ADMIN"
-                              ? "Super Admin"
-                              : "Member"}
+                            {user.roleId}
                           </TableCell>
                           <TableCell className="px-6 py-4 bg-white">
                             {user.roleId === "SUPER_ADMIN" ? (
@@ -786,7 +754,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                     </DialogTitle>
                     <p className="text-sm text-gray-500 mt-1">
                       {selectedUser ? selectedUser?.name : ""} has access to{" "}
-                      {orgCompanies.length} companies
+                      {(orgCompanies || []).length} companies
                     </p>
                   </div>
                 </div>
@@ -797,7 +765,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                     <span className="text-gray-600">Name</span>
                     <span className="text-gray-600">Permissions</span>
                   </div>
-                  {orgCompanies.map((company) => {
+                  {(orgCompanies || []).map((company: any) => {
                     const isActive = company.status === "ACTIVE";
                     const userHasAccess =
                       selectedUser?.accessibleCompanies?.some(
@@ -924,48 +892,6 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Companies
-                  </label>
-                  <div className="border border-gray-300 rounded-md p-2">
-                    <div className="flex items-center mb-2">
-                      <input
-                        type="checkbox"
-                        checked={selectAllCompanies}
-                        onChange={handleSelectAllCompanies}
-                        disabled={inviteRole === USER_ROLES.ADMIN}
-                        className="mr-2"
-                      />
-                      <span className="text-sm">Select All</span>
-                    </div>
-                    <div className="max-h-32 overflow-y-auto">
-                      {orgCompanies
-                        .filter((c) => c.status === "ACTIVE")
-                        .map((company) => (
-                          <div
-                            key={company.id}
-                            className="flex items-center mb-1"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={inviteCompanies.includes(company.id)}
-                              onChange={() => handleCompanySelect(company.id)}
-                              disabled={inviteRole === USER_ROLES.ADMIN}
-                              className="mr-2"
-                            />
-                            <span className="text-sm">{company.name}</span>
-                          </div>
-                        ))}
-                      {orgCompanies.filter((c) => c.status === "ACTIVE")
-                        .length === 0 && (
-                        <span className="text-gray-400 text-sm">
-                          No active companies available
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Role
                   </label>
                   <Select
@@ -999,6 +925,51 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                     </SelectContent>
                   </Select>
                 </div>
+                {inviteRole !== USER_ROLES.ADMIN && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Companies
+                    </label>
+                    <div className="border border-gray-300 rounded-md p-2">
+                      <div className="flex items-center mb-2">
+                        <input
+                          type="checkbox"
+                          checked={selectAllCompanies}
+                          onChange={handleSelectAllCompanies}
+                          disabled={inviteRole === USER_ROLES.ADMIN}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">Select All</span>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto">
+                        {(orgCompanies || [])
+                          .filter((c: any) => c.status === "ACTIVE")
+                          .map((company: any) => (
+                            <div
+                              key={company.id}
+                              className="flex items-center mb-1"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={inviteCompanies.includes(company.id)}
+                                onChange={() => handleCompanySelect(company.id)}
+                                disabled={inviteRole === USER_ROLES.ADMIN}
+                                className="mr-2"
+                              />
+                              <span className="text-sm">{company.name}</span>
+                            </div>
+                          ))}
+                        {(orgCompanies || []).filter(
+                          (c: any) => c.status === "ACTIVE"
+                        ).length === 0 && (
+                          <span className="text-gray-400 text-sm">
+                            No active companies available
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-end pt-4 bg-white border-t border-gray-100">
                   <Button
                     onClick={handleSendInvite}
@@ -1064,7 +1035,9 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     );
   };
 
-  const activeCompanies = orgCompanies.filter((c) => c.status === "ACTIVE");
+  const activeCompanies = (orgCompanies || []).filter(
+    (c: any) => c.status === "ACTIVE"
+  );
 
   const handleCompanySelect = (companyId: string) => {
     if (inviteCompanies.includes(companyId)) {
@@ -1083,7 +1056,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
       setInviteCompanies([]);
       setSelectAllCompanies(false);
     } else {
-      setInviteCompanies(activeCompanies.map((c) => c.id));
+      setInviteCompanies(activeCompanies.map((c: any) => c.id));
       setSelectAllCompanies(true);
     }
   };
@@ -1115,7 +1088,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     }
     setInviteUserLoading(true);
     try {
-      await addOrganizationUser(formData);
+      await addUserMutation.mutateAsync(formData);
       toast.success("User invited successfully!");
       setShowInviteModal(false);
       setInviteFirstName("");
@@ -1124,9 +1097,6 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
       setInviteRole(USER_ROLES.ADMIN);
       setInviteCompanies([]);
       setSelectAllCompanies(false);
-      // Refresh user list after adding
-      const users = await getOrganizationUsers();
-      setOrgUsers(users || []);
     } catch (err: any) {
       toast.error(err?.message || "Failed to invite user.");
     } finally {
@@ -1138,16 +1108,13 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     if (!userToDelete) return;
     setDeleteUserLoading(true);
     try {
-      await deleteOrganizationUser({
+      await deleteUserMutation.mutateAsync({
         userId: userToDelete.userId,
         organizationId: userToDelete.organizationId,
       });
       toast.success("User deleted successfully!");
       setShowDeleteDialog(false);
       setUserToDelete(null);
-      // Refresh user list
-      const users = await getOrganizationUsers();
-      setOrgUsers(users || []);
     } catch (err: any) {
       toast.error(err?.message || "Failed to delete user.");
     } finally {
@@ -1182,13 +1149,10 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     };
     setUpdateUserLoading(true);
     try {
-      await updateOrganizationUser(payload);
+      await updateUserMutation.mutateAsync(payload);
       toast.success("User access updated successfully!");
       setShowCompanyModal(false);
       setSelectedUser(null);
-      // Refresh user list
-      const users = await getOrganizationUsers();
-      setOrgUsers(users || []);
     } catch (err: any) {
       toast.error(err?.message || "Failed to update user access.");
     } finally {

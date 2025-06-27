@@ -19,11 +19,15 @@ const loadingSlice = createSlice({
     },
     setDropDownLoading(state, action: PayloadAction<boolean>) {
       state.isCompanyDropDownLoading = action.payload;
+    },
+    resetLoading(state) {
+      state.isToolCallLoading = false;
+      state.isCompanyDropDownLoading = false;
     }
   },
 });
 
-export const { setToolCallLoading , setDropDownLoading } = loadingSlice.actions;
+export const { setToolCallLoading, setDropDownLoading, resetLoading } = loadingSlice.actions;
 export const selectLoading = (state: { loading: LoadingState }) => state.loading.isToolCallLoading;
 export const selectDropDownLoading = (state: { loading: LoadingState }) => state.loading.isCompanyDropDownLoading;
 

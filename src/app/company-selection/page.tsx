@@ -8,6 +8,7 @@ import {
   setSelectedCompany,
   setCompanies,
   selectCompanies,
+  setUserData,
 } from "@/lib/store/slices/userSlice";
 import { fetcher } from "@/lib/axios/config";
 import { Building2, Plus, ArrowLeft } from "lucide-react";
@@ -126,6 +127,23 @@ const CompanySelectionPage = () => {
       const companyData = response?.data || response;
 
       dispatch(setSelectedCompany(selectedCompany));
+
+      // Also update the user object to keep it in sync
+      if (user) {
+        const updatedUser = {
+          ...user,
+          selectedCompany: companyData,
+        };
+
+        dispatch(
+          setUserData({
+            user: updatedUser,
+            selectedOrganization: selectedOrganization || undefined,
+            selectedCompany: companyData,
+          })
+        );
+      }
+
       document.cookie = "has_selected_company=true; path=/";
 
       router.push("/");

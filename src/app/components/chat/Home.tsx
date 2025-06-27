@@ -18,12 +18,13 @@ import {
   setActiveMessageId,
   initializeNewChat,
 } from "@/lib/store/slices/chatSlice";
-import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer";
+import { ChatConversationLoader } from "./ChatConversationLoader";
 import {
   selectSelectedCompany,
   setSelectedCompany,
   Company,
   setCompanies,
+  setUserData,
 } from "@/lib/store/slices/userSlice";
 import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
@@ -33,10 +34,10 @@ import {
   setActiveSettingsSection,
 } from "@/lib/store/slices/uiSlice";
 import { store } from "@/lib/store/store";
-import { getAllCompany, getCurrentCompany } from "@/lib/api/allCompany";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { useUrlParams } from "@/lib/utils/urlParams";
+import { useAllCompanies, useCurrentCompany } from "@/hooks/useCompany";
 
 interface ToolCallResponse {
   messageId: string;
@@ -48,9 +49,6 @@ const Home: FC = () => {
   const searchParams = useSearchParams();
   const { navigateToContent, navigateToChat } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
-  const isLoadingMessages = useAppSelector(
-    (state) => state.chat.isLoadingMessages
-  );
   const isCompanyLoading = useAppSelector(selectDropDownLoading);
   const selectedCompany: any = useAppSelector(
     selectSelectedCompany
@@ -66,8 +64,20 @@ const Home: FC = () => {
   const selectedOrganization = useAppSelector(
     (state) => state.user.selectedOrganization
   );
+  const user = useAppSelector((state) => state.user.user);
 
-  // Handle settings section from URL parameters
+  // React Query hooks
+  const {
+    data: companiesData,
+    isLoading: isLoadingCompanies,
+    error: companiesError,
+  } = useAllCompanies();
+  const {
+    data: currentCompanyData,
+    isLoading: isLoadingCurrentCompany,
+    error: currentCompanyError,
+  } = useCurrentCompany(selectedCompanyId || "");
+
   useEffect(() => {
     const sectionFromUrl = searchParams.get("settings-section");
     if (
@@ -139,6 +149,19 @@ const Home: FC = () => {
   const userMessages = messages.filter((msg) => msg.role === "user");
   const showChat = userMessages.length > 0;
 
+  // Check if currently streaming
+  const isStreaming = activeChat?.chats[0]?.isResponding || false;
+
+  // Check if there are existing messages from a previous conversation
+  // We consider messages as "existing" if they have a messageId (from API) or if there are more than 2 messages (indicating previous conversation)
+  const hasExistingMessages =
+    messages.some((msg) => msg.messageId) || messages.length > 2;
+
+  // Load conversation data if:
+  // 1. There are existing messages from a previous conversation, OR
+  // 2. We're not currently streaming (to avoid interference with new chat streaming)
+  const shouldLoadConversation = hasExistingMessages || !isStreaming;
+
   const { toolCallResponses } = useAppSelector(
     (state) => state.responsePanel
   ) as { toolCallResponses: ToolCallResponse[] };
@@ -158,54 +181,50 @@ const Home: FC = () => {
     }
   }, [dispatch, availableAssistants, activeChatId]);
 
+  // Handle companies data from React Query
   useEffect(() => {
-    async function fetchCompanies() {
-      try {
-        const response = await getAllCompany();
-        const mappedCompanies = (response?.data || response || []).map(
-          (company: any) => ({
-            ...company,
-            name: company.companyName,
-            status: company.isActive ? "ACTIVE" : "INACTIVE",
-          })
-        );
-        dispatch(setCompanies(mappedCompanies));
-      } catch (err) {
-        console.error("Failed to fetch companies", err);
-      }
+    if (companiesData) {
+      const mappedCompanies = (companiesData?.data || companiesData || []).map(
+        (company: any) => ({
+          ...company,
+          name: company.companyName,
+          status: company.isActive ? "ACTIVE" : "INACTIVE",
+        })
+      );
+      dispatch(setCompanies(mappedCompanies));
     }
-    fetchCompanies();
-  }, [selectedOrganization, dispatch]);
+  }, [companiesData, dispatch]);
 
+  // Handle current company data from React Query
   useEffect(() => {
-    const handleCompanySelect = async () => {
-      setError(null);
-      try {
-        if (!selectedCompanyId) {
-          throw new Error("No company selected");
+    if (currentCompanyData && selectedCompanyId) {
+      const response = currentCompanyData?.data || currentCompanyData;
+      if (
+        response?.id === selectedCompanyId ||
+        response?.data?.id === selectedCompanyId
+      ) {
+        const companyData = response?.data || response;
+        dispatch(setSelectedCompany(companyData));
+
+        // Also update the user object to keep it in sync
+        if (user) {
+          const updatedUser = {
+            ...user,
+            selectedCompany: companyData,
+          };
+
+          dispatch(
+            setUserData({
+              user: updatedUser,
+              selectedOrganization: selectedOrganization || undefined,
+              selectedCompany: companyData,
+            })
+          );
         }
-        const response = await getCurrentCompany(selectedCompanyId);
-        if (
-          response?.id === selectedCompanyId ||
-          response?.data?.id === selectedCompanyId
-        ) {
-          dispatch(setSelectedCompany(response?.data || response));
-        }
-        if (response?.id || response?.data?.id) {
-          // dispatch(setCurrentCompany(response?.data || response));
-        }
-        document.cookie = "has_selected_company=true; path=/";
-      } catch (error: any) {
-        if (error.name === "CanceledError") {
-          // Request was canceled, do not show error
-          return;
-        }
-        setError(error.message || "Error setting current company");
-        console.error("Error setting current company:", error);
       }
-    };
-    handleCompanySelect();
-  }, [dispatch, selectedCompanyId]);
+      document.cookie = "has_selected_company=true; path=/";
+    }
+  }, [currentCompanyData, selectedCompanyId, dispatch]);
 
   useEffect(() => {
     if (!selectedCompany?.name) {
@@ -243,10 +262,11 @@ const Home: FC = () => {
     return null;
   };
 
-  if (isCompanyLoading) {
+  // Show loading animation for company operations
+  if (isCompanyLoading || isLoadingCompanies || isLoadingCurrentCompany) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <LoadingAnimation message={"Switching company... Please wait!"} />
+        <LoadingAnimation message={"Loading company data... Please wait!"} />
       </div>
     );
   }
@@ -279,8 +299,14 @@ const Home: FC = () => {
                   className="overflow-hidden min-w-0" // Added min-w-0
                   defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
                 >
-                  {isLoadingMessages ? (
-                    <FinancialReportShimmer />
+                  {activeChat?.thread_id ? (
+                    <ChatConversationLoader
+                      threadId={activeChat.thread_id}
+                      chatId={activeChat.id}
+                      hasExistingMessages={shouldLoadConversation}
+                    >
+                      <ChatContainer />
+                    </ChatConversationLoader>
                   ) : (
                     <ChatContainer />
                   )}

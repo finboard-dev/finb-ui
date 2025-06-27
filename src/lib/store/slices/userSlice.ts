@@ -47,8 +47,22 @@ interface Organization {
 
 interface Role {
   id: string;
+  key: string;
   name: string;
   permissions: string[];
+}
+
+interface UserOrganization {
+  organization: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  role: {
+    id: string;
+    key: string;
+    name: string;
+  };
 }
 
 interface User {
@@ -60,7 +74,7 @@ interface User {
   selectedOrganization?: Organization;
   selectedCompany?: Company;
   role?: Role;
-  organizations?: Organization[];
+  organizations?: UserOrganization[];
 }
 
 // We'll define a separate interface for the payload
@@ -133,7 +147,19 @@ const userSlice = createSlice({
       } else if (user.selectedOrganization) {
         state.selectedOrganization = user.selectedOrganization;
       } else if (user.organizations && user.organizations.length > 0) {
-        state.selectedOrganization = user.organizations[0];
+        // Convert UserOrganization to Organization format
+        const firstOrg = user.organizations[0];
+        state.selectedOrganization = {
+          id: firstOrg.organization.id,
+          name: firstOrg.organization.name,
+          status: firstOrg.organization.status,
+          companies: [],
+          role: {
+            id: firstOrg.role.id,
+            name: firstOrg.role.name,
+            permissions: [],
+          },
+        };
       } else {
         state.selectedOrganization = null;
       }
@@ -213,6 +239,7 @@ const userSlice = createSlice({
       state.user = null;
       state.selectedOrganization = null;
       state.selectedCompany = null;
+      state.companies = [];
     },
 
     setCompanies: (state, action: PayloadAction<Company[]>) => {
@@ -274,6 +301,7 @@ export type {
   Role,
   UserState,
   SetUserDataPayload,
+  UserOrganization,
 };
 
 export default userSlice.reducer;

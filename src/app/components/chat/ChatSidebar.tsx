@@ -25,16 +25,10 @@ import {
 } from "../chat/ui/OrganisationDropdown";
 import {
   initializeNewChat,
-  loadChatMessages,
   setActiveChatId,
   setChatsFromAPI,
-  setIsLoadingMessages,
-  processToolResponses,
-  setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
-import { getChatConversation } from "@/lib/services/ChatServices/getChatConversations";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
-import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";

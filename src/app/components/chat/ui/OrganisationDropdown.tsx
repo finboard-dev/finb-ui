@@ -1,14 +1,23 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { ChevronsUpDown, Building, Users, Check, Loader2 } from "lucide-react";
+import {
+  ChevronsUpDown,
+  Building,
+  Users,
+  Check,
+  Loader2,
+  ChevronRight,
+} from "lucide-react";
 import {
   selectUser,
   selectSelectedOrganization,
   selectSelectedCompany,
   setSelectedOrganization,
   setSelectedCompany,
+  setUserData,
   type Organization,
   type Company,
+  type UserOrganization,
 } from "@/lib/store/slices/userSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -17,18 +26,14 @@ import {
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
 import { useSearchParams, useRouter } from "next/navigation";
-import {
-  clearAllChats,
-  clearMessages,
-  toggleSidebar,
-} from "@/lib/store/slices/chatSlice";
+import { toggleSidebar } from "@/lib/store/slices/chatSlice";
 import {
   setDropDownLoading,
   selectDropDownLoading,
 } from "@/lib/store/slices/loadingSlice";
 import { initAddQuickBookAccount } from "@/lib/api/intuitService";
 import { fetcher } from "@/lib/axios/config";
-import { getCurrentCompany } from "@/lib/api/allCompany";
+import { getCurrentCompany, getAllCompany } from "@/lib/api/allCompany";
 import connectToQuickBooksMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg";
 import connectToQuickBooksHoverMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg";
 import Image from "next/image";
@@ -37,6 +42,7 @@ import { addConnection } from "@/lib/api/settings";
 
 interface OrganizationDropdownProps {
   onCompanyChange?: () => void;
+  onOrganizationChange?: () => void;
 }
 
 enum CompanyStatus {
@@ -46,8 +52,10 @@ enum CompanyStatus {
 
 export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   onCompanyChange,
+  onOrganizationChange,
 }) => {
   const [error, setError] = useState<any>(null);
+  const [showOrganizations, setShowOrganizations] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -58,7 +66,6 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   const user = useSelector(selectUser);
   const selectedOrganization = useSelector(selectSelectedOrganization);
   const selectedCompany = useSelector(selectSelectedCompany);
-  // const isLoading = useAppSelector(selectDropDownLoading);
   const [quickBooksImgSrc, setQuickBooksImgSrc] = useState(
     connectToQuickBooksMed
   );
@@ -82,6 +89,9 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   const handleToggle = () => {
     const newState = !isOpen;
     toggleComponentState(componentId, newState);
+    if (!newState) {
+      setShowOrganizations(false);
+    }
   };
 
   const handleAddQuickBooks = async () => {
@@ -97,36 +107,154 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
     }
   };
 
-  const handleOrganizationSelect = (organization: Organization) => {
-    dispatch(setSelectedOrganization(organization));
+  // Handle organization selection
+  const handleOrganizationSelect = async (userOrg: UserOrganization) => {
+    setError(null);
+    dispatch(setDropDownLoading(true));
+
+    try {
+      // Create the organization object in the expected format
+      const organizationToSelect: Organization = {
+        id: userOrg.organization.id,
+        name: userOrg.organization.name,
+        status: userOrg.organization.status,
+        companies: [], // Will be populated when companies are loaded
+        role: {
+          id: userOrg.role.id,
+          name: userOrg.role.name,
+          permissions: [], // You might need to fetch permissions separately
+        },
+      };
+
+      // Update the selected organization
+      dispatch(setSelectedOrganization(organizationToSelect));
+
+      // Update the user's role to match the selected organization's role
+      if (user) {
+        const updatedUser = {
+          ...user,
+          role: {
+            id: userOrg.role.id,
+            key: userOrg.role.key,
+            name: userOrg.role.name,
+            permissions: [], // You might need to fetch permissions separately
+          },
+          selectedOrganization: organizationToSelect,
+        };
+
+        dispatch(
+          setUserData({
+            user: updatedUser,
+            selectedOrganization: organizationToSelect,
+          })
+        );
+      }
+
+      // After switching organization, we need to update the selected company
+      // to the first available company in the new organization
+      try {
+        // Get all companies for the new organization
+        const companiesResponse = await getAllCompany();
+        const allCompanies = companiesResponse?.data || companiesResponse || [];
+
+        // Find the first active company in the new organization
+        const firstActiveCompany = allCompanies.find(
+          (company: any) =>
+            company.status === CompanyStatus.ACTIVE && !company.isMultiEntity
+        );
+
+        if (firstActiveCompany) {
+          // Get the full company data including chat conversations
+          const companyResponse = await getCurrentCompany(
+            firstActiveCompany.id
+          );
+          const selectedCompanyData = companyResponse?.data || companyResponse;
+
+          // Update both the top-level selectedCompany and the nested user.selectedCompany
+          dispatch(setSelectedCompany(selectedCompanyData));
+
+          // Also update the user object to keep it in sync
+          if (user) {
+            const updatedUserWithCompany = {
+              ...user,
+              selectedCompany: selectedCompanyData,
+            };
+
+            dispatch(
+              setUserData({
+                user: updatedUserWithCompany,
+                selectedOrganization: organizationToSelect,
+                selectedCompany: selectedCompanyData,
+              })
+            );
+          }
+
+          document.cookie = "has_selected_company=true; path=/";
+        }
+      } catch (companyError) {
+        console.error(
+          "Error updating company after organization switch:",
+          companyError
+        );
+        // Don't throw here, as the organization switch was successful
+      }
+
+      // Close dropdown and reset view
+      dispatch(toggleComponent({ id: componentId, forceState: false }));
+      toggleComponentState(componentId, false);
+      setShowOrganizations(false);
+
+      if (onOrganizationChange) onOrganizationChange();
+    } catch (err: any) {
+      console.error("Error setting organization:", err);
+      setError(err.message || "Error setting organization");
+    } finally {
+      dispatch(setDropDownLoading(false));
+    }
   };
 
-  // Get organizations and companies from Redux
-  const organizations = useAppSelector(
-    (state) => state.user.user?.organizations || []
-  );
+  // Get organizations from the nested structure
+  const organizations: UserOrganization[] = user?.organizations || [];
 
   const handleCompanySelect = async (org: Organization, company: Company) => {
     setError(null);
-    dispatch(clearAllChats());
-    dispatch(setSelectedOrganization(org));
 
     // Set loading state to true
     dispatch(setDropDownLoading(true));
 
     try {
       const response = await getCurrentCompany(company.id);
-      dispatch(setSelectedCompany(response?.data || response));
+      const selectedCompanyData = response?.data || response;
+
+      // Update both the top-level selectedCompany and the nested user.selectedCompany
+      dispatch(setSelectedCompany(selectedCompanyData));
+
+      // Also update the user object to keep it in sync
+      if (user) {
+        const updatedUser = {
+          ...user,
+          selectedCompany: selectedCompanyData,
+        };
+
+        dispatch(
+          setUserData({
+            user: updatedUser,
+            selectedOrganization: selectedOrganization || undefined,
+            selectedCompany: selectedCompanyData,
+          })
+        );
+      }
+
       document.cookie = "has_selected_company=true; path=/";
       dispatch(toggleComponent({ id: componentId, forceState: false }));
       toggleComponentState(componentId, false);
+      setShowOrganizations(false);
       if (onCompanyChange) onCompanyChange();
     } catch (err: any) {
       console.error("Error setting current company:", err);
       setError(err.message || "Error setting current company");
       dispatch(setSelectedCompany(null as any));
     } finally {
-      // Set loading state to false regardless of success or failure
       dispatch(setDropDownLoading(false));
     }
   };
@@ -139,6 +267,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
       ) {
         dispatch(toggleComponent({ id: componentId, forceState: false }));
         toggleComponentState(componentId, false);
+        setShowOrganizations(false);
       }
     };
 
@@ -186,140 +315,159 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
       {isOpen && (
         <div className="absolute top-full left-0 z-50 mt-1.5 w-full overflow-hidden rounded-lg border border-gray-200 bg-white animate-in fade-in-0 zoom-in-95 duration-100">
-          {companies && companies.length > 0 ? (
-            <div className="max-h-64 overflow-y-auto py-1">
-              {companies.map((company) => {
-                const isActive =
-                  company.status === CompanyStatus.ACTIVE &&
-                  !company.isMultiEntity;
-                const isSelected = company.id === selectedCompany?.id;
-                return (
-                  <div
-                    key={company.id}
-                    className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
-                      isSelected
-                        ? "bg-primary/10 text-primary"
-                        : "text-gray-700 hover:bg-gray-50"
-                    } ${
-                      !isActive
-                        ? "opacity-60 cursor-not-allowed"
-                        : "cursor-pointer"
-                    }`}
-                    onClick={() => {
-                      if (isActive) {
-                        handleCompanySelect(selectedOrganization, company);
-                      }
-                    }}
-                    id={`click-company-${company.id}`}
-                    title={
-                      !isActive
-                        ? company.isMultiEntity
-                          ? "Multi-entity companies cannot be selected"
-                          : `This company is ${company.status}`
-                        : ""
-                    }
-                  >
-                    <div
-                      className={`relative flex h-6 w-6 items-center justify-center rounded-md ${
-                        isSelected
-                          ? "bg-primary/20 text-primary"
-                          : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
-                      }`}
-                    >
-                      <span className="text-xs font-medium">
-                        {company.name.substring(0, 2).toUpperCase()}
-                      </span>
-                      <div
-                        className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white ${
-                          company.status === CompanyStatus.ACTIVE
-                            ? "bg-green-500"
-                            : "bg-red-500"
-                        }`}
-                      ></div>
-                    </div>
-                    <div className="flex flex-grow items-center">
-                      <span className="text-sm">{company.name}</span>
-                    </div>
-                    {isSelected && <Check className="h-4 w-4 text-primary" />}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            organizations.map((org) => (
-              <div key={org.id}>
-                <div className="p-2.5 border-b border-gray-100">
+          {!showOrganizations ? (
+            // Show current organization's companies
+            <>
+              {/* Organization header with switch option */}
+              <div className="border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between p-2.5">
                   <div className="flex items-center gap-2">
                     <Users className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-medium text-gray-700">
-                      {org.name}
+                      {selectedOrganization?.name}
                     </span>
                   </div>
-                </div>
-                <div className="max-h-64 overflow-y-auto py-1">
-                  {org.companies &&
-                    org.companies.map((company) => {
-                      const isActive =
-                        company.status === CompanyStatus.ACTIVE &&
-                        !company.isMultiEntity;
-                      const isSelected = company.id === selectedCompany?.id;
-                      return (
-                        <div
-                          key={company.id}
-                          className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
-                            isSelected
-                              ? "bg-primary/10 text-primary"
-                              : "text-gray-700 hover:bg-gray-50"
-                          } ${
-                            !isActive
-                              ? "opacity-60 cursor-not-allowed"
-                              : "cursor-pointer"
-                          }`}
-                          onClick={() => {
-                            if (isActive) {
-                              handleCompanySelect(org, company);
-                            }
-                          }}
-                          id={`click-company-${company.id}`}
-                          title={
-                            !isActive
-                              ? company.isMultiEntity
-                                ? "Multi-entity companies cannot be selected"
-                                : `This company is ${company.status}`
-                              : ""
-                          }
-                        >
-                          <div
-                            className={`relative flex h-6 w-6 items-center justify-center rounded-md ${
-                              isSelected
-                                ? "bg-primary/20 text-primary"
-                                : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
-                            }`}
-                          >
-                            <span className="text-xs font-medium">
-                              {company.name.substring(0, 2).toUpperCase()}
-                            </span>
-                            <div
-                              className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white ${
-                                company.status === CompanyStatus.ACTIVE
-                                  ? "bg-green-500"
-                                  : "bg-red-500"
-                              }`}
-                            ></div>
-                          </div>
-                          <div className="flex flex-grow items-center">
-                            <span className="text-sm">{company.name}</span>
-                          </div>
-                          {isSelected && (
-                            <Check className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                      );
-                    })}
+                  {organizations.length > 1 && (
+                    <button
+                      onClick={() => setShowOrganizations(true)}
+                      className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                    >
+                      Switch
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               </div>
-            ))
+
+              {/* Companies list */}
+              {companies && companies.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {companies.map((company) => {
+                    const isActive =
+                      company.status === CompanyStatus.ACTIVE &&
+                      !company.isMultiEntity;
+                    const isSelected = company.id === selectedCompany?.id;
+                    return (
+                      <div
+                        key={company.id}
+                        className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
+                          isSelected
+                            ? "bg-primary/10 text-primary"
+                            : "text-gray-700 hover:bg-gray-50"
+                        } ${
+                          !isActive
+                            ? "opacity-60 cursor-not-allowed"
+                            : "cursor-pointer"
+                        }`}
+                        onClick={() => {
+                          if (isActive) {
+                            handleCompanySelect(selectedOrganization, company);
+                          }
+                        }}
+                        id={`click-company-${company.id}`}
+                        title={
+                          !isActive
+                            ? company.isMultiEntity
+                              ? "Multi-entity companies cannot be selected"
+                              : `This company is ${company.status}`
+                            : ""
+                        }
+                      >
+                        <div
+                          className={`relative flex h-6 w-6 items-center justify-center rounded-md ${
+                            isSelected
+                              ? "bg-primary/20 text-primary"
+                              : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                          }`}
+                        >
+                          <span className="text-xs font-medium">
+                            {company.name.substring(0, 2).toUpperCase()}
+                          </span>
+                          <div
+                            className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white ${
+                              company.status === CompanyStatus.ACTIVE
+                                ? "bg-green-500"
+                                : "bg-red-500"
+                            }`}
+                          ></div>
+                        </div>
+                        <div className="flex flex-grow items-center">
+                          <span className="text-sm">{company.name}</span>
+                        </div>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No companies available
+                </div>
+              )}
+            </>
+          ) : (
+            // Show organizations list
+            <>
+              {/* Back button */}
+              <div className="border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between p-2.5">
+                  <button
+                    onClick={() => setShowOrganizations(false)}
+                    className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <ChevronRight className="h-3 w-3 rotate-180" />
+                    Back
+                  </button>
+                  <span className="text-xs font-medium text-gray-700">
+                    Switch Organization
+                  </span>
+                </div>
+              </div>
+
+              {/* Organizations list */}
+              <div className="max-h-64 overflow-y-auto py-1">
+                {organizations.map((org) => {
+                  const isSelected =
+                    org.organization.id === selectedOrganization?.id;
+                  return (
+                    <div
+                      key={org.organization.id}
+                      className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-primary/10 text-primary"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                      onClick={() => handleOrganizationSelect(org)}
+                      id={`click-organization-${org.organization.id}`}
+                    >
+                      <div
+                        className={`relative flex h-6 w-6 items-center justify-center rounded-md ${
+                          isSelected
+                            ? "bg-primary/20 text-primary"
+                            : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                        }`}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex flex-grow flex-col">
+                        <span className="text-sm font-medium">
+                          {org.organization.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {org.role.name}
+                        </span>
+                      </div>
+                      {isSelected && <Check className="h-4 w-4 text-primary" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
+
+          {/* QuickBooks connection button */}
           <div className="border-t border-gray-100 p-2 flex justify-center items-center bg-gray-50">
             <Image
               onClick={() => {
@@ -327,6 +475,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                   toggleComponent({ id: componentId, forceState: false })
                 );
                 toggleComponentState(componentId, false);
+                setShowOrganizations(false);
                 handleAddQuickBooks();
               }}
               className="cursor-pointer"
@@ -342,6 +491,13 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
               }}
             />
           </div>
+
+          {/* Error display */}
+          {error && (
+            <div className="border-t border-red-100 bg-red-50 p-2">
+              <span className="text-xs text-red-600">{error}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
