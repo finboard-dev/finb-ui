@@ -5,7 +5,7 @@ export const AUTH_CONFIG = {
 
   privateDevApiEndpoints: [
     "datasource/all?company",
-    "/companies/add",
+    "/connection/callback",
     "add?provider=QUICKBOOKS",
     "datasource/disconnect?datasource",
       "/companies/current"

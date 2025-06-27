@@ -5,7 +5,6 @@ import loadingReducer from "./slices/loadingSlice"
 import { configureStore, combineReducers } from "@reduxjs/toolkit"
 import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist"
 import userReducer from "./slices/userSlice"
-import companyReducer from "./slices/companySlice"
 import storage from "redux-persist/lib/storage"
 
 // Combine all reducers
@@ -15,14 +14,13 @@ const rootReducer = combineReducers({
   ui: uiReducer,
   loading: loadingReducer,
   user: userReducer,
-  company: companyReducer,
 })
 
 const persistConfig = {
   key: "root",
   version: 1,
   storage,
-  whitelist: ["user", "company"],
+  whitelist: ["user"],
   debug: process.env.NODE_ENV === "development",
 }
 
