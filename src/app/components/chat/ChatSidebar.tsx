@@ -30,10 +30,9 @@ import {
 } from "@/lib/store/slices/chatSlice";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
-import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
-import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
-import { store } from "@/lib/store/store";
+import { Company } from "@/lib/store/slices/userSlice";
 import { useUrlParams } from "@/lib/utils/urlParams";
+import { Avatar } from "@radix-ui/react-avatar";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
@@ -475,7 +474,7 @@ const ChatSidebarClient = () => {
                   className="h-8 w-8 hover:bg-gray-200"
                   title="User Profile"
                 >
-                  <User className="h-5 w-5" />
+                  <Avatar className="h-5 w-5" />
                 </Button>
               </div>
             )}
