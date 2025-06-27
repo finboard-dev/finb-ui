@@ -21,7 +21,6 @@ interface MultiChatState {
   chats: AllChats[];
   activeChatId: string | null;
   pendingChat: AllChats | null;
-  isLoadingMessages: boolean;
 }
 
 const defaultChatId: string = uuidv4();
@@ -36,7 +35,6 @@ const initialState: MultiChatState = {
     assistantId: "",
     chats: [{ ...initialChatState }],
   },
-  isLoadingMessages: false,
 };
 
 const mapApiMessagesToMessageType = (apiMessages: any[]): MessageType[] => {
@@ -184,11 +182,6 @@ export const chatSlice = createSlice({
           chat.chats[0].messages = processedMessages;
         }
       }
-
-      state.isLoadingMessages = false;
-    },
-    setIsLoadingMessages(state, action: PayloadAction<boolean>) {
-      state.isLoadingMessages = action.payload;
     },
     initializeNewChat(state, action: PayloadAction<{ assistantId: string }>) {
       const newPendingChat: AllChats = {
@@ -433,14 +426,12 @@ export const chatSlice = createSlice({
       state.pendingChat = null;
       state.activeChatId = null;
     },
-
   },
 });
 
 export const {
   setChatsFromAPI,
   loadChatMessages,
-  setIsLoadingMessages,
   initializeNewChat,
   confirmPendingChat,
   setSelectedAssistantId,
@@ -457,7 +448,7 @@ export const {
   closeResponsePanel,
   setActiveMessageId,
   clearMessages,
-    clearAllChats,
+  clearAllChats,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

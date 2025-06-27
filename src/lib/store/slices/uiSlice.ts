@@ -12,7 +12,7 @@ interface UIComponentState {
 interface UIState {
   components: Record<string, UIComponentState>;
   mainContent: "chat" | "settings";
-  activeSettingsSection: "data-connections" | "profile" | "security" | "logout"; // Added to manage settings section
+  activeSettingsSection: "data-connections" | "profile" | "security" | "logout" | 'users-roles';
 }
 
 const initialState: UIState = {
@@ -48,6 +48,9 @@ const uiSlice = createSlice({
           isOpen: isOpenFromUrl || false,
           params: initialParams || {},
         };
+      } else if (isOpenFromUrl !== undefined) {
+        // Update existing component's isOpen state if isOpenFromUrl is provided
+        state.components[componentId].isOpen = isOpenFromUrl;
       }
     },
 
@@ -96,7 +99,7 @@ const uiSlice = createSlice({
 
     setActiveSettingsSection: (
         state,
-        action: PayloadAction<"data-connections" | "profile" | "security" | "logout">
+        action: PayloadAction<"data-connections" | "profile" | "security" | "logout" | 'users-roles'>
     ) => {
       state.activeSettingsSection = action.payload;
     },

@@ -1,46 +1,55 @@
-"use client"
+"use client";
 
-import React, { useEffect } from "react"
-import { LoginPage } from "./components/LoginPage"
-import { SSO_LOGIN } from "@/constants"
-import { intuitSSOLogin } from "@/lib/api/intuitService"
-import { useRouter } from "next/navigation"
-import { useAppSelector } from "@/lib/store/hooks"
-import { userBearerToken } from "@/lib/store/slices/userSlice"
+import React, { useEffect } from "react";
+import { LoginPage } from "./components/LoginPage";
+import { SSO_LOGIN } from "@/constants";
+import { intuitSSOLogin } from "@/lib/api/intuitService";
+import { useRouter } from "next/navigation";
+import { useAppSelector } from "@/lib/store/hooks";
+import { userBearerToken } from "@/lib/store/slices/userSlice";
 
 const LoginPageContainer = () => {
-  const [isLoading, setIsLoading] = React.useState(false)
-  const router = useRouter()
-  const token = useAppSelector(userBearerToken)
+  const [isLoading, setIsLoading] = React.useState(false);
+  const router = useRouter();
+  const token = useAppSelector(userBearerToken);
 
   useEffect(() => {
     if (token) {
-      const hasSelectedCompany = document.cookie.includes("has_selected_company=true")
+      const hasSelectedCompany = document.cookie.includes(
+        "has_selected_company=true"
+      );
       if (hasSelectedCompany) {
-        router.push("/")
+        router.push("/");
       } else {
-        router.push("/company-selection")
+        console.log("comapny selction login");
+
+        router.push("/company-selection");
       }
     }
-  }, [token, router])
+  }, [token, router]);
 
   const handleInuitLoginClick = async () => {
     try {
-      setIsLoading(true)
-      const redirectUrl = await intuitSSOLogin(SSO_LOGIN)
+      setIsLoading(true);
+      const redirectUrl = await intuitSSOLogin(SSO_LOGIN);
       if (redirectUrl) {
-        window.location.href = redirectUrl
+        window.location.href = redirectUrl;
       } else {
-        console.error("No redirect URL provided")
-        setIsLoading(false)
+        console.error("No redirect URL provided");
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error(error)
-      setIsLoading(false)
+      console.error(error);
+      setIsLoading(false);
     }
-  }
+  };
 
-  return <LoginPage handleIntuitLogin={handleInuitLoginClick} isLoading={isLoading} />
-}
+  return (
+    <LoginPage
+      handleIntuitLogin={handleInuitLoginClick}
+      isLoading={isLoading}
+    />
+  );
+};
 
-export default LoginPageContainer
+export default LoginPageContainer;

@@ -40,13 +40,12 @@ export function ReduxProvider({ children }: PropsWithChildren) {
 
   return (
     <Provider store={store}>
-      {showPersistGate ? (
-        <PersistGate loading={<LoadingAnimation message={""}/>} persistor={persistor}>
-          {children}
-        </PersistGate>
-      ) : (
-          <LoadingAnimation message={""}/>
-      )}
+      <PersistGate
+        // loading={<LoadingAnimation message={""} />}
+        persistor={persistor}
+      >
+        {children}
+      </PersistGate>
     </Provider>
   );
 }

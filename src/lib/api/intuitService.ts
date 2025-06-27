@@ -82,12 +82,12 @@ export const addCompany = async (authCode: string, realmId: string | null) => {
     const organisation_id = organisation.id;
 
     try {
-        const response = await fetcher.post(`/companies/add`, {
+        const response = await fetcher.post(`/connection/callback`, {
             "name": "QuickBooks",
-            "realm_id": realmId,
-            "auth_code": authCode,
-            "data_source": "QUICKBOOKS",
-            "organization_id": organisation_id.toString(),
+            "realmId": realmId,
+            "code": authCode,
+            "dataSource": "QUICKBOOKS",
+            "organizationId": organisation_id.toString(),
         });
 
         return {
@@ -140,15 +140,15 @@ export const intuitSSOLogin = async (redirectType: string) => {
             console.error('Invalid response from SSO login endpoint:', response)
             throw new Error('Invalid response from server')
         }
-        const { state, redirect_url } = response
-        if (!state || !redirect_url) {
+        const { state, redirectUrl } = response
+        if (!state || !redirectUrl) {
             console.error('Missing required fields in response:', response)
             throw new Error('Missing required authentication data')
         }
         localStorage.setItem(CSRF_TOKEN, state)
         localStorage.setItem(REDIRECT_TYPE, redirectType)
         console.log('Response from SSO login:', response)
-        return response.redirect_url
+        return response.redirectUrl
     } catch (error) {
         console.error('Failed to initiate QuickBooks login:', error)
         throw error
@@ -230,10 +230,10 @@ export const disconnectAccount = async (uuid: any) => {
 export const initReconnectQuickBookAccount = async (id: any) => {
     try {
         const response = await fetcher.get(`/qb/reconnect/${id}`);
-        const { state, redirect_url } = response.data;
+        const { state, redirectUrl } = response.data;
         localStorage.setItem(CSRF_TOKEN, state);
         localStorage.setItem(REDIRECT_TYPE, ADD_COMPANY);
-        return redirect_url;
+        return redirectUrl;
     } catch (error) {
         console.error('Failed to add QuickBook account:', error);
         throw error;

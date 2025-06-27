@@ -22,7 +22,22 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
 
     const token = state.user.token?.accessToken;
 
-    const requestId = `${config.method}:${config.url}`;
+    // Create unique request ID including body for POST requests
+    let requestId = `${config.method}:${config.url}`;
+    if (config.method === 'post' && config.data) {
+      // For widget data requests, include componentId and tabId in the request ID
+      try {
+        const data = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+        if (data.componentId && data.tabId) {
+          requestId += `:${data.componentId}:${data.tabId}`;
+        } else {
+          // For other POST requests, include a hash of the data
+          requestId += `:${JSON.stringify(config.data)}`;
+        }
+      } catch (e) {
+        // If parsing fails, use the original requestId
+      }
+    }
 
     if (pendingRequests.has(requestId)) {
       const controller = new AbortController();
@@ -71,13 +86,39 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
 
   axiosInstance.interceptors.response.use(
       (response) => {
-        const requestId = `${response.config.method}:${response.config.url}`;
+        // Create unique request ID including body for POST requests
+        let requestId = `${response.config.method}:${response.config.url}`;
+        if (response.config.method === 'post' && response.config.data) {
+          try {
+            const data = typeof response.config.data === 'string' ? JSON.parse(response.config.data) : response.config.data;
+            if (data.componentId && data.tabId) {
+              requestId += `:${data.componentId}:${data.tabId}`;
+            } else {
+              requestId += `:${JSON.stringify(response.config.data)}`;
+            }
+          } catch (e) {
+            // If parsing fails, use the original requestId
+          }
+        }
         pendingRequests.delete(requestId);
         return response;
       },
       (error) => {
         if (error.config) {
-          const requestId = `${error.config.method}:${error.config.url}`;
+          // Create unique request ID including body for POST requests
+          let requestId = `${error.config.method}:${error.config.url}`;
+          if (error.config.method === 'post' && error.config.data) {
+            try {
+              const data = typeof error.config.data === 'string' ? JSON.parse(error.config.data) : error.config.data;
+              if (data.componentId && data.tabId) {
+                requestId += `:${data.componentId}:${data.tabId}`;
+              } else {
+                requestId += `:${JSON.stringify(error.config.data)}`;
+              }
+            } catch (e) {
+              // If parsing fails, use the original requestId
+            }
+          }
           pendingRequests.delete(requestId);
         }
         if (error.response?.status === 401 && typeof window !== 'undefined') {
