@@ -18,7 +18,7 @@ import { LayoutGridIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
 import MetricsCard from "../ui/MetricsCard";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
-import RestrictedChart from "@/app/tests/echarts/page";
+import RestrictedChart from "@/app/components/visualizationV2/VisualizationRenderer";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
