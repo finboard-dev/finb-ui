@@ -33,9 +33,9 @@ import {
 import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import RestrictedChart from "@/app/tests/echarts/page";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
+import RestrictedChart from "@/app/components/visualizationV2/VisualizationRenderer";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 

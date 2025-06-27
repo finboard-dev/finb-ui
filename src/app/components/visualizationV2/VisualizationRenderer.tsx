@@ -1,4 +1,3 @@
-// RestrictedChart Component - REVISED
 "use client";
 
 import React, {
@@ -7,7 +6,6 @@ import React, {
   CSSProperties,
   useMemo,
   useState,
-  useCallback, // Added useCallback for clarity
 } from "react";
 import * as echarts from "echarts/core";
 import {
@@ -33,9 +31,6 @@ import {
   Edit3Icon,
   CopyIcon,
   Trash2Icon,
-  AlertTriangleIcon,
-  Loader2Icon,
-  Info,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -63,7 +58,6 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-// --- Theme and Builders (UNCHANGED, assume they are correct and robust) ---
 // Theme configuration
 const THEME = {
   colors: {
@@ -99,6 +93,7 @@ const THEME = {
   },
 } as const;
 
+// Interfaces for allowed input
 interface AllowedSeries {
   name?: string;
   type: "bar" | "line" | "pie" | "scatter" | "radar" | "area";
@@ -115,11 +110,13 @@ interface AllowedInput {
   series: AllowedSeries[];
 }
 
+// Schema Validator
 class SchemaValidator {
   static validate(input: any): AllowedInput {
     if (!input || typeof input !== "object") {
       return { series: [] };
     }
+
     return {
       title: this.extractTitle(input),
       subtitle: this.extractSubtitle(input),
@@ -128,41 +125,52 @@ class SchemaValidator {
       series: this.extractSeries(input),
     };
   }
+
   private static extractTitle(input: any): string | undefined {
     if (typeof input.title === "string") return input.title;
     if (input.title?.text && typeof input.title.text === "string")
       return input.title.text;
     return undefined;
   }
+
   private static extractSubtitle(input: any): string | undefined {
     if (input.title?.subtext && typeof input.title.subtext === "string")
       return input.title.subtext;
     if (typeof input.subtitle === "string") return input.subtitle;
     return undefined;
   }
+
   private static extractXAxisData(input: any): string[] | undefined {
     if (Array.isArray(input.xAxisData)) {
       return input.xAxisData.map((item: any) => String(item));
     }
     if (input.xAxis) {
       let xAxis = input.xAxis;
-      if (Array.isArray(xAxis) && xAxis.length > 0) xAxis = xAxis[0];
-      if (xAxis && Array.isArray(xAxis.data))
+      if (Array.isArray(xAxis) && xAxis.length > 0) {
+        xAxis = xAxis[0];
+      }
+      if (xAxis && Array.isArray(xAxis.data)) {
         return xAxis.data.map((item: any) => String(item));
+      }
     }
     return undefined;
   }
+
   private static extractYAxisLabel(input: any): string | undefined {
     if (typeof input.yAxisLabel === "string") return input.yAxisLabel;
     if (input.yAxis) {
       let yAxis = input.yAxis;
-      if (Array.isArray(yAxis) && yAxis.length > 0) yAxis = yAxis[0];
+      if (Array.isArray(yAxis) && yAxis.length > 0) {
+        yAxis = yAxis[0];
+      }
       if (yAxis && typeof yAxis.name === "string") return yAxis.name;
     }
     return undefined;
   }
+
   private static extractSeries(input: any): AllowedSeries[] {
     if (!input.series) return [];
+
     const seriesArray = Array.isArray(input.series)
       ? input.series
       : [input.series];
@@ -170,12 +178,16 @@ class SchemaValidator {
       .map((series: any) => this.validateSeries(series))
       .filter((series: null) => series !== null) as AllowedSeries[];
   }
+
   private static validateSeries(series: any): AllowedSeries | null {
     if (!series || typeof series !== "object") return null;
+
     const validTypes = ["bar", "line", "pie", "scatter", "radar", "area"];
     const type = validTypes.includes(series.type) ? series.type : "bar";
+
     const data = this.extractSeriesData(series.data || []);
     if (data.length === 0) return null;
+
     return {
       name: typeof series.name === "string" ? series.name : "Series",
       type: type as AllowedSeries["type"],
@@ -184,6 +196,7 @@ class SchemaValidator {
       itemStyle: this.extractItemStyle(series.itemStyle),
     };
   }
+
   private static extractItemStyle(itemStyle: any): any {
     if (!itemStyle || typeof itemStyle !== "object") return undefined;
     return {
@@ -191,26 +204,40 @@ class SchemaValidator {
       ...itemStyle,
     };
   }
+
   private static extractSeriesData(
     data: any[]
   ): (number | { name: string; value: number })[] {
     if (!Array.isArray(data)) return [];
+
     return data
       .map((item) => {
+        // Handle empty strings
         if (item === "") return 0;
+
+        // Handle string numbers
         if (typeof item === "string") {
           const num = parseFloat(item);
           if (!isNaN(num)) return num;
         }
+
+        // Handle numbers
         if (typeof item === "number" && isFinite(item)) return item;
+
+        // Handle objects
         if (typeof item === "object" && item !== null) {
           if (typeof item.value === "number" && isFinite(item.value)) {
-            return { name: String(item.name || ""), value: item.value };
+            return {
+              name: String(item.name || ""),
+              value: item.value,
+            };
           }
+          // Try to convert object to number if possible
           const num = parseFloat(String(item));
           if (!isNaN(num)) return num;
         }
-        return 0;
+
+        return 0; // Default to 0 for invalid values
       })
       .filter((item) => item !== null) as (
       | number
@@ -219,416 +246,263 @@ class SchemaValidator {
   }
 }
 
+// Chart Type Detector
 class ChartTypeDetector {
   static detect(
     series: AllowedSeries[]
   ): "bar" | "line" | "pie" | "scatter" | "radar" | "area" | "mixed" {
     if (series.length === 0) return "bar";
+
     const types = series.map((s) => s.type);
     const uniqueTypes = [...new Set(types)];
+
     return uniqueTypes.length > 1 ? "mixed" : uniqueTypes[0];
   }
 }
 
 abstract class BaseChartBuilder {
-  protected data: AllowedInput;
-  protected chartType: string;
-  constructor(data: AllowedInput, chartType: string) {
-    this.data = data;
-    this.chartType = chartType;
+  protected input: any;
+  protected themeColors: string[] = [
+    "#5470c6",
+    "#91cc75",
+    "#fac858",
+    "#ee6666",
+    "#73c0de",
+    "#3ba272",
+    "#fc8452",
+    "#9a60b4",
+    "#ea7ccc",
+  ];
+
+  constructor(input: any) {
+    this.input = input;
   }
-  protected createBaseConfig(): EChartsOption {
+
+  protected getAllColors(): string[] {
+    return this.themeColors;
+  }
+
+  protected createBaseConfig(): any {
     return {
       color: this.getAllColors(),
       backgroundColor: "transparent",
       title: { show: false },
-      tooltip: this.createTooltip(),
-      legend: this.createLegend(),
-      grid: this.createGrid(),
-    };
-  }
-  private getAllColors(): string[] {
-    return [
-      ...THEME.colors.primary,
-      ...THEME.colors.secondary,
-      ...THEME.colors.success,
-      ...THEME.colors.danger,
-      ...THEME.colors.accent,
-    ];
-  }
-  protected createTooltip(): any {
-    return {
-      trigger: "axis",
-      confine: true,
-      axisPointer: {
-        type: "cross",
-        lineStyle: { color: THEME.colors.neutral[4], width: 1, type: "dashed" },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        backgroundColor: "white",
+        borderWidth: 0,
+        textStyle: { color: "black" },
       },
-      backgroundColor: "#ffffff",
-      borderColor: THEME.colors.neutral[5],
-      borderWidth: 1,
-      borderRadius: 8,
-      padding: [10, 15],
-      textStyle: {
-        color: THEME.colors.neutral[1],
-        fontSize: THEME.font.sizes.value,
-        fontFamily: THEME.font.family,
+      legend: {
+        type: "scroll",
+        orient: "horizontal",
+        left: "center",
+        top: "top",
+        data: this.input.series.map((s: any) => s.name || "Unnamed Series"),
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { color: "#333" },
       },
-      extraCssText: "box-shadow: 0 6px 24px rgba(0,0,0,0.1);",
-    };
-  }
-  protected createLegend(): any {
-    return {
-      show: this.data.series.length > 1,
-      bottom: 10,
-      left: "center",
-      itemWidth: 14,
-      itemHeight: 10,
-      itemGap: 25,
-      textStyle: {
-        color: THEME.colors.neutral[2],
-        fontSize: THEME.font.sizes.legend,
-        fontFamily: THEME.font.family,
+      grid: {
+        left: "3%",
+        right: "4%",
+        bottom: "5%",
+        containLabel: true,
       },
-      type: "scroll",
-      pageIconColor: THEME.colors.primary[0],
-      pageIconInactiveColor: THEME.colors.neutral[3],
     };
   }
-  protected createGrid(): any {
-    return {
-      containLabel: true,
-      left: THEME.spacing.chart.left,
-      right: THEME.spacing.chart.right,
-      top: THEME.spacing.chart.top,
-      bottom: THEME.spacing.chart.bottom,
-    };
-  }
+
   protected createXAxis(): any {
     return {
       type: "category",
-      data: this.data.xAxisData || [],
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5], width: 1 },
-      },
-      axisTick: {
-        show: true,
-        alignWithLabel: true,
-        lineStyle: { color: THEME.colors.neutral[5] },
-      },
+      data: this.input.xAxisData,
+      axisLine: { lineStyle: { color: "#999" } },
+      axisTick: { alignWithLabel: true },
       axisLabel: {
-        color: THEME.colors.neutral[3],
-        fontSize: THEME.font.sizes.label,
-        fontFamily: THEME.font.family,
-        margin: 12,
-        interval: "auto",
-        hideOverlap: true,
-        rotate: this.shouldRotateLabels() ? 30 : 0,
-        formatter: (value: any) => {
-          const str = String(value);
-          return str.length > 18 ? str.substring(0, 15) + "..." : str;
-        },
+        rotate: this.shouldRotateLabels() ? 45 : 0,
+        color: "#666",
       },
-      splitLine: { show: false },
     };
   }
+
   protected createYAxis(): any {
     return {
       type: "value",
-      name: this.data.yAxisLabel,
-      splitNumber: 5,
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5], width: 1 },
-      },
-      axisTick: { show: false },
-      axisLabel: {
-        color: THEME.colors.neutral[3],
-        fontSize: THEME.font.sizes.label,
-        fontFamily: THEME.font.family,
-        margin: 12,
-        formatter: this.formatValue,
-      },
-      splitLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[6], type: "dashed", width: 1 },
-      },
+      name: this.input.yAxisLabel || "",
+      axisLine: { lineStyle: { color: "#999" } },
+      axisLabel: { color: "#666" },
+      splitLine: { lineStyle: { color: "#e8e8e8" } },
     };
   }
-  private formatValue(value: any): string {
-    if (typeof value === "number" && isFinite(value)) {
-      if (Math.abs(value) >= 1e12) return (value / 1e12).toFixed(1) + "T";
-      if (Math.abs(value) >= 1e9) return (value / 1e9).toFixed(1) + "B";
-      if (Math.abs(value) >= 1e6) return (value / 1e6).toFixed(1) + "M";
-      if (Math.abs(value) >= 1e3) return (value / 1e3).toFixed(1) + "K";
-      if (Math.abs(value) < 1 && Math.abs(value) > 0) return value.toFixed(2);
-      return String(Math.round(value));
-    }
-    return String(value);
-  }
-  protected shouldRotateLabels(): boolean {
-    return this.data.xAxisData ? this.data.xAxisData.length > 8 : false;
-  }
-  protected addDataZoom(config: EChartsOption): void {
-    if (this.data.xAxisData && this.data.xAxisData.length > 12) {
-      const endPercentage = Math.min(
-        100,
-        (12 / this.data.xAxisData.length) * 100
-      );
-      config.dataZoom = [
-        {
-          type: "slider",
-          xAxisIndex: 0,
-          filterMode: "filter",
-          start: 0,
-          end: endPercentage,
-          height: 20,
-          bottom: 35,
-          handleStyle: { color: THEME.colors.primary[0] },
-          borderColor: THEME.colors.neutral[5],
-          textStyle: { color: THEME.colors.neutral[3], fontSize: 10 },
-          showDetail: false,
-        },
-        {
-          type: "inside",
-          xAxisIndex: 0,
-          filterMode: "filter",
-          start: 0,
-          end: endPercentage,
-        },
-      ];
-      (config.grid as any).bottom = 85;
-      (config.legend as any).bottom = 10;
-    }
-  }
-  abstract build(): EChartsOption;
-}
 
-class AreaChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createAreaSeries();
-    this.addDataZoom(config);
-    return config;
+  protected shouldRotateLabels(): boolean {
+    return this.input.xAxisData.length > 8;
   }
-  private createAreaSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
-      type: "line",
-      data: series.data,
-      stack: series.stack,
-      areaStyle: { opacity: 0.8 },
-      smooth: true,
-      lineStyle: {
-        width: 2,
-        shadowColor: "rgba(0,0,0,0.1)",
-        shadowBlur: 4,
-        shadowOffsetY: 1,
-      },
-      symbol: "circle",
-      symbolSize: 4,
-      showSymbol: Array.isArray(series.data) && series.data.length < 50,
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        lineStyle: { width: 3 },
-        symbolSize: 6,
-      },
-    }));
+
+  protected shouldAddDataZoom(): boolean {
+    return this.input.xAxisData.length > 12;
   }
+
+  protected addDataZoom(option: any): void {
+    if (this.shouldAddDataZoom()) {
+      option.dataZoom = [
+        { type: "slider", start: 0, end: 100 },
+        { type: "inside", start: 0, end: 100 },
+      ];
+    }
+  }
+
+  abstract build(): any;
 }
 
 class BarChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createBarSeries();
-    (config.tooltip as any).trigger = "axis";
-    (config.tooltip as any).axisPointer.type = "shadow";
-    this.addDataZoom(config);
-    return config;
-  }
-  private createBarSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
       type: "bar",
-      data: series.data,
-      stack: series.stack,
-      barMaxWidth: THEME.dimensions.barMaxWidth,
-      barGap: "20%",
-      barCategoryGap: "40%",
-      itemStyle: {
-        borderRadius: 0,
-        borderWidth: 0,
-      },
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: "rgba(0,0,0,0.2)",
-        },
-      },
+      data: s.data,
+      stack: s.stack || null,
+      barMaxWidth: 40,
+      barGap: "30%",
     }));
+    this.addDataZoom(option);
+    return option;
   }
 }
 
 class LineChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createYAxis();
-    config.series = this.createLineSeries();
-    this.addDataZoom(config);
-    return config;
-  }
-  private createLineSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
       type: "line",
-      data: series.data,
+      data: s.data,
       smooth: true,
-      lineStyle: {
-        width: 3,
-        shadowColor: "rgba(0,0,0,0.15)",
-        shadowBlur: 6,
-        shadowOffsetY: 2,
-      },
-      symbol: "circle",
-      symbolSize: 6,
-      showSymbol: Array.isArray(series.data) && series.data.length < 50,
-      label: { show: false },
-      emphasis: {
-        focus: "series",
-        lineStyle: { width: 4 },
-        symbolSize: 8,
-      },
+      lineStyle: { width: 2 },
     }));
+    this.addDataZoom(option);
+    return option;
   }
 }
 
 class PieChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = { show: false };
-    config.yAxis = { show: false };
-    config.grid = { show: false, containLabel: false };
-    (config.tooltip as any).trigger = "item";
-    delete (config.tooltip as any).axisPointer;
-    config.series = this.createPieSeries();
-    return config;
+  build(): any {
+    // Start with the base configuration
+    const option = this.createBaseConfig();
+
+    // Hide xAxis and yAxis for pie charts
+    option.xAxis = { show: false };
+    option.yAxis = { show: false };
+    option.tooltip = { trigger: "item" };
+
+    // Ensure series is an array; default to empty array if undefined or not an array
+    const series = Array.isArray(this.input.series) ? this.input.series : [];
+
+    // Map over series to create pie chart configuration
+    option.series = series.map((s: any) => {
+      // Ensure data is an array; default to empty array if undefined or not an array
+      const data = Array.isArray(s.data) ? s.data : [];
+      return {
+        name: s.name || "Unnamed Series", // Default name if missing
+        type: "pie",
+        radius: "50%",
+        center: ["50%", "50%"],
+        data: data,
+      };
+    });
+
+    return option;
   }
-  private createPieSeries(): any[] {
-    return this.data.series.map((series) => ({
-      name: series.name,
-      type: "pie",
-      data: series.data,
-      radius: THEME.dimensions.pieRadius,
-      center: ["50%", "50%"],
-      avoidLabelOverlap: false,
-      minAngle: 5,
-      itemStyle: {
-        borderRadius: 6,
-        borderColor: "#fff",
-        borderWidth: 2,
-        shadowColor: "rgba(0,0,0,0.1)",
-        shadowBlur: 8,
-      },
-      label: { show: false },
-      labelLine: { show: false },
-      emphasis: {
-        scale: true,
-        scaleSize: 8,
-        itemStyle: {
-          shadowBlur: 15,
-          shadowColor: "rgba(0,0,0,0.25)",
-        },
-      },
+}
+
+class AreaChartBuilder extends BaseChartBuilder {
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = this.createYAxis();
+    option.series = this.input.series.map((s: any) => ({
+      name: s.name,
+      type: "line",
+      data: s.data,
+      areaStyle: { opacity: 0.2 },
+      smooth: true,
+      lineStyle: { width: 2 },
     }));
+    this.addDataZoom(option);
+    return option;
   }
 }
 
 class MixedChartBuilder extends BaseChartBuilder {
-  build(): EChartsOption {
-    const config = this.createBaseConfig();
-    config.xAxis = this.createXAxis();
-    config.yAxis = this.createDualYAxis();
-    config.series = this.createMixedSeries();
-    (config.grid as any).right = 50;
-    this.addDataZoom(config);
-    return config;
-  }
-  private createDualYAxis(): any[] {
-    const primaryAxis = this.createYAxis();
-    const secondaryAxis = {
-      ...primaryAxis,
-      position: "right",
-      splitLine: { show: false },
-      axisLine: {
-        show: true,
-        lineStyle: { color: THEME.colors.neutral[5] },
+  build(): any {
+    const option = this.createBaseConfig();
+    option.xAxis = this.createXAxis();
+    option.yAxis = [
+      this.createYAxis(),
+      {
+        type: "value",
+        axisLine: { lineStyle: { color: "#999" } },
+        axisLabel: { color: "#666" },
+        splitLine: { show: false },
       },
-    };
-    return [primaryAxis, secondaryAxis];
-  }
-  private createMixedSeries(): any[] {
-    return this.data.series.map((series, index) => {
-      const yAxisIndex = series.type === "line" ? 1 : 0;
+    ];
+    option.series = this.input.series.map((s: any, index: number) => {
       const baseSeries = {
-        name: series.name,
-        data: series.data,
-        yAxisIndex,
+        name: s.name,
+        type: s.type,
+        data: s.data,
+        yAxisIndex: s.type === "bar" ? 0 : 1,
       };
-      if (series.type === "bar") {
+      if (s.type === "bar") {
         return {
           ...baseSeries,
-          type: "bar",
-          barMaxWidth: THEME.dimensions.barMaxWidth,
-          itemStyle: { borderRadius: 0 },
+          stack: s.stack || null,
+          barMaxWidth: 40,
+          barGap: "30%",
         };
-      } else if (series.type === "line") {
-        return {
-          ...baseSeries,
-          type: "line",
-          smooth: true,
-          lineStyle: { width: 3 },
-          symbol: "circle",
-          symbolSize: 6,
-        };
+      } else if (s.type === "line") {
+        return { ...baseSeries, smooth: true, lineStyle: { width: 2 } };
       }
-      return { ...baseSeries, type: series.type };
+      return baseSeries;
     });
+    this.addDataZoom(option);
+    return option;
   }
 }
 
+// Chart Builder Factory
 class ChartBuilderFactory {
   static create(data: AllowedInput): BaseChartBuilder {
     const chartType = ChartTypeDetector.detect(data.series);
+
     switch (chartType) {
       case "bar":
-        return new BarChartBuilder(data, chartType);
+        return new BarChartBuilder(data);
       case "line":
-        return new LineChartBuilder(data, chartType);
+        return new LineChartBuilder(data);
       case "pie":
-        return new PieChartBuilder(data, chartType);
+        return new PieChartBuilder(data);
       case "area":
-        return new AreaChartBuilder(data, chartType);
+        return new AreaChartBuilder(data);
       case "mixed":
-        return new MixedChartBuilder(data, chartType);
+        return new MixedChartBuilder(data);
       default:
-        return new BarChartBuilder(data, chartType);
+        return new BarChartBuilder(data);
     }
   }
 }
-// --- End Theme and Builders ---
 
 // RestrictedChart Component Props
 export interface RestrictedChartProps {
   data: any;
+  title?: string;
+  subtitle?: string;
   height?: number;
   className?: string;
   style?: CSSProperties;
@@ -640,8 +514,11 @@ export interface RestrictedChartProps {
   onDuplicate?: () => void;
 }
 
+// RestrictedChart Component
 const RestrictedChart: React.FC<RestrictedChartProps> = ({
   data,
+  title,
+  subtitle,
   height,
   className = "",
   style = {},
@@ -654,272 +531,171 @@ const RestrictedChart: React.FC<RestrictedChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Validate and process input data (memoized)
+  // Validate and process input data
   const processedData = useMemo(() => {
     try {
-      setError(null);
-      return SchemaValidator.validate(data);
+      const validatedData = SchemaValidator.validate(data);
+      if (title) validatedData.title = title;
+      if (subtitle) validatedData.subtitle = subtitle;
+      return validatedData;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid chart data");
       return { series: [] };
     }
-  }, [data]);
+  }, [data, title, subtitle]);
 
-  // Effect for ECharts initialization and primary disposal
+  // Initialize chart and handle resize
   useEffect(() => {
-    // This effect runs only ONCE when the component mounts, and its cleanup runs ONCE when it unmounts.
-    // It's crucial for the initial setup and final teardown of the ECharts instance.
-    if (!chartRef.current) {
-      console.warn(
-        "chartRef.current is null on mount. ECharts initialization will be skipped."
+    if (!chartRef.current) return;
+
+    // Initialize chart
+    try {
+      chartInstance.current = echarts.init(chartRef.current);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to initialize chart"
       );
       return;
     }
 
-    let currentInstance: echarts.ECharts | null = null;
-    const domElement = chartRef.current; // Capture DOM element for closure
+    const chart = chartInstance.current;
+    const chartElement = chartRef.current;
 
-    // Function to initialize the chart
-    const initializeChart = () => {
-      if (domElement.offsetHeight > 0 && domElement.offsetWidth > 0) {
-        try {
-          currentInstance = echarts.init(domElement);
-          chartInstance.current = currentInstance; // Store instance in ref
-          setIsLoading(false);
-          setError(null);
-
-          // Set options immediately after successful initialization
-          if (processedData.series.length > 0) {
-            const builder = ChartBuilderFactory.create(processedData);
-            currentInstance.setOption(builder.build(), true);
-          } else {
-            setError("No series data available to display chart.");
-          }
-        } catch (err) {
-          console.error("ECharts initialization error:", err);
-          setError(
-            err instanceof Error ? err.message : "Failed to initialize chart"
-          );
-          setIsLoading(false);
-        }
-      } else {
-        // If dimensions are zero, retry after a short delay
-        console.warn(
-          "Chart container has zero dimensions. Retrying ECharts initialization."
-        );
-        setIsLoading(true);
-        const retryTimeout = setTimeout(initializeChart, 100); // Retry initialization
-        return () => clearTimeout(retryTimeout); // Cleanup retry timeout
-      }
+    const resizeChart = () => {
+      chart?.resize();
     };
 
-    // Attempt to initialize immediately
-    initializeChart();
+    // Use ResizeObserver to handle container resizing
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(resizeChart);
+    });
+    resizeObserver.observe(chartElement);
 
-    // Cleanup function for this useEffect
-    return () => {
-      // This runs when the component UNMOUNTS or if the dependencies change (empty array, so only unmount).
-      // This is the CRITICAL part for preventing "removeChild" error.
-      // We directly dispose the ECharts instance without a setTimeout or extra checks,
-      // because if this useEffect is cleaning up, React is unmounting the component.
-      const instanceToDispose = chartInstance.current;
-      if (instanceToDispose && !instanceToDispose.isDisposed()) {
-        try {
-          echarts.dispose(instanceToDispose);
-          console.log("ECharts instance disposed successfully during unmount.");
-        } catch (e) {
-          console.error("Error disposing ECharts instance on unmount:", e);
-        } finally {
-          chartInstance.current = null; // Clear the ref
-        }
-      }
-    };
-  }, []); // Empty dependency array: runs only on mount and cleanup on unmount
+    // Also handle window resize
+    window.addEventListener("resize", resizeChart);
 
-  // Effect to update chart options when data changes (runs after initialization)
-  useEffect(() => {
-    // This effect handles updates to the chart's options whenever `processedData` changes.
-    // It assumes `chartInstance.current` has already been initialized by the first useEffect.
-    if (chartInstance.current && !chartInstance.current.isDisposed()) {
-      if (processedData.series.length > 0) {
-        try {
-          const builder = ChartBuilderFactory.create(processedData);
-          const option = builder.build();
-          chartInstance.current.setOption(option, true);
-          setError(null);
-        } catch (err) {
-          console.error("ECharts setOption error:", err);
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to update chart options"
-          );
-        }
-      } else {
-        // If data becomes empty, clear the chart and show a message
-        chartInstance.current.clear();
-        setError("No series data available to display chart.");
-      }
-    } else if (!chartInstance.current) {
-      // If chart not yet initialized, but processedData changes,
-      // it means the data for initialization is updated.
-      // The first effect will handle the initial render based on `processedData`.
-      // This is primarily for updates AFTER initial render.
-      setIsLoading(true); // Indicate loading if chart not ready
-      setError(null);
-    }
-  }, [processedData]); // Depends on processedData to update chart options
-
-  // Handle resizing using ResizeObserver
-  useEffect(() => {
-    let resizeObserver: ResizeObserver | null = null;
-    const currentChartInstance = chartInstance.current; // Capture instance for closure
-
-    if (chartRef.current && currentChartInstance) {
-      resizeObserver = new ResizeObserver(() => {
-        // Ensure the instance is not disposed and its DOM is still in the document flow
-        if (
-          !currentChartInstance.isDisposed() &&
-          currentChartInstance.getDom().offsetParent !== null
-        ) {
-          currentChartInstance.resize();
-        }
-      });
-      resizeObserver.observe(chartRef.current);
-    } else {
-      // Fallback for non-standard environments, though ResizeObserver is preferred
-      const handleWindowResize = () => {
-        if (chartInstance.current && !chartInstance.current.isDisposed()) {
-          chartInstance.current.resize();
-        }
-      };
-      window.addEventListener("resize", handleWindowResize);
-      return () => window.removeEventListener("resize", handleWindowResize);
-    }
+    // Initial resize
+    resizeChart();
 
     return () => {
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
+      window.removeEventListener("resize", resizeChart);
+      resizeObserver.disconnect();
+      chart?.dispose();
     };
-  }, []); // Empty dependency array: runs once on mount, cleans up on unmount
+  }, []);
 
-  // Conditionally render header based on editing mode or title/data presence
-  const renderHeader = () => {
-    const displayTitle =
-      processedData.title ||
-      (processedData.series.length > 0 && processedData.series[0]?.name) ||
-      "Untitled Chart";
-    const showHeader =
-      showDragHandle ||
-      showMenu ||
-      !!processedData.title ||
-      processedData.series.length > 0;
+  // Update chart when data changes
+  useEffect(() => {
+    if (!chartInstance.current || !processedData.series.length) return;
 
-    if (!showHeader) return null;
+    try {
+      const chartType = ChartTypeDetector.detect(processedData.series);
+      const builder = ChartBuilderFactory.create(processedData);
+      const option = builder.build();
+      chartInstance.current.setOption(option, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update chart");
+    }
+  }, [processedData]);
 
+  if (error) {
     return (
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0 h-[45px]">
-        <div className="flex items-center gap-1.5 flex-grow min-w-0">
-          {showDragHandle && (
-            <div
-              {...dragHandleProps}
-              className={cn(
-                "flex items-center text-slate-400 hover:text-slate-600 p-0.5 cursor-grab active:cursor-grabbing",
-                dragHandleProps?.className
-              )}
-            >
-              <GripVerticalIcon className="h-5 w-5" />
-            </div>
-          )}
-          <h3
-            className="text-sm font-semibold text-slate-700 truncate"
-            title={displayTitle}
-          >
-            {displayTitle}
-          </h3>
-        </div>
-        {showMenu && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 ml-auto rgl-no-drag"
-              >
-                <MoreVerticalIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="bg-white shadow-xl border-slate-200 z-[100] rgl-no-drag"
-            >
-              {onEdit && (
-                <DropdownMenuItem onClick={onEdit}>
-                  <Edit3Icon className="mr-2 h-4 w-4" /> Edit
-                </DropdownMenuItem>
-              )}
-              {onDuplicate && (
-                <DropdownMenuItem onClick={onDuplicate}>
-                  <CopyIcon className="mr-2 h-4 w-4" /> Duplicate
-                </DropdownMenuItem>
-              )}
-              {(onEdit || onDuplicate) && onDelete && <DropdownMenuSeparator />}
-              {onDelete && (
-                <DropdownMenuItem
-                  onClick={onDelete}
-                  className="text-sm text-red-600 hover:!text-red-500 hover:!bg-red-50 focus:!bg-red-50 focus:!text-red-600 opt"
-                >
-                  <Trash2Icon className="mr-2 h-4 w-4" /> Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+      <div className="w-full h-full flex items-center justify-center bg-red-50 text-red-600 p-4 rounded-lg">
+        <p className="text-sm font-medium">{error}</p>
       </div>
     );
-  };
+  }
 
   return (
     <div
       className={cn(
-        "w-full h-full flex flex-col bg-white shadow-sm border border-slate-200 overflow-hidden",
-        className,
-        showDragHandle ? "rounded-none" : "rounded-lg"
+        "w-full h-full flex flex-col bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden",
+        className
       )}
       style={style}
     >
-      {renderHeader()}
+      {(processedData.title || showDragHandle || showMenu) && (
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-slate-200">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {showDragHandle && (
+              <div
+                {...dragHandleProps}
+                className={cn(
+                  "flex items-center text-slate-500 hover:text-slate-700 cursor-grab active:cursor-grabbing flex-shrink-0",
+                  dragHandleProps?.className
+                )}
+              >
+                <GripVerticalIcon className="w-5 h-5" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3
+                className="text-base font-semibold text-slate-800 truncate"
+                title={processedData.title}
+              >
+                {processedData.title || "Untitled Chart"}
+              </h3>
+              {processedData.subtitle && (
+                <p
+                  className="text-xs text-slate-500 truncate"
+                  title={processedData.subtitle}
+                >
+                  {processedData.subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {showMenu && (
+            <div className="flex-shrink-0 ml-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 ml-auto"
+                  >
+                    <MoreVerticalIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {onEdit && (
+                    <DropdownMenuItem onClick={onEdit}>
+                      <Edit3Icon className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {onDuplicate && (
+                    <DropdownMenuItem onClick={onDuplicate}>
+                      <CopyIcon className="mr-2 h-4 w-4" />
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={onDelete}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2Icon className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+        </div>
+      )}
       <div
         ref={chartRef}
-        className="flex-1 w-full"
-        style={{ height: height || "100%" }}
-      >
-        {isLoading && !error && (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
-            <Loader2Icon className="w-8 h-8 animate-spin mb-2 text-blue-500" />
-            <span className="text-sm">Loading chart...</span>
-          </div>
-        )}
-        {error && !isLoading && (
-          <div className="w-full h-full flex flex-col items-center justify-center text-red-600 p-4 bg-red-50 rounded-md border border-red-200">
-            <AlertTriangleIcon className="w-8 h-8 mb-2" />
-            <span className="text-sm font-semibold">
-              Error rendering chart.
-            </span>
-            {error && <p className="text-xs mt-1 text-red-500">{error}</p>}
-          </div>
-        )}
-        {!isLoading && !error && processedData.series.length === 0 && (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
-            <Info className="w-8 h-8 mb-2 text-slate-300" />
-            <span className="text-sm">No chart data available.</span>
-          </div>
-        )}
-      </div>
+        className="flex-1 w-full h-full"
+        style={{ height: "100%" }}
+      />
     </div>
   );
 };
