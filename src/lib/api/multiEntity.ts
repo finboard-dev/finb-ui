@@ -9,11 +9,11 @@ interface CreateMultiEntityRequest {
 }
 
 export const createMultiEntity = async (data: CreateMultiEntityRequest) => {
-  const response = await fetcher.post(`${process.env.NEXT_PUBLIC_API_URL}/company/group/create`, data);
+  const response = await fetcher.post(`${process.env.NEXT_PUBLIC_API_DEV}/company/group/create`, data);
   return response;
 };
 
 export const deleteMultiEntity = async (id: string) => {
-  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_URL}/company/group/delete?company_id=${id}`);
+  const response = await fetcher.delete(`${process.env.NEXT_PUBLIC_API_DEV}/company/group/delete?company_id=${id}`);
   return response;
 }

@@ -25,7 +25,7 @@ const Page = () => {
   }, [router]);
 
   return (
-    <>
+    <div className="select-none">
       {isLoading ? (
         <div className="flex items-center justify-center h-screen w-screen bg-transparent">
           <LoadingAnimation message={"switching company... Please wait!"} />
@@ -35,7 +35,7 @@ const Page = () => {
           <LoadingAnimation message={"Redirecting to chat..."} />
         </div>
       )}
-    </>
+    </div>
   );
 };
 

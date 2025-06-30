@@ -1,5 +1,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { store } from "@/lib/store/store";
+import { useEffect, useState, useCallback } from "react";
 
 export interface UrlParamUpdates {
   [key: string]: string | null;
@@ -13,7 +14,8 @@ export type SettingsSection = "data-connections" | "profile" | "security" | "use
 export const PARAM_GROUPS = {
   CHAT: ["id"], // Chat-specific parameters
   SETTINGS: ["settings-section"], // Settings-specific parameters
-  UI: ["sidebar-chat", "dropdown-organization"], // UI component states
+  UI: ["sidebar-chat", "dropdown-organization"], // UI component states (query params)
+  MODAL: ["company-selection"], // Modal states (hash params)
 } as const;
 
 /**
@@ -23,6 +25,75 @@ export const PARAM_GROUPS = {
 export const useUrlParams = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // State to force re-renders when hash changes
+  const [hashState, setHashState] = useState<string>("");
+
+  // Listen for hash changes to trigger re-renders
+  useEffect(() => {
+    const handleHashChange = () => {
+      console.log('Hash changed to:', window.location.hash);
+      setHashState(window.location.hash);
+    };
+
+    const handleHashStateChanged = (event: CustomEvent) => {
+      console.log('Hash state changed event:', event.detail);
+      setHashState(event.detail.hash);
+    };
+
+    // Set initial hash state
+    console.log('Initial hash:', window.location.hash);
+    setHashState(window.location.hash);
+
+    // Add event listeners
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('hashStateChanged', handleHashStateChanged as EventListener);
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('hashStateChanged', handleHashStateChanged as EventListener);
+    };
+  }, []);
+
+  /**
+   * Get hash parameters from the current URL
+   */
+  const getHashParams = useCallback((): URLSearchParams => {
+    if (typeof window === 'undefined') return new URLSearchParams();
+    const hash = window.location.hash.substring(1); // Remove the #
+    return new URLSearchParams(hash);
+  }, [hashState]); // Add hashState as dependency to ensure it updates
+
+  /**
+   * Update hash parameters
+   */
+  const updateHashParams = (updates: UrlParamUpdates) => {
+    if (typeof window === 'undefined') return;
+    
+    const hashParams = getHashParams();
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) {
+        hashParams.delete(key);
+      } else {
+        hashParams.set(key, value);
+      }
+    });
+    
+    const newHash = hashParams.toString() ? `#${hashParams.toString()}` : '';
+    const newUrl = `${window.location.pathname}${window.location.search}${newHash}`;
+    
+    console.log('Updating hash params, new URL:', newUrl);
+    
+    // Use window.location.hash directly for immediate updates
+    window.location.hash = newHash;
+    
+    // Also update the hashState to trigger re-renders immediately
+    setHashState(newHash);
+    
+    // Force a re-render by dispatching a custom event
+    window.dispatchEvent(new CustomEvent('hashStateChanged', { detail: { hash: newHash } }));
+  };
 
   /**
    * Update URL parameters while preserving existing valid parameters
@@ -57,6 +128,15 @@ export const useUrlParams = () => {
   };
 
   /**
+   * Get current value of a hash parameter
+   * @param key - Parameter key
+   * @returns Parameter value or null if not present
+   */
+  const getHashParam = useCallback((key: string): string | null => {
+    return getHashParams().get(key);
+  }, [getHashParams]);
+
+  /**
    * Check if a URL parameter is set to a specific value
    * @param key - Parameter key
    * @param value - Expected value
@@ -65,6 +145,18 @@ export const useUrlParams = () => {
   const isParamSet = (key: string, value: string): boolean => {
     return searchParams.get(key) === value;
   };
+
+  /**
+   * Check if a hash parameter is set to a specific value
+   * @param key - Parameter key
+   * @param value - Expected value
+   * @returns True if parameter matches the expected value
+   */
+  const isHashParamSet = useCallback((key: string, value: string): boolean => {
+    const result = getHashParams().get(key) === value;
+    console.log(`isHashParamSet(${key}, ${value}) = ${result}, current hash: ${window.location.hash}`);
+    return result;
+  }, [getHashParams]);
 
   /**
    * Navigate to a specific main content type with appropriate parameter cleanup
@@ -204,25 +296,49 @@ export const useUrlParams = () => {
    * @param isOpen - Whether the component should be open
    */
   const toggleComponentState = (componentId: string, isOpen: boolean) => {
-    const updates: UrlParamUpdates = {
-      [componentId]: isOpen ? "open" : null,
-    };
+    console.log(`toggleComponentState called: ${componentId}, isOpen: ${isOpen}`);
     
-    // Preserve other UI states
-    const otherComponents = ["sidebar-chat", "dropdown-organization"].filter(id => id !== componentId);
-    otherComponents.forEach(id => {
-      const isOtherOpen = searchParams.get(id) === "open";
-      if (isOtherOpen) {
-        updates[id] = "open";
-      }
+    // Immediately update Redux state for better responsiveness
+    store.dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: componentId.includes("modal") ? "modal" : "dropdown",
+        id: componentId,
+        isOpenFromUrl: isOpen,
+      },
     });
     
-    updateUrlParams(updates);
+    // Check if this is a modal component (uses hash params)
+    if (PARAM_GROUPS.MODAL.includes(componentId as any)) {
+      console.log('Updating modal hash params for:', componentId);
+      const updates: UrlParamUpdates = {
+        [componentId]: isOpen ? "open" : null,
+      };
+      updateHashParams(updates);
+    } else {
+      // Regular UI components use query params
+      console.log('Updating query params for:', componentId);
+      const updates: UrlParamUpdates = {
+        [componentId]: isOpen ? "open" : null,
+      };
+      
+      // Preserve other UI states
+      const otherComponents = ["sidebar-chat", "dropdown-organization"].filter(id => id !== componentId);
+      otherComponents.forEach(id => {
+        const isOtherOpen = searchParams.get(id) === "open";
+        if (isOtherOpen) {
+          updates[id] = "open";
+        }
+      });
+      
+      updateUrlParams(updates);
+    }
   };
 
   return {
     searchParams,
     updateUrlParams,
+    updateHashParams,
     updateUrlParamsWithPreservedState, // Keep for backward compatibility
     navigateToContent,
     startNewChat,
@@ -230,7 +346,9 @@ export const useUrlParams = () => {
     navigateToSettings,
     toggleComponentState,
     getParam,
+    getHashParam,
     isParamSet,
+    isHashParamSet,
   };
 };
 
@@ -264,6 +382,20 @@ export const syncUrlParamsToRedux = (
       isOpenFromUrl: dropdownOpen,
     },
   });
+
+  // Sync modal states from hash parameters
+  if (typeof window !== 'undefined') {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const companySelectionOpen = hashParams.get("company-selection") === "open";
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "modal",
+        id: "company-selection",
+        isOpenFromUrl: companySelectionOpen,
+      },
+    });
+  }
 
   // Sync settings section and main content
   const settingsSection = searchParams.get("settings-section");

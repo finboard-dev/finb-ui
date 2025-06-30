@@ -208,10 +208,10 @@ const userSlice = createSlice({
 
       state.selectedOrganization = action.payload;
 
-      // Auto-select first company when organization changes
-      state.selectedCompany = action.payload.companies && action.payload.companies.length > 0
-          ? action.payload.companies[0]
-          : null;
+      // Don't auto-select first company when organization changes - keep existing selection
+      // state.selectedCompany = action.payload.companies && action.payload.companies.length > 0
+      //     ? action.payload.companies[0]
+      //     : null;
     },
 
     setSelectedCompany: (state, action: PayloadAction<Company>) => {

@@ -38,6 +38,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { useUrlParams } from "@/lib/utils/urlParams";
 import { useAllCompanies, useCurrentCompany } from "@/hooks/useCompany";
+import { CompanyModal } from "./ui/CompanyModal";
 
 interface ToolCallResponse {
   messageId: string;
@@ -262,6 +263,11 @@ const Home: FC = () => {
     return null;
   };
 
+  const handleCompanyChange = () => {
+    // Refresh the page or reload company data when company changes
+    window.location.reload();
+  };
+
   // Show loading animation for company operations
   if (isCompanyLoading || isLoadingCompanies || isLoadingCurrentCompany) {
     return (
@@ -344,6 +350,9 @@ const Home: FC = () => {
           <Settings onBackClick={handleBackToChat} />
         )}
       </div>
+
+      {/* Company Modal - rendered independently */}
+      <CompanyModal onCompanyChange={handleCompanyChange} />
     </main>
   );
 };
