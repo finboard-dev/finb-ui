@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllDataSources } from "@/lib/api/datasource";
-import { persistor, store } from "@/lib/store/store";
+import { store } from "@/lib/store/store";
 import {
   Table,
   TableBody,
@@ -28,17 +27,9 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  disconnectAccount,
-  initAddQuickBookAccount,
-} from "@/lib/api/intuitService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { logout } from "@/lib/api/logout";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  clearUserData,
-  selectUserPermissions,
-} from "@/lib/store/slices/userSlice";
 import {
   setMainContent,
   setActiveSettingsSection,
@@ -82,7 +73,7 @@ import {
   useAddOrganizationUser,
   useUpdateOrganizationUser,
   useDeleteOrganizationUser,
-} from "@/hooks/useOrganization";
+} from "@/hooks/query-hooks/useOrganization";
 import { useClearReduxState } from "@/hooks/useClearReduxState";
 import { clearBearerToken } from "@/lib/auth/tokenUtils";
 

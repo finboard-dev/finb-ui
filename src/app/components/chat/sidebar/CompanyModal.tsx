@@ -44,7 +44,7 @@ import { addConnection, disconnectConnection } from "@/lib/api/settings";
 import {
   useCreateMultiEntity,
   useDeleteMultiEntity,
-} from "@/hooks/useMultiEntity";
+} from "@/hooks/query-hooks/useMultiEntity";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 

@@ -8,17 +8,17 @@ import {
   PanelResizeHandle,
   type ImperativePanelHandle,
 } from "react-resizable-panels";
-import ChatContainer from "./ChatContainer";
-import NoChatBranding from "./NoChatBranding";
-import ResponsePanel from "./ToolResponse/Responsepanel";
-import ChatSidebar from "./ChatSidebar";
+import ChatContainer from "./layout/ChatContainer";
+import NoChatBranding from "./chat-container/NoChatBranding";
+import ResponsePanel from "./layout/Responsepanel";
+import ChatSidebar from "./layout/ChatSidebar";
 import Settings from "@/app/components/pages/Settings";
 import {
   setResponsePanelWidth,
   setActiveMessageId,
   initializeNewChat,
 } from "@/lib/store/slices/chatSlice";
-import { ChatConversationLoader } from "./ChatConversationLoader";
+import { ChatConversationLoader } from "./chat-container/ChatConversationLoader";
 import {
   selectSelectedCompany,
   setSelectedCompany,
@@ -37,8 +37,11 @@ import { store } from "@/lib/store/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
 import { useUrlParams } from "@/lib/utils/urlParams";
-import { useAllCompanies, useCurrentCompany } from "@/hooks/useCompany";
-import { CompanyModal } from "./ui/CompanyModal";
+import {
+  useAllCompanies,
+  useCurrentCompany,
+} from "@/hooks/query-hooks/useCompany";
+import { CompanyModal } from "./sidebar/CompanyModal";
 
 interface ToolCallResponse {
   messageId: string;

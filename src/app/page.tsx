@@ -4,7 +4,6 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { useClickEventTracking } from "@/hooks/useClickTracking";
-import { useSelectedUserId } from "@/hooks/useSelectedUserId";
 import { store } from "@/lib/store/store";
 import Sidebar from "./components/common/Sidebar";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
@@ -14,7 +13,6 @@ import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 const Page = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const userId = useSelectedUserId();
   const isLoading = useAppSelector(selectDropDownLoading);
 
   useClickEventTracking();

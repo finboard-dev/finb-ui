@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect } from 'react';
-import useSelectedCompany from './useSelectedCompanyId';
-import { useSelectedUserId } from './useSelectedUserId';
 
 interface ClickEventPayload {
   type: string;
@@ -22,8 +20,8 @@ interface ClickEventPayload {
 }
 
 export const useClickEventTracking = () => {
-  const userId = useSelectedUserId();
-  const selectedCompany = useSelectedCompany();
+  const userId = '1'
+  const selectedCompany = 1
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {

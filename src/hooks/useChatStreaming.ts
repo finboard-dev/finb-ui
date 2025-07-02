@@ -5,7 +5,6 @@ import {addMessage, setIsResponding, setResponsePanelWidth, updateMessage} from 
 import type {MessageType, Model, Tool} from "@/types/chat"
 import { addToolCallResponse } from "@/lib/store/slices/responsePanelSlice"
 import { parseStreamChunk, processStreamResponse } from "@/lib/services/ChatServices/chatService"
-import { getSavedSelectedCompanyId } from "@/hooks/useSelectedCompanyId"
 import { setToolCallLoading } from "@/lib/store/slices/loadingSlice"
 import {  setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice"
 import { store } from "@/lib/store/store"

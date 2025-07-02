@@ -8,7 +8,7 @@ import {
   setResponsePanelWidth,
 } from "@/lib/store/slices/chatSlice";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
-import { useChatConversation } from "@/hooks/useChatConversation";
+import { useChatConversation } from "@/hooks/query-hooks/useChatConversation";
 import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer";
 
 interface ChatConversationLoaderProps {
