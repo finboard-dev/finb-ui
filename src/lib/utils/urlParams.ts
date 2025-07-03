@@ -119,6 +119,31 @@ export const useUrlParams = () => {
   };
 
   /**
+   * Update URL parameters while preserving the current path
+   * @param updates - Object with parameter keys and values (null to delete)
+   */
+  const updateUrlParamsPreservePath = (updates: UrlParamUpdates) => {
+    console.log("updateUrlParamsPreservePath called with updates:", updates);
+    
+    const params = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    
+    // Preserve the current path (chat or chat/settings)
+    const currentPath = window.location.pathname;
+    const newUrl = `${currentPath}?${params.toString()}`;
+    console.log("Navigating to:", newUrl);
+    
+    router.push(newUrl, { scroll: false });
+  };
+
+  /**
    * Get current value of a URL parameter
    * @param key - Parameter key
    * @returns Parameter value or null if not present
@@ -240,7 +265,7 @@ export const useUrlParams = () => {
   };
 
   /**
-   * Navigate to settings with a specific section
+   * Navigate to settings with a specific section (within chat interface)
    * @param section - The settings section to navigate to
    */
   const navigateToSettings = (section: SettingsSection = "data-connections") => {
@@ -261,6 +286,33 @@ export const useUrlParams = () => {
     }
     
     updateUrlParams(updates);
+  };
+
+  /**
+   * Navigate to chat settings page with a specific section
+   * @param section - The settings section to navigate to
+   */
+  const navigateToChatSettings = (section: SettingsSection = "data-connections") => {
+    const params = new URLSearchParams();
+    
+    // Set the section parameter
+    params.set("section", section);
+    
+    // Preserve UI states
+    const sidebarOpen = searchParams.get("sidebar-chat") === "open";
+    if (sidebarOpen) {
+      params.set("sidebar-chat", "open");
+    }
+    
+    const dropdownOpen = searchParams.get("dropdown-organization") === "open";
+    if (dropdownOpen) {
+      params.set("dropdown-organization", "open");
+    }
+    
+    const newUrl = `/chat/settings?${params.toString()}`;
+    console.log("Navigating to chat settings:", newUrl);
+    
+    router.push(newUrl, { scroll: false });
   };
 
   /**
@@ -287,7 +339,7 @@ export const useUrlParams = () => {
       finalUpdates["dropdown-organization"] = "open";
     }
 
-    updateUrlParams(finalUpdates);
+    updateUrlParamsPreservePath(finalUpdates);
   };
 
   /**
@@ -331,19 +383,21 @@ export const useUrlParams = () => {
         }
       });
       
-      updateUrlParams(updates);
+      updateUrlParamsPreservePath(updates);
     }
   };
 
   return {
     searchParams,
     updateUrlParams,
+    updateUrlParamsPreservePath,
     updateHashParams,
     updateUrlParamsWithPreservedState, // Keep for backward compatibility
     navigateToContent,
     startNewChat,
     navigateToChat,
     navigateToSettings,
+    navigateToChatSettings,
     toggleComponentState,
     getParam,
     getHashParam,
@@ -399,12 +453,16 @@ export const syncUrlParamsToRedux = (
 
   // Sync settings section and main content
   const settingsSection = searchParams.get("settings-section");
+  const section = searchParams.get("section");
   const chatId = searchParams.get("id");
   
-  if (settingsSection && ["data-connections", "profile", "security", "users-roles"].includes(settingsSection)) {
+  // Handle both old settings-section and new section parameters
+  const activeSection = section || settingsSection;
+  
+  if (activeSection && ["data-connections", "profile", "security", "users-roles"].includes(activeSection)) {
     dispatch({
       type: "ui/setActiveSettingsSection",
-      payload: settingsSection,
+      payload: activeSection,
     });
     dispatch({
       type: "ui/setMainContent",

@@ -49,6 +49,7 @@ const ChatSidebarClient = () => {
     startNewChat,
     navigateToChat,
     navigateToSettings,
+    navigateToChatSettings,
     toggleComponentState,
   } = useUrlParams();
   const componentId = "sidebar-chat";
@@ -314,9 +315,8 @@ const ChatSidebarClient = () => {
   const chatGroups = groupChatsByTime();
 
   const handleSettingsClick = () => {
-    // Use the new navigateToSettings function to properly handle navigation
-    navigateToSettings("data-connections");
-    dispatch(setMainContent("settings"));
+    // Use the new navigateToChatSettings function to navigate to the chat settings page
+    navigateToChatSettings("data-connections");
   };
 
   return (

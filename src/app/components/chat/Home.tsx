@@ -12,7 +12,7 @@ import ChatContainer from "./layout/ChatContainer";
 import NoChatBranding from "./chat-container/NoChatBranding";
 import ResponsePanel from "./layout/Responsepanel";
 import ChatSidebar from "./layout/ChatSidebar";
-import Settings from "@/app/components/pages/Settings";
+
 import {
   setResponsePanelWidth,
   setActiveMessageId,
@@ -28,11 +28,7 @@ import {
 } from "@/lib/store/slices/userSlice";
 import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
-import {
-  setMainContent,
-  toggleComponent,
-  setActiveSettingsSection,
-} from "@/lib/store/slices/uiSlice";
+import { setMainContent, toggleComponent } from "@/lib/store/slices/uiSlice";
 import { store } from "@/lib/store/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
@@ -62,7 +58,7 @@ const Home: FC = () => {
   const availableAssistants: any[] = selectedCompany?.assistants || [];
   const pendingChat = useAppSelector((state) => state.chat.pendingChat);
   const selectedCompanyId = selectedCompany?.id;
-  const mainContent = useAppSelector((state) => state.ui.mainContent);
+
   const [error, setError] = useState<string | null>(null);
   const companies = useAppSelector((state) => state.user.companies);
   const selectedOrganization = useAppSelector(
@@ -81,51 +77,6 @@ const Home: FC = () => {
     isLoading: isLoadingCurrentCompany,
     error: currentCompanyError,
   } = useCurrentCompany(selectedCompanyId || "");
-
-  useEffect(() => {
-    const sectionFromUrl = searchParams.get("settings-section");
-    if (
-      sectionFromUrl &&
-      ["data-connections", "profile", "security", "users-roles"].includes(
-        sectionFromUrl
-      )
-    ) {
-      dispatch(setActiveSettingsSection(sectionFromUrl as any));
-      // Automatically switch to settings view when settings-section parameter is present
-      dispatch(setMainContent("settings"));
-    }
-  }, [dispatch, searchParams]);
-
-  const handleBackToChat = () => {
-    console.log("handleBackToChat called");
-
-    // Get the current active chat ID from Redux state
-    const currentState = store.getState();
-    const activeChatId = currentState.chat.activeChatId;
-    const chats = currentState.chat.chats;
-
-    console.log("activeChatId:", activeChatId);
-    console.log("chats:", chats);
-
-    // Find the chat with the active chat ID to get its thread_id
-    const activeChat = chats.find((chat: any) => chat.id === activeChatId);
-    const threadId = activeChat?.thread_id;
-
-    console.log("activeChat:", activeChat);
-    console.log("threadId:", threadId);
-
-    if (threadId) {
-      // If we have a thread ID, navigate back to that specific chat
-      console.log("Navigating to chat with threadId:", threadId);
-      navigateToChat(threadId);
-    } else {
-      // Fallback to general chat navigation
-      console.log("Fallback to general chat navigation");
-      navigateToContent("chat");
-    }
-
-    dispatch(setMainContent("chat"));
-  };
 
   const activeChat = useAppSelector((state) => {
     if (
@@ -293,64 +244,60 @@ const Home: FC = () => {
       >
         {" "}
         {/* Added minWidth: 0 */}
-        {mainContent === "chat" ? (
-          activeChatId ? (
-            !showChat && pendingChat && pendingChat.id === activeChatId ? (
-              <NoChatBranding />
-            ) : (
-              <PanelGroup
-                direction="horizontal"
-                onLayout={handlePanelResize}
-                className="flex-1"
-                style={{ minWidth: 0 }} // Added this
-              >
-                <Panel
-                  className="overflow-hidden min-w-0" // Added min-w-0
-                  defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
-                >
-                  {activeChat?.thread_id ? (
-                    <ChatConversationLoader
-                      threadId={activeChat.thread_id}
-                      chatId={activeChat.id}
-                      hasExistingMessages={shouldLoadConversation}
-                    >
-                      <ChatContainer />
-                    </ChatConversationLoader>
-                  ) : (
-                    <ChatContainer />
-                  )}
-                </Panel>
-                {isPanelVisible && (
-                  <>
-                    <PanelResizeHandle className="w-[0.1px] bg-gray-200 z-50 transition-colors group relative">
-                      <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
-                    </PanelResizeHandle>
-                    <Panel
-                      ref={responsePanelRef}
-                      defaultSize={responsePanelWidth}
-                      minSize={35}
-                      maxSize={60}
-                      className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
-                      style={{
-                        overflowX: "hidden",
-                        minWidth: 0,
-                        maxWidth: "60%",
-                      }}
-                    >
-                      <ResponsePanel
-                        activeMessageId={activeMessageId as any}
-                        isOpen={isPanelVisible}
-                      />
-                    </Panel>
-                  </>
-                )}
-              </PanelGroup>
-            )
-          ) : (
+        {activeChatId ? (
+          !showChat && pendingChat && pendingChat.id === activeChatId ? (
             <NoChatBranding />
+          ) : (
+            <PanelGroup
+              direction="horizontal"
+              onLayout={handlePanelResize}
+              className="flex-1"
+              style={{ minWidth: 0 }} // Added this
+            >
+              <Panel
+                className="overflow-hidden min-w-0" // Added min-w-0
+                defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
+              >
+                {activeChat?.thread_id ? (
+                  <ChatConversationLoader
+                    threadId={activeChat.thread_id}
+                    chatId={activeChat.id}
+                    hasExistingMessages={shouldLoadConversation}
+                  >
+                    <ChatContainer />
+                  </ChatConversationLoader>
+                ) : (
+                  <ChatContainer />
+                )}
+              </Panel>
+              {isPanelVisible && (
+                <>
+                  <PanelResizeHandle className="w-[0.1px] bg-gray-200 z-50 transition-colors group relative">
+                    <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
+                  </PanelResizeHandle>
+                  <Panel
+                    ref={responsePanelRef}
+                    defaultSize={responsePanelWidth}
+                    minSize={35}
+                    maxSize={60}
+                    className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
+                    style={{
+                      overflowX: "hidden",
+                      minWidth: 0,
+                      maxWidth: "60%",
+                    }}
+                  >
+                    <ResponsePanel
+                      activeMessageId={activeMessageId as any}
+                      isOpen={isPanelVisible}
+                    />
+                  </Panel>
+                </>
+              )}
+            </PanelGroup>
           )
         ) : (
-          <Settings onBackClick={handleBackToChat} />
+          <NoChatBranding />
         )}
       </div>
 

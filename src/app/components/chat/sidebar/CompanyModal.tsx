@@ -490,14 +490,14 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
         <div className="flex w-full px-4 py-2 border-t border-b border-gray-200 bg-white gap-2">
           <button
             onClick={() => setShowQuickBooksPopup((prev) => !prev)}
-            className="flex-1 px-2 py-1.5 bg-green-600 text-white rounded-md font-medium text-xs hover:bg-green-700 transition-colors shadow-sm border border-green-700 flex items-center justify-center"
+            className="flex-1 px-2 py-1.5 bg-primary text-white rounded-md font-medium text-xs cursor-pointer transition-colors shadow-sm border flex items-center justify-center"
           >
             + New Company
           </button>
           {showQuickBooksPopup && (
             <div
               ref={newCompanyPopupRef}
-              className="absolute left-4 mt-9 z-20 bg-white rounded-md shadow-lg p-2 flex flex-col items-center min-w-[172px] border border-gray-200"
+              className="absolute left-4 mt-9 z-20 bg-white rounded-md cursor-pointer shadow-lg p-2 flex flex-col items-center min-w-[172px] border border-gray-200"
             >
               <button
                 onClick={() => {
