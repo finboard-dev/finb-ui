@@ -1,8 +1,48 @@
-@import "tailwindcss/preflight";
+@tailwind base;
+@tailwind components;
 @tailwind utilities;
 
-@import "tailwindcss";
 @import "tw-animate-css";
+
+:root {
+  /* shadcn/ui required variables */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Container settings */
+  --container-padding: 2rem;
+  --container-max-width-2xl: 1400px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
 
 @keyframes shimmerAnimation {
   0% {
@@ -136,57 +176,6 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-
-/* globals.css - converted from Tailwind config */
-
-:root {
-  /* Typography */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-
-  /* Colors from Tailwind config */
-  --ceramic-50: #f8fafc;
-
-  --gray-150: #E4E5E5;
-
-  --sidebar-primary: #F8F8F8;
-  --sidebar-button-add: #171821;
-
-  --background-sidebar: #E4E5E5;
-  --background-button-dark: #2B2C36;
-  --background-card: #F8F8F8;
-  --background-button-blue: #3E5BF9;
-
-  --border-primary: #EFF1F5;
-  --border-button: #0B2CE0;
-
-  --chat-primary: #EFF1F5;
-
-  --logo-text: #B7B7BA;
-
-  --border-dropdown: #EFF1F5;
-
-  --text-primary: #2B2C36;
-  --text-placeholder: #949599;
-  --text-secondary: #949599;
-  --text-dropdown: #171821;
-  --text-heading: #171821;
-  --text-selected: #3E5BF9;
-  --text-light: #F1F1F1;
-
-  --input-border: #F5F7FB;
-
-  /* New colors from the image */
-  --primary: #2B2C36;
-  --sec: #767A8B;
-  --strk-500: #767A8B;
-  --stroke-100: #EFF1F5;
-  --white-text: #F1F1F1;
-
-  /* Container settings */
-  --container-padding: 2rem;
-  --container-max-width-2xl: 1400px;
-}
-
 @media (max-width: 640px) {
   .response-panel {
     display: none; /* Or adjust minSize/maxSize */
@@ -196,7 +185,6 @@
 /* Base styles */
 html, body {
   font-family: var(--font-sans);
-  color: var(--text-primary);
 }
 
 /* Container styles */
@@ -323,47 +311,6 @@ html, body {
   }
 }
 
-/* Utility classes for the custom colors */
-.bg-ceramic-50 { background-color: var(--ceramic-50); }
-.bg-gray-150 { background-color: var(--gray-150); }
-.bg-sidebar-primary { background-color: var(--sidebar-primary); }
-.bg-sidebar-button-add { background-color: var(--sidebar-button-add); }
-.bg-background-sidebar { background-color: var(--background-sidebar); }
-.bg-background-button-dark { background-color: var(--background-button-dark); }
-.bg-background-card { background-color: var(--background-card); }
-.bg-background-button-blue { background-color: var(--background-button-blue); }
-.bg-chat-primary { background-color: var(--chat-primary); }
-
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-placeholder { color: var(--text-placeholder); }
-.text-dropdown { color: var(--text-dropdown); }
-.text-selected { color: var(--text-selected); }
-.text-heading { color: var(--text-heading); }
-.text-light { color: var(--text-light); }
-
-.logo-text { color: var(--logo-text); }
-
-.border-primary { border-color: var(--border-primary); }
-.border-button { border-color: var(--border-button); }
-
-.border-input { border-color: var(--input-border); }
-
-.border-dropdown { border-color: var(--border-dropdown); }
-
 .bg-home {
   background: linear-gradient(to bottom, #F5F7FB, #FFFFFF);
 }
-
-/* New utility classes for the added colors */
-.bg-primary { background-color: var(--primary); }
-.bg-sec { background-color: var(--sec); }
-.bg-strk-500 { background-color: var(--strk-500); }
-.bg-stroke-100 { background-color: var(--stroke-100); }
-.bg-white-text { background-color: var(--white-text); }
-
-.text-primary { color: var(--primary); }
-.text-sec { color: var(--sec); }
-.strk-500 { border-color: var(--strk-500); }
-.stroke-100 { border-color: var(--stroke-100); }
-.text-white-text { color: var(--white-text); }

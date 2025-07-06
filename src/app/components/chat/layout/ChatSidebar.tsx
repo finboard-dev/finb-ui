@@ -9,9 +9,10 @@ import {
   ChevronLeftIcon,
   PanelLeft,
   User,
-  MessageSquare,
+  UserRoundCheck,
   Settings,
   BarChart3,
+  Check,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -20,20 +21,23 @@ import {
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
 import {
-  CollapsedOrganizationDropdown,
-  OrganizationDropdown,
-} from "../chat/ui/OrganisationDropdown";
-import {
   initializeNewChat,
   setActiveChatId,
   setChatsFromAPI,
 } from "@/lib/store/slices/chatSlice";
 import type { MessageType, ContentPart, AllChats } from "@/types/chat";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
-import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
-import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
-import { store } from "@/lib/store/store";
+
+import { Company } from "@/lib/store/slices/userSlice";
 import { useUrlParams } from "@/lib/utils/urlParams";
+import { Avatar } from "@radix-ui/react-avatar";
+import {
+  setSelectedCompany,
+  setSelectedOrganization,
+  selectUser,
+} from "@/lib/store/slices/userSlice";
+import { selectSelectedOrganization } from "@/lib/store/slices/userSlice";
+import { setUserData } from "@/lib/store/slices/userSlice";
 
 const ChatSidebarClient = () => {
   const dispatch = useAppDispatch();
@@ -41,19 +45,33 @@ const ChatSidebarClient = () => {
   const searchParams = useSearchParams();
   const {
     isParamSet,
+    isHashParamSet,
     startNewChat,
     navigateToChat,
     navigateToSettings,
+    navigateToChatSettings,
     toggleComponentState,
   } = useUrlParams();
   const componentId = "sidebar-chat";
+  const orgDropdownId = "dropdown-organization";
+  const companyModalId = "company-selection";
 
   const chatListRef = useRef<HTMLDivElement>(null);
+  const userProfileRef = useRef<HTMLDivElement>(null);
 
   const companies = useAppSelector((state) => state.user.companies);
+  const selectedCompany = useAppSelector(
+    (state) => state.user.selectedCompany
+  ) as Company & { assistants?: any[]; chatConversations?: any[] };
+  const selectedOrganization = useAppSelector(selectSelectedOrganization);
+  const user = useAppSelector(selectUser);
+  const userOrganizations = useAppSelector(
+    (state) => state.user.user?.organizations || []
+  );
 
   // Get sidebar state from URL parameters (source of truth)
   const isSidebarOpen = isParamSet(componentId, "open");
+  const isOrgDropdownOpen = isParamSet(orgDropdownId, "open");
 
   // Sync URL parameters to Redux state
   useEffect(() => {
@@ -68,9 +86,6 @@ const ChatSidebarClient = () => {
 
   const firstName = useAppSelector((state) => state.user.user?.firstName);
   const lastName = useAppSelector((state) => state.user.user?.lastName);
-  const selectedCompany = useAppSelector(
-    (state) => state.user.selectedCompany
-  ) as Company & { assistants?: any[]; chatConversations?: any[] };
   const chatConversations = selectedCompany?.chatConversations || [];
   const availableAssistants: any[] = selectedCompany?.assistants || [];
   const { chats, activeChatId, pendingChat } = useAppSelector(
@@ -106,6 +121,17 @@ const ChatSidebarClient = () => {
       });
     }
   }, [activeChatId, isSidebarOpen]);
+
+  // useEffect(() => {
+  //   const activeCompanies = companies.filter((c) => c.status === "ACTIVE");
+  //   const selectedCompanyStillExists = companies.some(
+  //     (c) => c.id === selectedCompany?.id && c.status === "ACTIVE"
+  //   );
+  //   if (activeCompanies.length === 0 || !selectedCompanyStillExists) {
+  //     dispatch(setSelectedCompany(null as any));
+  //     // Optionally: clear chats, assistants, etc.
+  //   }
+  // }, [companies, selectedCompany, dispatch]);
 
   const handleToggle = () => {
     const newState = !isSidebarOpen;
@@ -177,6 +203,12 @@ const ChatSidebarClient = () => {
       dispatch(setActiveChatId(chatId));
       dispatch(setMainContent("chat"));
     }
+  };
+
+  const handleUserProfileClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newState = !isOrgDropdownOpen;
+    toggleComponentState(orgDropdownId, newState);
   };
 
   const getChatName = (chatIndex: number, chat: AllChats) => {
@@ -283,19 +315,18 @@ const ChatSidebarClient = () => {
   const chatGroups = groupChatsByTime();
 
   const handleSettingsClick = () => {
-    // Use the new navigateToSettings function to properly handle navigation
-    navigateToSettings("data-connections");
-    dispatch(setMainContent("settings"));
+    // Use the new navigateToChatSettings function to navigate to the chat settings page
+    navigateToChatSettings("data-connections");
   };
 
   return (
     <div
       onClick={handleSidebarClick}
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-75 ${
+      className={`h-full flex bg-sidebar-primary flex-col border-r border-border-primary transition-all duration-75 relative ${
         isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
       }`}
     >
-      <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
+      <div className="py-4 px-4 border-b border-border-primary flex items-center justify-between">
         {isSidebarOpen ? (
           <>
             <h2 className="font-medium text-heading text-lg">FinB</h2>
@@ -325,14 +356,37 @@ const ChatSidebarClient = () => {
           </Button>
         )}
       </div>
-
-      <div className="border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 relative">
         {isSidebarOpen ? (
-          <div className="p-3">
-            <OrganizationDropdown onCompanyChange={handleCompanyChange} />
-          </div>
+          <Button
+            variant="outline"
+            id="company-select-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleComponentState(companyModalId, true);
+            }}
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-between items-center"
+          >
+            <div className="flex items-center ">
+              <span className="truncate">
+                {selectedCompany?.name || "Select Company"}
+              </span>
+            </div>
+            <ChevronLeftIcon className="h-4 w-4 rotate-180" />
+          </Button>
         ) : (
-          <CollapsedOrganizationDropdown />
+          <Button
+            id="company-select-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleComponentState(companyModalId, true);
+            }}
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            variant="outline"
+            title={selectedCompany?.name || "Select Company"}
+          >
+            <UserRoundCheck className="h-4 w-4 text-text-primary" />
+          </Button>
         )}
       </div>
 
@@ -345,7 +399,7 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="w-full flex cursor-pointer border-gray-200 bg-white text-primary justify-start items-center gap-2"
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-start items-center gap-2"
           >
             <BarChart3 className="h-4 w-4" />
             Dashboard
@@ -357,11 +411,11 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="rounded-full border-gray-200 bg-white text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
             variant="outline"
             title="Dashboard"
           >
-            <BarChart3 className="h-4 w-4 text-primary" />
+            <BarChart3 className="h-4 w-4 text-text-primary" />
           </Button>
         )}
       </div>
@@ -372,7 +426,7 @@ const ChatSidebarClient = () => {
             variant="default"
             id="new-chat-button"
             onClick={(e) => handleNewChat(e)}
-            className="w-full flex cursor-pointer justify-start text-white-text items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
+            className="w-full flex cursor-pointer justify-start text-white-text items-center gap-2 bg-primary hover:bg-primary/90"
           >
             <PlusIcon className="h-4 w-4 text-white-text" />
             New Chat
@@ -421,10 +475,10 @@ const ChatSidebarClient = () => {
                       >
                         <div className="flex items-center space-x-2 truncate flex-1">
                           {!isSidebarOpen && (
-                            <MessageSquare className="h-4 w-4 text-gray-500" />
+                            <UserRoundCheck className="h-4 w-4 text-gray-500" />
                           )}
                           {isSidebarOpen && (
-                            <span className="truncate font-serif font-normal text-primary text-sm">
+                            <span className="truncate font-serif font-normal text-text-primary text-sm">
                               {getChatName(index, chat)}
                             </span>
                           )}
@@ -445,12 +499,21 @@ const ChatSidebarClient = () => {
           <div className="flex items-center justify-between">
             {isSidebarOpen ? (
               <>
-                <div className="flex items-center p-2 rounded-md hover:bg-gray-200 flex-1">
+                <div
+                  ref={userProfileRef}
+                  onClick={handleUserProfileClick}
+                  className="flex items-center p-2 rounded-md hover:bg-gray-200 flex-1 cursor-pointer transition-colors"
+                >
                   <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center mr-3">
                     <User className="h-4 w-4 text-gray-600" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{`${firstName} ${lastName}`}</p>
+                    {selectedOrganization && (
+                      <p className="text-xs text-gray-500 truncate">
+                        {selectedOrganization.name}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -475,13 +538,102 @@ const ChatSidebarClient = () => {
                   className="h-8 w-8 hover:bg-gray-200"
                   title="User Profile"
                 >
-                  <User className="h-5 w-5" />
+                  <Avatar className="h-5 w-5" />
                 </Button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Organization Dropdown - positioned absolutely when open */}
+      {isOrgDropdownOpen && isSidebarOpen && (
+        <>
+          {/* Background overlay */}
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={() => toggleComponentState(orgDropdownId, false)}
+          />
+
+          {/* Organization dropdown positioned at bottom */}
+          <div className="fixed bottom-16 left-3 right-3 z-50 pointer-events-none">
+            <div className="relative max-w-64 pointer-events-auto">
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
+                {/* Organizations list */}
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {userOrganizations.map((org: any) => {
+                    const isSelected =
+                      org.organization.id === selectedOrganization?.id;
+                    return (
+                      <div
+                        key={org.organization.id}
+                        className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-text-selected/10 text-text-selected"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                        onClick={() => {
+                          // Handle organization selection
+                          const organizationToSelect = {
+                            id: org.organization.id,
+                            name: org.organization.name,
+                            status: org.organization.status,
+                            companies: [],
+                            role: {
+                              id: org.role.id,
+                              name: org.role.name,
+                              permissions: [],
+                            },
+                          };
+                          dispatch(
+                            setSelectedOrganization(organizationToSelect)
+                          );
+
+                          // Also update the user object to keep it in sync
+                          if (user) {
+                            const updatedUser = {
+                              ...user,
+                              role: {
+                                id: org.role.id,
+                                key: org.role.key,
+                                name: org.role.name,
+                                permissions: [],
+                              },
+                              selectedOrganization: organizationToSelect,
+                            };
+
+                            dispatch(
+                              setUserData({
+                                user: updatedUser,
+                                selectedOrganization: organizationToSelect,
+                              })
+                            );
+                          }
+
+                          toggleComponentState(orgDropdownId, false);
+                          handleCompanyChange();
+                        }}
+                      >
+                        <div className="flex flex-grow flex-col">
+                          <span className="text-sm font-medium">
+                            {org.organization.name}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {org.role.name}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -54,7 +54,7 @@ export default function AppSidebar({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    if (pathname === "/dashboard") {
+    if (pathname.startsWith("/dashboard")) {
       setIsDashboardSectionOpen(true);
     }
   }, [pathname]);
@@ -124,14 +124,14 @@ export default function AppSidebar({
               <CollapsibleTrigger asChild>
                 <Button
                   variant={
-                    pathname === "/dashboard" ||
+                    pathname.startsWith("/dashboard") ||
                     savedDashboards?.some((d) => d.id === currentDashboardId)
                       ? "secondary"
                       : "ghost"
                   }
                   className={cn(
                     "w-full text-sm font-medium justify-between pr-2",
-                    pathname === "/dashboard" ||
+                    pathname.startsWith("/dashboard") ||
                       savedDashboards?.some((d) => d.id === currentDashboardId)
                       ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -141,7 +141,10 @@ export default function AppSidebar({
                     href="/dashboard"
                     className="flex items-center gap-3"
                     onClick={(e) => {
-                      if (pathname !== "/dashboard" && !currentDashboardId)
+                      if (
+                        !pathname.startsWith("/dashboard") &&
+                        !currentDashboardId
+                      )
                         onNewDashboard?.();
                       else if (
                         pathname === "/dashboard" &&
@@ -167,13 +170,20 @@ export default function AppSidebar({
                   className="w-full justify-start text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 pl-3"
                   onClick={() => {
                     onNewDashboard?.();
-                    if (pathname !== "/dashboard") {
-                      /* Consider navigation */
-                    }
                   }}
                 >
                   <FilePlus2Icon className="h-4 w-4 mr-2" />
                   New Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 pl-3"
+                  onClick={() => {
+                    window.location.href = "/dashboard/select";
+                  }}
+                >
+                  <LayoutDashboardIcon className="h-4 w-4 mr-2" />
+                  Browse Dashboards
                 </Button>
                 {savedDashboards && savedDashboards.length > 0 && (
                   <div className="mt-1 pt-1 border-t border-gray-200">

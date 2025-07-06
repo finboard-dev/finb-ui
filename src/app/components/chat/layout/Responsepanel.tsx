@@ -203,11 +203,14 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const [isCompact, setIsCompact] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const [mainTab, setMainTab] = useState<"Output" | "History">("Output");
-  const [outputView, setOutputView] = useState<"visual" | "code">("visual");
+  const [outputView, setOutputView] = useState<"visual" | "code" | "schema">(
+    "visual"
+  );
   const [isSaveDropdownOpen, setIsSaveDropdownOpen] = useState(false);
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(
     new Set()
   );
+  const [editedSchema, setEditedSchema] = useState<any>(null);
   const user = useAppSelector((state) => state.user.user);
   const selectedOrg = user?.selectedOrganization;
   const companies = selectedOrg?.companies || [];
@@ -225,11 +228,14 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
 
   const getAvailableViews = (
     response: ToolCallResponse | undefined
-  ): Array<"visual" | "code"> => {
+  ): Array<"visual" | "code" | "schema"> => {
     if (!response) return [];
 
     if (response.type === "graph") {
-      const views: Array<"visual" | "code"> = ["visual"];
+      const views: Array<"visual" | "code" | "schema"> = ["visual"];
+
+      // Add Schema tab for graphs to show the underlying data structure
+      views.push("schema");
 
       // Only add Code tab if Python code exists
       const pythonCode = getPythonCode(response);
@@ -543,6 +549,9 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         // setOutputView(availableViews[0]);
       }
 
+      // Reset edited schema when switching to a new response
+      setEditedSchema(null);
+
       // Check for specific "Invalid data format provided" error
       const hasInvalidDataFormatError =
         (typeof currentActiveResponse.data === "string" &&
@@ -642,6 +651,22 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   };
 
+  const handleSchemaChange = (value: string | undefined) => {
+    if (!value) return;
+
+    try {
+      const parsedSchema = JSON.parse(value);
+      setEditedSchema(parsedSchema);
+    } catch (error) {
+      // Invalid JSON - don't update the schema
+      console.warn("Invalid JSON in schema editor:", error);
+    }
+  };
+
+  const resetEditedSchema = () => {
+    setEditedSchema(null);
+  };
+
   const getIconForResponseType = (type: string) => {
     // ... (remains the same)
     switch (type) {
@@ -657,21 +682,21 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   };
 
-  const getViewIcon = (viewType: "visual" | "code" | "json") => {
+  const getViewIcon = (viewType: "visual" | "code" | "schema") => {
     switch (viewType) {
       case "visual":
         return <BarChart3 size={16} />;
       case "code":
         return <Code size={16} />;
-      case "json":
-        return <FileJson size={16} />; // Icon for the JSON tab
+      case "schema":
+        return <FileJson size={16} />; // Icon for the Schema tab
       default:
         return <BarChart3 size={16} />;
     }
   };
 
   const getViewLabel = (
-    viewType: "visual" | "code" | "json",
+    viewType: "visual" | "code" | "schema",
     responseType: string
   ) => {
     switch (viewType) {
@@ -683,8 +708,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           : "View";
       case "code": // "Code" tab: Python for graph, specific JSON for table, Python for python type
         return "Code";
-      case "json": // "JSON" tab: Graph config for graph type
-        return "JSON";
+      case "schema": // "Schema" tab: Graph data structure for graph type
+        return "Schema";
       default:
         return "View";
     }
@@ -692,7 +717,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
 
   const renderOutputContentArea = (
     response: ToolCallResponse | undefined,
-    view: "visual" | "code"
+    view: "visual" | "code" | "schema"
   ) => {
     if (!response) {
       return (
@@ -702,7 +727,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
       );
     }
 
-    const fixedHeightClass = "h-[450px] flex flex-col";
+    const fixedHeightClass = "h-[600px] flex flex-col";
     const pythonCode = getPythonCode(response);
 
     const safeParseJSON = (data: any) => {
@@ -720,7 +745,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     if (view === "visual") {
       switch (response.type) {
         case "graph":
-          const graphData = processedData?.schema || processedData;
+          const graphData =
+            editedSchema || processedData?.schema || processedData;
           if (graphData) {
             console.log(graphData, "graphData");
 
@@ -728,7 +754,38 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               <div
                 className={`w-full ${fixedHeightClass} flex-1 border border-gray-300 rounded-md p-2 bg-white`}
               >
-                <RestrictedChart data={graphData} />
+                {editedSchema && (
+                  <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-blue-700 font-medium">
+                        Live Preview Mode
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={resetEditedSchema}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        Reset to Original
+                      </Button>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Chart is showing edited schema. Changes are reflected in
+                      real-time.
+                    </p>
+                  </div>
+                )}
+                <RestrictedChart
+                  data={graphData}
+                  style={{
+                    backgroundColor: "white",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    width: "100%",
+                    height: "600px",
+                  }}
+                />
               </div>
             );
           }
@@ -897,6 +954,74 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                 automaticLayout: true,
               }}
             />
+          </div>
+        );
+      }
+    } else if (view === "schema") {
+      if (response.type === "graph") {
+        const graphData = processedData?.schema || processedData;
+        if (graphData) {
+          const schemaContent = JSON.stringify(graphData, null, 2);
+          return (
+            <div
+              className={`${fixedHeightClass} w-full border border-gray-300 rounded-md overflow-hidden bg-white`}
+            >
+              <div className="p-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">
+                      Graph Data Schema
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Edit the schema to see live changes in the Chart tab
+                    </p>
+                  </div>
+                  {/* {editedSchema && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetEditedSchema}
+                      className="text-gray-600 hover:text-gray-800 text-xs"
+                    >
+                      Reset
+                    </Button>
+                  )} */}
+                </div>
+              </div>
+              <Editor
+                height="calc(100% - 60px)"
+                width="100%"
+                language="json"
+                theme="vs-light"
+                value={schemaContent}
+                onChange={handleSchemaChange}
+                options={{
+                  readOnly: false,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: "on",
+                  suggestOnTriggerCharacters: true,
+                  quickSuggestions: true,
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div
+              className={`${fixedHeightClass} w-full flex items-center justify-center text-center text-gray-500 border border-gray-300 rounded-md bg-white p-4`}
+            >
+              <p>No schema data available for this graph.</p>
+            </div>
+          );
+        }
+      } else {
+        return (
+          <div
+            className={`${fixedHeightClass} w-full flex items-center justify-center text-center text-gray-500 border border-gray-300 rounded-md bg-white p-4`}
+          >
+            <p>Schema view is only available for graph responses.</p>
           </div>
         );
       }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllDataSources } from "@/lib/api/datasource";
-import { persistor, store } from "@/lib/store/store";
+import { store } from "@/lib/store/store";
 import {
   Table,
   TableBody,
@@ -28,17 +27,9 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  disconnectAccount,
-  initAddQuickBookAccount,
-} from "@/lib/api/intuitService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { logout } from "@/lib/api/logout";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  clearUserData,
-  selectUserPermissions,
-} from "@/lib/store/slices/userSlice";
 import {
   setMainContent,
   setActiveSettingsSection,
@@ -82,7 +73,7 @@ import {
   useAddOrganizationUser,
   useUpdateOrganizationUser,
   useDeleteOrganizationUser,
-} from "@/hooks/useOrganization";
+} from "@/hooks/query-hooks/useOrganization";
 import { useClearReduxState } from "@/hooks/useClearReduxState";
 import { clearBearerToken } from "@/lib/auth/tokenUtils";
 
@@ -105,8 +96,12 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { navigateToSettings, navigateToContent, navigateToChat } =
-    useUrlParams();
+  const {
+    navigateToSettings,
+    navigateToChatSettings,
+    navigateToContent,
+    navigateToChat,
+  } = useUrlParams();
   const state = store.getState();
   const clearReduxState = useClearReduxState();
   const [error, setError] = useState<string | null>(null);
@@ -188,13 +183,18 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   // Handle settings section from URL parameters
   useEffect(() => {
     const sectionFromUrl = searchParams.get("settings-section");
+    const section = searchParams.get("section");
+
+    // Handle both old settings-section and new section parameters
+    const activeSection = section || sectionFromUrl;
+
     if (
-      sectionFromUrl &&
+      activeSection &&
       ["data-connections", "profile", "security", "users-roles"].includes(
-        sectionFromUrl
+        activeSection
       )
     ) {
-      dispatch(setActiveSettingsSection(sectionFromUrl as any));
+      dispatch(setActiveSettingsSection(activeSection as any));
       // Ensure we're in settings view when settings-section parameter is present
       dispatch(setMainContent("settings"));
     }
@@ -204,8 +204,8 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     section: "data-connections" | "profile" | "security" | "users-roles"
   ) => {
     dispatch(setActiveSettingsSection(section));
-    // Use the new navigateToSettings function
-    navigateToSettings(section);
+    // Use the new navigateToChatSettings function for the chat settings route
+    navigateToChatSettings(section);
   };
 
   const companyPermissions = {

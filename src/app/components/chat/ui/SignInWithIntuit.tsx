@@ -79,7 +79,7 @@ export default function LoginPage({ handleIntuitLogin, isLoading }: any) {
       <div className="flex w-full items-center justify-center p-8 md:w-1/2">
         <Card className="w-full max-w-md border-none bg-white/80 backdrop-blur-sm shadow-xl">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-3xl font-bold tracking-tight bg-clip-text text-primary">
+            <CardTitle className="text-3xl font-bold tracking-tight bg-clip-text text-text-primary">
               Welcome Back
             </CardTitle>
             <CardDescription className="text-lg">
