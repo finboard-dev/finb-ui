@@ -322,11 +322,11 @@ const ChatSidebarClient = () => {
   return (
     <div
       onClick={handleSidebarClick}
-      className={`h-full flex bg-sidebar-primary flex-col border-r border-primary bg-gray-50 transition-all duration-75 relative ${
+      className={`h-full flex bg-sidebar-primary flex-col border-r border-border-primary transition-all duration-75 relative ${
         isSidebarOpen ? "w-64" : "w-16 cursor-pointer hover:opacity-90"
       }`}
     >
-      <div className="py-4 px-4 border-b border-primary flex items-center justify-between">
+      <div className="py-4 px-4 border-b border-border-primary flex items-center justify-between">
         {isSidebarOpen ? (
           <>
             <h2 className="font-medium text-heading text-lg">FinB</h2>
@@ -365,7 +365,7 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               toggleComponentState(companyModalId, true);
             }}
-            className="w-full flex cursor-pointer border-gray-200 bg-white text-primary justify-between items-center"
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-between items-center"
           >
             <div className="flex items-center ">
               <span className="truncate">
@@ -381,11 +381,11 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               toggleComponentState(companyModalId, true);
             }}
-            className="rounded-full border-gray-200 bg-white text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
             variant="outline"
             title={selectedCompany?.name || "Select Company"}
           >
-            <UserRoundCheck className="h-4 w-4 text-primary" />
+            <UserRoundCheck className="h-4 w-4 text-text-primary" />
           </Button>
         )}
       </div>
@@ -399,7 +399,7 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="w-full flex cursor-pointer border-gray-200 bg-white text-primary justify-start items-center gap-2"
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-start items-center gap-2"
           >
             <BarChart3 className="h-4 w-4" />
             Dashboard
@@ -411,11 +411,11 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="rounded-full border-gray-200 bg-white text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
             variant="outline"
             title="Dashboard"
           >
-            <BarChart3 className="h-4 w-4 text-primary" />
+            <BarChart3 className="h-4 w-4 text-text-primary" />
           </Button>
         )}
       </div>
@@ -426,7 +426,7 @@ const ChatSidebarClient = () => {
             variant="default"
             id="new-chat-button"
             onClick={(e) => handleNewChat(e)}
-            className="w-full flex cursor-pointer justify-start text-white-text items-center gap-2 bg-background-button-dark hover:bg-background-button-dark/90"
+            className="w-full flex cursor-pointer justify-start text-white-text items-center gap-2 bg-primary hover:bg-primary/90"
           >
             <PlusIcon className="h-4 w-4 text-white-text" />
             New Chat
@@ -478,7 +478,7 @@ const ChatSidebarClient = () => {
                             <UserRoundCheck className="h-4 w-4 text-gray-500" />
                           )}
                           {isSidebarOpen && (
-                            <span className="truncate font-serif font-normal text-primary text-sm">
+                            <span className="truncate font-serif font-normal text-text-primary text-sm">
                               {getChatName(index, chat)}
                             </span>
                           )}
@@ -556,7 +556,7 @@ const ChatSidebarClient = () => {
           />
 
           {/* Organization dropdown positioned at bottom */}
-          <div className="fixed bottom-18 left-3 right-3 z-50 pointer-events-none">
+          <div className="fixed bottom-16 left-3 right-3 z-50 pointer-events-none">
             <div className="relative max-w-64 pointer-events-auto">
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
                 {/* Organizations list */}
@@ -569,7 +569,7 @@ const ChatSidebarClient = () => {
                         key={org.organization.id}
                         className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors cursor-pointer ${
                           isSelected
-                            ? "bg-primary/10 text-primary"
+                            ? "bg-text-selected/10 text-text-selected"
                             : "text-gray-700 hover:bg-gray-50"
                         }`}
                         onClick={() => {

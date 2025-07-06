@@ -27,7 +27,7 @@ export const DashboardLoading: React.FC<DashboardLoadingProps> = ({
     <div className="flex items-center justify-center h-screen w-screen">
       <Card className="w-full border-none bg-white max-h-[400px] max-w-md">
         <CardContent className="flex flex-col items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border-primary mb-4"></div>
           <p className="text-center text-muted-foreground">
             {getLoadingMessage()}
           </p>

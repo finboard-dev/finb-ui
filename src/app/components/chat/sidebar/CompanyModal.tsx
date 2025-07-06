@@ -853,12 +853,10 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
       }}
     >
       <DialogContent
-        className={`fixed z-50 w-md h-[600px] mx-4 p-0 bg-white rounded-lg shadow-lg border-none flex flex-col overflow-hidden ${
-          isSidebarOpen ? "left-64" : "left-12"
-        }`}
+        className={`fixed z-50 w-96 h-[600px] mx-4 p-0 bg-white rounded-lg shadow-lg border-none flex flex-col overflow-hidden`}
         style={{
-          left: isSidebarOpen ? "31rem" : "19rem",
-          top: "24rem",
+          left: isSidebarOpen ? "17rem" : "5rem",
+          top: "4rem",
           margin: 0,
           transform: "none",
         }}

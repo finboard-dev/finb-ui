@@ -120,7 +120,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         className={`py-3 relative ${
           isAssistant
             ? "text-zinc-700 px-2"
-            : "px-5 bg-background-card my-4  text-zinc-700 rounded-xl font-medium"
+            : "px-5 bg-message-bg my-4  text-zinc-700 rounded-xl font-medium"
         } overflow-hidden`}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}

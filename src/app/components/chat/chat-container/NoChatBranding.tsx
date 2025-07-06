@@ -25,7 +25,7 @@ const NoChatBranding = () => {
         <section className="flex flex-col items-center">
           <div className="pt-24">
             <div className="py-16">
-              <h1 className="text-[2.4rem] font-semibold font-inter text-center text-primary">
+              <h1 className="text-[2.4rem] font-semibold font-inter text-center text-text-primary">
                 Get Financial Insights with AI
               </h1>
               <p className="mt-3 text-base leading-2 font-inter font-normal text-center text-sec">
@@ -43,13 +43,13 @@ const NoChatBranding = () => {
             {cardData.map((card, i) => (
               <div
                 key={i}
-                className="flex items-center border border-primary rounded-md px-2 py-2 cursor-pointer"
+                className="flex items-center border border-border-primary rounded-md px-2 py-2 cursor-pointer"
               >
                 <div className="flex items-center">
-                  <span className="text-secondary font-medium">{card}</span>
+                  <span className="text-primary font-medium">{card}</span>
                 </div>
-                <div className="ml-3 border-primary">
-                  <ArrowUpRight className="h-5 w-5 text-secondary" />
+                <div className="ml-3 border-border-primary">
+                  <ArrowUpRight className="h-5 w-5 text-primary" />
                 </div>
               </div>
             ))}
@@ -58,10 +58,10 @@ const NoChatBranding = () => {
         <section className="flex flex-col items-center pb-24">
           <div className="flex flex-col w-5xl">
             <div className="pt-16">
-              <h1 className="text-2xl font-semibold text-left text-primary">
+              <h1 className="text-2xl font-semibold text-left text-text-primary">
                 Explore
               </h1>
-              <p className="mt-3 text-base leading-2 font-medium text-left text-secondary">
+              <p className="mt-2 text-base font-medium text-left text-sec">
                 Financial insights, reports, and visualizations
               </p>
             </div>

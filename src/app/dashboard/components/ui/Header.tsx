@@ -124,12 +124,12 @@ export default function DashboardSpecificHeader({
               </span>
             </Button>
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              className="h-9 px-3 sm:px-4 text-xs sm:text-sm"
+              className="h-9 rounded-md bg-white hover:bg-slate-50 text-slate-700 border-slate-300 border px-3 sm:px-4 text-xs sm:text-sm"
             >
               <Share2Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
-              <span className="hidden sm:inline">Share</span>
+              <span className="hidden sm:inline text-slate-700 ">Share</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

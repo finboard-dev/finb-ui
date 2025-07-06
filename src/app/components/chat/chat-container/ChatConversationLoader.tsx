@@ -400,7 +400,7 @@ export const ChatConversationLoader: React.FC<ChatConversationLoaderProps> = ({
             <ErrorSvg />
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-primary mb-2">500</div>
+            <div className="text-4xl font-bold text-text-primary mb-2">500</div>
             <div className="text-gray-600">Sorry, something went wrong.</div>
           </div>
         </div>

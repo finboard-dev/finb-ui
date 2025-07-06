@@ -631,7 +631,7 @@ export default function MessageInput({
         className={`${
           !showBorder
             ? "bg-transparent px-0 py-0 border-none shadow-none"
-            : "rounded-2xl bg-background-card border-none px-3 py-3"
+            : "rounded-2xl bg-[#F8F8F8] border-none px-3 py-3"
         } transition-all duration-200`}
       >
         <Card className="rounded-xl bg-white border-[1px] stroke-100 shadow-none p-4 relative">
