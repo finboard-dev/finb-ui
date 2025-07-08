@@ -13,6 +13,7 @@ import {
   Settings,
   BarChart3,
   Check,
+  Layers,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -399,7 +400,7 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-start items-center gap-2"
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-start items-center gap-2 mb-4"
           >
             <BarChart3 className="h-4 w-4" />
             Dashboard
@@ -411,9 +412,37 @@ const ChatSidebarClient = () => {
               e.stopPropagation();
               router.push("/dashboard");
             }}
-            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8 mb-4"
             variant="outline"
             title="Dashboard"
+          >
+            <BarChart3 className="h-4 w-4 text-text-primary" />
+          </Button>
+        )}
+
+        {isSidebarOpen ? (
+          <Button
+            variant="outline"
+            id="consolidation-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push("/consolidation");
+            }}
+            className="w-full flex cursor-pointer border-gray-200 bg-white text-text-primary justify-start items-center gap-2"
+          >
+            <Layers className="h-4 w-4" />
+            Consolidation
+          </Button>
+        ) : (
+          <Button
+            id="consolidation-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push("/consolidation");
+            }}
+            className="rounded-full border-gray-200 bg-white text-text-primary cursor-pointer flex items-center justify-center h-8 w-8"
+            variant="outline"
+            title="Consolidation"
           >
             <BarChart3 className="h-4 w-4 text-text-primary" />
           </Button>
@@ -435,9 +464,9 @@ const ChatSidebarClient = () => {
           <Button
             id="new-chat-button"
             onClick={(e) => handleNewChat(e)}
-            className="w-full rounded-full text-white-text cursor-pointer flex items-center justify-center h-fit bg-background-button-dark hover:bg-background-button-dark/90"
+            className="w-full rounded-full cursor-pointer flex items-center justify-center h-fit bg-primary hover:bg-primary/90"
           >
-            <PlusIcon className="h-5 w-5 text-white-text" />
+            <PlusIcon className="h-5 w-5 text-white" />
           </Button>
         )}
       </div>

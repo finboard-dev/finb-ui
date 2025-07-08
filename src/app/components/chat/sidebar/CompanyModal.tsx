@@ -28,7 +28,7 @@ import {
   initializeComponent,
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   setDropDownLoading,
   selectDropDownLoading,
@@ -46,7 +46,14 @@ import {
   useDeleteMultiEntity,
 } from "@/hooks/query-hooks/useMultiEntity";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogHeader,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface OrganizationModalProps {
   onCompanyChange?: () => void;
@@ -92,6 +99,11 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
   const [connectPopupCompanyId, setConnectPopupCompanyId] = useState<
     string | null
   >(null);
+  const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(
+    null
+  );
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
 
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -105,6 +117,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
   const companies = useAppSelector((state) => state.user.companies);
   const isLoading = useAppSelector(selectDropDownLoading);
   const isSidebarOpen = isParamSet("sidebar-chat", "open");
+  const isConsolidationRoute = usePathname().includes("consolidation");
 
   // Also check Redux state for modal status
   const modalState = useAppSelector(
@@ -353,6 +366,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
 
   const handleCompanySelect = async (org: Organization, company: Company) => {
     setError(null);
+    setSwitchingCompanyId(company.id);
     dispatch(setDropDownLoading(true));
 
     try {
@@ -388,6 +402,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
       dispatch(setSelectedCompany(null as any));
     } finally {
       dispatch(setDropDownLoading(false));
+      setSwitchingCompanyId(null);
     }
   };
 
@@ -450,14 +465,22 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
   };
 
   const handleDeleteMultiEntity = async (companyId: string) => {
-    if (confirm("Are you sure you want to delete this multi-entity company?")) {
-      try {
-        await deleteMultiEntityMutation.mutateAsync(companyId);
-        toast.success("Multi-entity company deleted successfully");
-      } catch (error) {
-        console.error("Error deleting multi-entity:", error);
-        toast.error("Failed to delete multi-entity company");
-      }
+    setCompanyToDelete(companyId);
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDeleteMultiEntity = async () => {
+    if (!companyToDelete) return;
+
+    try {
+      await deleteMultiEntityMutation.mutateAsync(companyToDelete);
+      toast.success("Multi-entity company deleted successfully");
+    } catch (error) {
+      console.error("Error deleting multi-entity:", error);
+      toast.error("Failed to delete multi-entity company");
+    } finally {
+      setShowDeleteConfirmation(false);
+      setCompanyToDelete(null);
     }
   };
 
@@ -553,6 +576,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                 {normalCompanies.map((company) => {
                   const isActive = company.status === CompanyStatus.ACTIVE;
                   const isSelected = company.id === selectedCompany?.id;
+                  const isSwitching = switchingCompanyId === company.id;
                   return (
                     <div
                       key={company.id}
@@ -566,11 +590,14 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                     >
                       <div
                         className={`flex items-center gap-2 flex-1 ${
-                          isActive ? "cursor-pointer" : "cursor-not-allowed"
+                          isActive && !isSwitching
+                            ? "cursor-pointer"
+                            : "cursor-not-allowed"
                         }`}
                         onClick={() =>
                           isActive &&
                           !isSelected &&
+                          !isSwitching &&
                           handleCompanySelect(selectedOrganization, company)
                         }
                       >
@@ -588,6 +615,9 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                         >
                           {company.name}
                         </span>
+                        {isSwitching && (
+                          <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-2" />
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {isActive &&
@@ -598,7 +628,10 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                                 handleDisconnectQuickBooks(company.id);
                               }}
                               className="text-xs text-red-600 hover:text-red-800 border border-gray-300 rounded px-2 py-1"
-                              disabled={disconnectingCompanyId === company.id}
+                              disabled={
+                                disconnectingCompanyId === company.id ||
+                                isSwitching
+                              }
                             >
                               {disconnectingCompanyId === company.id
                                 ? "Disconnecting..."
@@ -612,6 +645,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                               setConnectPopupCompanyId(company.id);
                             }}
                             className="text-xs text-white bg-green-600 hover:bg-green-700 rounded px-2 py-1 border border-green-700"
+                            disabled={isSwitching}
                           >
                             Connect
                           </button>
@@ -665,23 +699,10 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                     <div
                       key={company.id}
                       className={`flex items-center justify-between p-2.5 rounded-md transition-colors ${
-                        isSelected
-                          ? "bg-gray-100"
-                          : isActive
-                          ? "hover:bg-gray-50"
-                          : ""
+                        isSelected ? "bg-gray-100" : "opacity-60"
                       }`}
                     >
-                      <div
-                        className={`flex items-center gap-2 flex-1 ${
-                          isActive ? "cursor-pointer" : "cursor-not-allowed"
-                        }`}
-                        onClick={() =>
-                          isActive &&
-                          !isSelected &&
-                          handleCompanySelect(selectedOrganization, company)
-                        }
-                      >
+                      <div className="flex items-center gap-2 flex-1 cursor-not-allowed">
                         <span
                           className={`h-2.5 w-2.5 rounded-full ${
                             isActive ? "bg-green-500" : "bg-red-500"
@@ -702,7 +723,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                           e.stopPropagation();
                           handleDeleteMultiEntity(company.id);
                         }}
-                        className="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-gray-300 rounded"
+                        className="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-gray-300 rounded hover:bg-red-50 transition-colors cursor-pointer"
                         disabled={
                           deleteMultiEntityMutation.isPending &&
                           deleteMultiEntityMutation.variables === company.id
@@ -773,7 +794,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-medium text-gray-700">
                 Sub-Entities
               </label>
@@ -794,7 +815,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
               </div>
             </div>
             <div className="border border-gray-300 rounded-md p-3 bg-gray-50">
-              <div className="max-h-32 overflow-y-auto space-y-2 pr-1">
+              <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
                 {allNonMultiEntityCompanies.map((company) => (
                   <div key={company.id} className="flex items-center gap-2">
                     <input
@@ -846,25 +867,75 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
 
   // Use Dialog for modal
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) handleClose();
-      }}
-    >
-      <DialogContent
-        className={`fixed z-50 w-96 h-[600px] mx-4 p-0 bg-white rounded-lg shadow-lg border-none flex flex-col overflow-hidden`}
-        style={{
-          left: isSidebarOpen ? "17rem" : "5rem",
-          top: "4rem",
-          margin: 0,
-          transform: "none",
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) handleClose();
         }}
       >
-        <DialogTitle className="sr-only">Company Selection</DialogTitle>
-        {currentPage === "main" && renderMainPage()}
-        {currentPage === "create-multi-entity" && renderCreateMultiEntityPage()}
-      </DialogContent>
-    </Dialog>
+        <DialogContent
+          className={`fixed z-50 w-96 h-[600px] mx-4 p-0 bg-white rounded-lg shadow-lg border-none flex flex-col overflow-hidden`}
+          style={{
+            left: isConsolidationRoute
+              ? "17rem"
+              : isSidebarOpen
+              ? "17rem"
+              : "5rem",
+            top: "4rem",
+            margin: 0,
+            transform: "none",
+          }}
+        >
+          <DialogTitle className="sr-only">Company Selection</DialogTitle>
+          {currentPage === "main" && renderMainPage()}
+          {currentPage === "create-multi-entity" &&
+            renderCreateMultiEntityPage()}
+
+          {/* Loading overlay when switching company */}
+          {switchingCompanyId && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-[#1E925A]" />
+                <p className="text-sm font-medium text-primary">
+                  Switching company...
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={showDeleteConfirmation}
+        onOpenChange={setShowDeleteConfirmation}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Multi-Entity Group</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this multi-entity company? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <button
+              onClick={() => setShowDeleteConfirmation(false)}
+              className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteMultiEntity}
+              disabled={deleteMultiEntityMutation.isPending}
+              className="px-3 py-1.5 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteMultiEntityMutation.isPending ? "Deleting..." : "Delete"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

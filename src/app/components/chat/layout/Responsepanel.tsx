@@ -245,8 +245,18 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
 
       return views;
     } else if (response.type === "table") {
-      // For tables, show visual (table) and code (JSON) views
-      return ["visual"];
+      const views: Array<"visual" | "code" | "schema"> = ["visual"];
+
+      // Add Schema tab for tables to show the underlying data structure
+      views.push("schema");
+
+      // Only add Code tab if Python code exists
+      const pythonCode = getPythonCode(response);
+      if (pythonCode) {
+        views.push("code");
+      }
+
+      return views;
     } else if (response.type === "error") {
       // For errors, only show visual (the error message)
       return ["visual"];
@@ -706,9 +716,9 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           : responseType === "table"
           ? "Table"
           : "View";
-      case "code": // "Code" tab: Python for graph, specific JSON for table, Python for python type
+      case "code": // "Code" tab: Python for graph/table, specific JSON for table, Python for python type
         return "Code";
-      case "schema": // "Schema" tab: Graph data structure for graph type
+      case "schema": // "Schema" tab: Graph/Table data structure for graph/table type
         return "Schema";
       default:
         return "View";
@@ -901,6 +911,16 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             </div>
           );
         }
+      } else if (response.type === "table") {
+        // For table type response
+        if (pythonCode) {
+          codeContentValue = pythonCode;
+          language = "python";
+        } else {
+          // If no Python code, show the table data as JSON
+          codeContentValue = JSON.stringify(processedData, null, 2);
+          language = "json";
+        }
       } else if (response.type === "python") {
         // Specifically for "python" type response
         codeContentValue =
@@ -1016,12 +1036,57 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             </div>
           );
         }
+      } else if (response.type === "table") {
+        const tableData = processedData?.report_table;
+        if (tableData) {
+          const schemaContent = JSON.stringify(tableData, null, 2);
+          return (
+            <div
+              className={`${fixedHeightClass} w-full border border-gray-300 rounded-md overflow-hidden bg-white`}
+            >
+              <div className="p-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">
+                      Table Data Schema
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      View the underlying data structure for this table
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <Editor
+                height="calc(100% - 60px)"
+                width="100%"
+                language="json"
+                theme="vs-light"
+                value={schemaContent}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: "on",
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div
+              className={`${fixedHeightClass} w-full flex items-center justify-center text-center text-gray-500 border border-gray-300 rounded-md bg-white p-4`}
+            >
+              <p>No schema data available for this table.</p>
+            </div>
+          );
+        }
       } else {
         return (
           <div
             className={`${fixedHeightClass} w-full flex items-center justify-center text-center text-gray-500 border border-gray-300 rounded-md bg-white p-4`}
           >
-            <p>Schema view is only available for graph responses.</p>
+            <p>Schema view is only available for graph and table responses.</p>
           </div>
         );
       }
