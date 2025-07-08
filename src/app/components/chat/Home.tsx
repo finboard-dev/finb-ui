@@ -218,8 +218,8 @@ const Home: FC = () => {
   };
 
   const handleCompanyChange = () => {
-    // Refresh the page or reload company data when company changes
-    window.location.reload();
+    // window.location.reload();
+    console.log("company changed");
   };
 
   // Show loading animation for company operations
