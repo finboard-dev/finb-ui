@@ -33,7 +33,7 @@ export const ReportTypes = {
   financing: "Financing",
   investing: "Investing",
   operating: "Operating",
-  cogs: "Cogs",
+  cogs: "COGS",
   expenses: "Expense",
   income: "Income",
   other_expenses: "Other Expenses",

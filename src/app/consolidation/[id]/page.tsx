@@ -43,6 +43,7 @@ function AccountCardRecursive({
   onDelete,
   editingId,
   setEditingId,
+  scrollToRef,
 }: {
   account: Account;
   level: number;
@@ -58,6 +59,7 @@ function AccountCardRecursive({
   onDelete: (id: string) => void;
   editingId: string | null;
   setEditingId: (id: string | null) => void;
+  scrollToRef: React.RefObject<{ [key: string]: HTMLDivElement | null }>;
 }) {
   const isTopLevel = level === 0;
   const [inputValue, setInputValue] = React.useState(account.title);
@@ -85,6 +87,11 @@ function AccountCardRecursive({
   const [hovered, setHovered] = React.useState(false);
   return (
     <div
+      ref={(el) => {
+        if (scrollToRef.current) {
+          scrollToRef.current[account.account_id] = el;
+        }
+      }}
       className={
         isTopLevel
           ? "bg-white border-gray-200 rounded-sm text-sm shadow-sm border mb-2 w-full min-w-[260px] max-w-md"
@@ -142,7 +149,7 @@ function AccountCardRecursive({
               variant="ghost"
               size="icon"
               onClick={() => onAddChild(account, undefined, colKey, level)}
-              className="p-0 h-5 w-5 text-[#1E925A] hover:bg-transparent"
+              className="p-0 h-5 w-5 text-[#1E925A] hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity"
               title="Add nested account"
             >
               <Plus className="w-4 h-4" />
@@ -164,6 +171,7 @@ function AccountCardRecursive({
               onDelete={onDelete}
               editingId={editingId}
               setEditingId={setEditingId}
+              scrollToRef={scrollToRef}
             />
           ))}
         </div>
@@ -180,6 +188,7 @@ export default function ConsolidationPage() {
   const [mappingData, setMappingData] = useState<Mapping>({});
   const [localMapping, setLocalMapping] = useState<Mapping>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const scrollToRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const selectedCompanyId = useSelector(
     (state: any) => state.user.selectedCompany?.id
@@ -211,9 +220,10 @@ export default function ConsolidationPage() {
 
   // Add new root account
   const handleAddRootAccount = (colKey: string) => {
+    const newAccountId = Math.random().toString(36).slice(2);
     setLocalMapping((prev: Mapping) => {
       const newAccount: Account = {
-        account_id: Math.random().toString(36).slice(2),
+        account_id: newAccountId,
         realm_id: null,
         title: "New Account",
         children: [],
@@ -224,7 +234,15 @@ export default function ConsolidationPage() {
         [colKey]: prev[colKey] ? [...prev[colKey], newAccount] : [newAccount],
       };
     });
-    setEditingId(Math.random().toString(36).slice(2));
+    setEditingId(newAccountId);
+
+    // Scroll to the new account after a short delay to ensure DOM is updated
+    setTimeout(() => {
+      const element = scrollToRef.current[newAccountId];
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
   };
 
   // Add child account (nesting)
@@ -238,13 +256,22 @@ export default function ConsolidationPage() {
     if (!colKey) {
       for (const col of ACCOUNT_COLUMNS) {
         if (localMapping[col.key]) {
-          const found = findAccountAndAdd(
+          const newAccountId = findAccountAndAdd(
             localMapping[col.key],
             parentAccount.account_id,
             level
           );
-          if (found) {
+          if (newAccountId) {
             setLocalMapping((prev) => ({ ...prev }));
+            setEditingId(newAccountId);
+
+            // Scroll to the new account after a short delay
+            setTimeout(() => {
+              const element = scrollToRef.current[newAccountId];
+              if (element) {
+                element.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }, 100);
             return;
           }
         }
@@ -252,8 +279,23 @@ export default function ConsolidationPage() {
     } else {
       // Add to the provided column
       const updated = localMapping[colKey] ? [...localMapping[colKey]] : [];
-      findAccountAndAdd(updated, parentAccount.account_id, level);
+      const newAccountId = findAccountAndAdd(
+        updated,
+        parentAccount.account_id,
+        level
+      );
       setLocalMapping((prev) => ({ ...prev, [colKey]: updated }));
+      if (newAccountId) {
+        setEditingId(newAccountId);
+
+        // Scroll to the new account after a short delay
+        setTimeout(() => {
+          const element = scrollToRef.current[newAccountId];
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 100);
+      }
     }
   };
 
@@ -262,25 +304,26 @@ export default function ConsolidationPage() {
     accounts: Account[],
     id: string,
     level: number
-  ): boolean {
+  ): string | null {
     for (let acc of accounts) {
       if (acc.account_id === id) {
         if (!acc.children) acc.children = [];
+        const newAccountId = Math.random().toString(36).slice(2);
         acc.children.push({
-          account_id: Math.random().toString(36).slice(2),
+          account_id: newAccountId,
           realm_id: null,
           title: "New Account",
           children: [],
           mapped_account: [],
         });
-        return true;
+        return newAccountId;
       }
       if (acc.children && acc.children.length > 0) {
         const found = findAccountAndAdd(acc.children, id, level + 1);
-        if (found) return true;
+        if (found) return found;
       }
     }
-    return false;
+    return null;
   }
 
   // Edit account name
@@ -350,7 +393,7 @@ export default function ConsolidationPage() {
           <Stepper currentStep={0} />
           {/* Consolidation Name & Report Type Card */}
           <div className="px-10 pt-8 bg-white shrink-0">
-            <div className="bg-white border border-gray-200 rounded-xl p-6 flex gap-8 items-end w-full minw-full mx-auto">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
               <div className="flex flex-col flex-1 max-w-[220px]">
                 <Label
                   className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
@@ -388,7 +431,7 @@ export default function ConsolidationPage() {
             </div>
           </div>
           {/* Main Content Area: Account Columns */}
-          <div className="flex-1 min-h-0 px-10 py-8 bg-white overflow-hidden">
+          <div className="flex-1 min-h-0 px-10 pt-5 bg-white overflow-hidden">
             <div className="h-full overflow-x-auto">
               {isLoading ? (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
@@ -404,7 +447,7 @@ export default function ConsolidationPage() {
                       {/* Fixed Header */}
                       <div className="px-4 pt-4 pb-2 shrink-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-sm text-black">
+                          <span className="font-medium text-sm text-primary">
                             {col.label}
                           </span>
                           <Button
@@ -436,6 +479,7 @@ export default function ConsolidationPage() {
                                   onDelete={handleDeleteAccount}
                                   editingId={editingId}
                                   setEditingId={setEditingId}
+                                  scrollToRef={scrollToRef}
                                 />
                               ))}
                             </div>
