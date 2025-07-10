@@ -24,7 +24,6 @@ export const ConsolidationFooter: React.FC<ConsolidationFooterProps> = ({
     >
       {isLoading ? (
         <div className="flex items-center">
-          <Loader2 className="animate-spin w-4 h-4 text-[#115032]" />
           <span className="ml-2">Saving...</span>
         </div>
       ) : (
