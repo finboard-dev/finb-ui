@@ -7,7 +7,6 @@ import {
   ChevronLeftIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  UserIcon,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,27 @@ import { store } from "@/lib/store/store";
 import { useUrlParams } from "@/lib/utils/urlParams";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
+
+const UserIcon = () => {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M8.0001 6.79902C9.32558 6.79902 10.4001 5.72451 10.4001 4.39902C10.4001 3.07354 9.32558 1.99902 8.0001 1.99902C6.67461 1.99902 5.6001 3.07354 5.6001 4.39902C5.6001 5.72451 6.67461 6.79902 8.0001 6.79902Z"
+        fill="#2B2C36"
+      />
+      <path
+        d="M12.8 11.2986C12.8 12.7896 12.8 13.9986 7.99995 13.9986C3.19995 13.9986 3.19995 12.7896 3.19995 11.2986C3.19995 9.80763 5.34915 8.59863 7.99995 8.59863C10.6508 8.59863 12.8 9.80763 12.8 11.2986Z"
+        fill="#2B2C36"
+      />
+    </svg>
+  );
+};
 
 // Navigation items configuration
 const navigationItems = [
@@ -223,7 +243,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
           >
             <Avatar className="bg-[#E8F1FF]">
               <AvatarFallback>
-                <UserIcon className="w-5 h-5 text-primary" />
+                <UserIcon />
               </AvatarFallback>
             </Avatar>
             {!isCollapsed && (

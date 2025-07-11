@@ -98,7 +98,8 @@ function findAccountRecursive(nodes: any[], accountId: string): any | null {
 // Utility: Find the mapped-to account for a given accountId in the mapping tree
 function findMappedToAccountId(
   mappingTree: any,
-  accountId: string
+  accountId: string,
+  companyId: string
 ): string | null {
   for (const typeKey of Object.keys(mappingTree)) {
     const stack = [...mappingTree[typeKey]];
@@ -106,7 +107,10 @@ function findMappedToAccountId(
       const node = stack.pop();
       if (node.mapped_account && node.mapped_account.length > 0) {
         for (const mapped of node.mapped_account) {
-          if (mapped.account_id === accountId) {
+          if (
+            mapped.account_id === accountId &&
+            mapped.realm_id === companyId
+          ) {
             return node.account_id;
           }
         }
@@ -122,7 +126,8 @@ function findMappedToAccountId(
 // Utility: Find mapped account info (including realm_id) for a given accountId
 function findMappedAccountInfo(
   mappingTree: any,
-  accountId: string
+  accountId: string,
+  companyId: string
 ): {
   account_id: string;
   realm_id: string;
@@ -135,7 +140,10 @@ function findMappedAccountInfo(
       const node = stack.pop();
       if (node.mapped_account && node.mapped_account.length > 0) {
         for (const mapped of node.mapped_account) {
-          if (mapped.account_id === accountId) {
+          if (
+            mapped.account_id === accountId &&
+            mapped.realm_id === companyId
+          ) {
             return mapped;
           }
         }
@@ -152,7 +160,8 @@ function findMappedAccountInfo(
 function findEliminationState(
   mapping: any,
   accountId: string,
-  companyId?: string
+  companyId?: string,
+  reportType?: string
 ): boolean {
   const searchInNodes = (nodes: any[]): boolean | null => {
     for (const node of nodes) {
@@ -174,8 +183,10 @@ function findEliminationState(
     return null;
   };
 
-  const typeOptions = Object.values(REPORT_TYPE_COLUMNS).flat();
-  for (const typeOpt of typeOptions) {
+  // Only search in the current report type's account types
+  const currentReportTypeOptions =
+    REPORT_TYPE_COLUMNS[reportType || "ProfitAndLoss"] || [];
+  for (const typeOpt of currentReportTypeOptions) {
     const nodes = mapping[typeOpt.key] || [];
     const found = searchInNodes(nodes);
     if (found !== null) return found;
@@ -279,10 +290,7 @@ export function LinkAccounts({
               namePath = namePath.slice((rootNode.title + " > ").length);
             }
 
-            const rowId =
-              accountType === "none"
-                ? `${row.id}-${typeOpt.key}-${companyId}`
-                : row.id;
+            const rowId = `${row.id}-${typeOpt.key}-${companyId}`;
 
             const eliminate =
               eliminationStates[rowId] !== undefined
@@ -291,7 +299,8 @@ export function LinkAccounts({
                 ? findEliminationState(
                     mappingData.data.mapping,
                     row.id,
-                    companyId
+                    companyId,
+                    reportType
                   )
                 : false;
 
@@ -319,22 +328,13 @@ export function LinkAccounts({
   const rows = useMemo(() => {
     if (!accountsData?.data) return [];
 
-    if (accountType === "none") {
-      const allRows: any[] = [];
-      Object.keys(accountsData.data).forEach((companyId) => {
-        const company = companiesData?.find((c: any) => c.id === companyId);
-        const companyName = company?.name || "Unknown Company";
-        allRows.push(...processCompanyAccounts(companyId, companyName));
-      });
-      return allRows;
-    } else {
-      const company = companiesData?.find(
-        (c: any) => c.id === selectedCompanyId
-      );
-      const companyName =
-        company?.name || store?.getState()?.user?.selectedCompany?.name || "";
-      return processCompanyAccounts(selectedCompanyId, companyName);
-    }
+    const allRows: any[] = [];
+    Object.keys(accountsData.data).forEach((companyId) => {
+      const company = companiesData?.find((c: any) => c.id === companyId);
+      const companyName = company?.name || "Unknown Company";
+      allRows.push(...processCompanyAccounts(companyId, companyName));
+    });
+    return allRows;
   }, [
     accountsData,
     selectedCompanyId,
@@ -366,6 +366,9 @@ export function LinkAccounts({
   useEffect(() => {
     if (!mappingData?.data?.mapping || rows.length === 0) return;
 
+    // Only sync from API if there are no unsaved user changes
+    if (hasUserChanges.current) return;
+
     const currentMappedSelections = { ...mappedSelections };
     let hasChanges = false;
 
@@ -376,12 +379,14 @@ export function LinkAccounts({
 
       const mappedToId = findMappedToAccountId(
         mappingData.data.mapping,
-        accountId
+        accountId,
+        rowCompanyId
       );
       if (mappedToId) {
         const mappedAccountInfo = findMappedAccountInfo(
           mappingData.data.mapping,
-          accountId
+          accountId,
+          rowCompanyId
         );
 
         if (mappedAccountInfo && mappedAccountInfo.realm_id === rowCompanyId) {
@@ -433,6 +438,8 @@ export function LinkAccounts({
         setEliminationStates((prev) => {
           const newStates = { ...prev };
           delete newStates[rowId];
+          // Also explicitly set eliminate to false for this row
+          newStates[rowId] = false;
           return newStates;
         });
       } else {
