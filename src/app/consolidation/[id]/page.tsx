@@ -4,7 +4,6 @@ import { Sidebar } from "../components/Sidebar";
 import { ConsolidationHeader } from "../components/ConsolidationHeader";
 import { Stepper } from "../components/Stepper";
 import { ConsolidationMain } from "../components/ConsolidationMain";
-import { ConsolidationFooter } from "../components/ConsolidationFooter";
 import { CompanyModal } from "@/app/components/chat/sidebar/CompanyModal";
 import {
   CreateAccounts,
@@ -20,7 +19,9 @@ import { useSelector } from "react-redux";
 export default function ConsolidationPage() {
   const router = useRouter();
   const params = useParams();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const createAccountsRef = useRef<CreateAccountsRef>(null);
 
   const selectedCompanyId = useSelector(
@@ -39,29 +40,33 @@ export default function ConsolidationPage() {
     }
   }, [selectedCompanyId, consolidationId, router]);
 
-  const handleNext = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    }
+  const handleStepChange = (step: number) => {
+    setCurrentStep(step);
+    setIsSaved(false); // Reset saved state when changing tabs
   };
 
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    } else {
-      window.history.back();
-    }
-  };
+  const handleSave = async () => {
+    setIsSaving(true);
+    setIsSaved(false);
 
-  const handleSaveAndNext = async () => {
-    if (currentStep === 0) {
-      // For step 1, use the CreateAccounts component's save functionality
-      if (createAccountsRef.current) {
-        await createAccountsRef.current.handleSaveAndNext();
+    try {
+      if (currentStep === 0) {
+        // For step 1, use the CreateAccounts component's save functionality
+        if (createAccountsRef.current) {
+          await createAccountsRef.current.handleSave();
+        }
+      } else {
+        // For other steps, simulate save operation
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-    } else {
-      // For other steps, just proceed to next step
-      handleNext();
+
+      setIsSaved(true);
+      // Reset saved state after 3 seconds
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) {
+      console.error("Save failed:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -71,34 +76,26 @@ export default function ConsolidationPage() {
         return (
           <CreateAccounts
             ref={createAccountsRef}
-            onNext={handleNext}
-            onBack={handleBack}
+            onNext={() => setCurrentStep(1)}
             selectedCompanyId={selectedCompanyId}
           />
         );
       case 1:
         return (
           <LinkAccounts
-            onNext={handleNext}
-            onBack={handleBack}
+            onNext={() => setCurrentStep(2)}
             selectedCompanyId={selectedCompanyId}
           />
         );
       case 2:
         return (
           <AdjustEliminations
-            onNext={handleNext}
-            onBack={handleBack}
+            onNext={() => setCurrentStep(3)}
             selectedCompanyId={selectedCompanyId}
           />
         );
       case 3:
-        return (
-          <ReviewFinalize
-            onBack={handleBack}
-            selectedCompanyId={selectedCompanyId}
-          />
-        );
+        return <ReviewFinalize selectedCompanyId={selectedCompanyId} />;
       default:
         return null;
     }
@@ -110,7 +107,13 @@ export default function ConsolidationPage() {
         <Sidebar />
         <ConsolidationMain>
           <ConsolidationHeader onBack={() => window.history.back()} />
-          <Stepper currentStep={currentStep} />
+          <Stepper
+            currentStep={currentStep}
+            onStepChange={handleStepChange}
+            onSave={handleSave}
+            isSaving={isSaving}
+            isSaved={isSaved}
+          />
           {renderCurrentStep()}
         </ConsolidationMain>
       </div>

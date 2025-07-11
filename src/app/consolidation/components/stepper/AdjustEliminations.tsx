@@ -7,13 +7,11 @@ import { Calculator, ArrowRight } from "lucide-react";
 
 interface AdjustEliminationsProps {
   onNext: () => void;
-  onBack: () => void;
   selectedCompanyId: string;
 }
 
 export function AdjustEliminations({
   onNext,
-  onBack,
   selectedCompanyId,
 }: AdjustEliminationsProps) {
   return (
@@ -131,9 +129,6 @@ export function AdjustEliminations({
               elimination rules and review transactions.
             </p>
             <div className="flex gap-3 justify-center">
-              <Button variant="outline" onClick={onBack}>
-                Back
-              </Button>
               <Button onClick={onNext}>Continue to Step 4</Button>
             </div>
           </div>

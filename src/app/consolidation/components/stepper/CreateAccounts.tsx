@@ -29,16 +29,14 @@ import {
   useSaveMappings,
 } from "@/hooks/query-hooks/useConsolidationApi";
 import { useSelector } from "react-redux";
-import { ConsolidationFooter } from "../ConsolidationFooter";
 
 interface CreateAccountsProps {
   onNext: () => void;
-  onBack?: () => void;
   selectedCompanyId: string;
 }
 
 export interface CreateAccountsRef {
-  handleSaveAndNext: () => Promise<boolean>;
+  handleSave: () => Promise<boolean>;
   isLoading: boolean;
   saveLoading: boolean;
 }
@@ -129,8 +127,8 @@ function AccountCardRecursive({
       }}
       className={
         isTopLevel
-          ? "bg-white border-gray-200 rounded-sm text-sm shadow-sm border mb-2 w-full min-w-[260px] max-w-md cursor-pointer hover:bg-gray-50"
-          : "border-t border-gray-200 w-full cursor-pointer hover:bg-gray-50"
+          ? "bg-white border-[#EFF1F5] rounded-xl text-sm shadow-sm border mb-2 w-full min-w-[260px] max-w-md cursor-pointer"
+          : "border-t border-[#EFF1F5] w-full cursor-pointer"
       }
       onClick={handleClick}
     >
@@ -212,7 +210,7 @@ function AccountCardRecursive({
 export const CreateAccounts = forwardRef<
   CreateAccountsRef,
   CreateAccountsProps
->(({ onNext, onBack, selectedCompanyId }, ref) => {
+>(({ onNext, selectedCompanyId }, ref) => {
   const saveMapping = useSaveMappings();
   const [selectedTab, setSelectedTab] = useState<string>(REPORT_TYPES[0].value);
   const [mappingData, setMappingData] = useState<Mapping>({});
@@ -257,28 +255,31 @@ export const CreateAccounts = forwardRef<
   };
 
   // Handle report type change with silent save
-  const handleReportTypeChange = async (newReportType: string) => {
-    // Save current mapping silently before switching
+  const handleReportTypeChange = (newReportType: string) => {
+    // Change report type immediately
+    setSelectedTab(newReportType);
+
+    // Save current mapping silently in background
     const payload = {
       realm_id: selectedCompanyId,
       report_type: selectedTab,
       mapping: localMapping,
     };
 
-    try {
-      await saveMapping.mutateAsync(payload);
-      console.log("Mapping saved silently before report type change");
-    } catch (error) {
-      console.error("Error saving mapping before report type change:", error);
-    }
-
-    setSelectedTab(newReportType);
+    saveMapping.mutate(payload, {
+      onSuccess: () => {
+        console.log("Mapping saved silently before report type change");
+      },
+      onError: (error) => {
+        console.error("Error saving mapping before report type change:", error);
+      },
+    });
   };
   // Expose save functionality and loading state to parent component
   useImperativeHandle(
     ref,
     () => ({
-      handleSaveAndNext: async () => {
+      handleSave: async () => {
         return new Promise((resolve) => {
           const payload = {
             realm_id: selectedCompanyId,
@@ -288,8 +289,7 @@ export const CreateAccounts = forwardRef<
 
           saveMapping.mutate(payload, {
             onSuccess: () => {
-              // Navigate to next step on successful save
-              onNext();
+              // Don't navigate to next step, just save
               resolve(true);
             },
             onError: (error) => {
@@ -302,7 +302,7 @@ export const CreateAccounts = forwardRef<
       isLoading: saveMapping.isPending,
       saveLoading: saveMapping.isPending,
     }),
-    [selectedCompanyId, selectedTab, localMapping, saveMapping, onNext]
+    [selectedCompanyId, selectedTab, localMapping, saveMapping]
   );
 
   // Add new root account
@@ -453,8 +453,8 @@ export const CreateAccounts = forwardRef<
   return (
     <>
       <div className="px-10 pt-8 bg-white shrink-0">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
-          <div className="flex flex-col flex-1 max-w-[220px]">
+        <div className="flex-wrap bg-white border border-gray-200 rounded-2xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
+          <div className="flex flex-col flex-1 max-w-56">
             <Label
               className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
               htmlFor="consolidation-name"
@@ -468,7 +468,7 @@ export const CreateAccounts = forwardRef<
               className="text-sm text-gray-700 placeholder-gray-400 bg-white"
             />
           </div>
-          <div className="flex flex-col min-w-[180px]">
+          <div className="flex flex-col min-w-56">
             <Label
               className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
               htmlFor="report-type"
@@ -476,7 +476,7 @@ export const CreateAccounts = forwardRef<
               REPORT TYPE
             </Label>
             <Select value={selectedTab} onValueChange={handleReportTypeChange}>
-              <SelectTrigger className="text-sm bg-white">
+              <SelectTrigger className="text-sm min-w-full bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -502,7 +502,7 @@ export const CreateAccounts = forwardRef<
               {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
                 <div
                   key={col.key}
-                  className="min-w-[260px] max-w-xs bg-white flex flex-col h-full"
+                  className="min-w-[260px] max-w-xs bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full"
                 >
                   {/* Fixed Header */}
                   <div className="px-4 pt-4 pb-2 shrink-0">
@@ -562,18 +562,6 @@ export const CreateAccounts = forwardRef<
           )}
         </div>
       </div>
-      <ConsolidationFooter
-        onBack={onBack}
-        onNext={async () => {
-          if (ref && typeof ref === "object" && ref.current) {
-            const success = await ref.current.handleSaveAndNext();
-            if (success) {
-              onNext();
-            }
-          }
-        }}
-        isLoading={saveMapping.isPending}
-      />
     </>
   );
 });

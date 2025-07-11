@@ -83,7 +83,7 @@ export function Sidebar() {
   const selectedCompany = store.getState().user.selectedCompany;
 
   return (
-    <aside className="w-60 bg-white border-r flex flex-col justify-between py-6 px-4">
+    <aside className="w-56 bg-white border-r flex flex-col justify-between py-6 px-4">
       <div>
         <div className="flex items-center mb-10">
           <div className="w-8 h-8 bg-muted rounded flex items-center justify-center mr-2">

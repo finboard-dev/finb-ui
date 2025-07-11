@@ -695,14 +695,31 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                 {multiEntityCompanies.map((company) => {
                   const isActive = company.status === CompanyStatus.ACTIVE;
                   const isSelected = company.id === selectedCompany?.id;
+                  const isSwitching = switchingCompanyId === company.id;
                   return (
                     <div
                       key={company.id}
                       className={`flex items-center justify-between p-2.5 rounded-md transition-colors ${
-                        isSelected ? "bg-gray-100" : "opacity-60"
+                        isSelected
+                          ? "bg-gray-100"
+                          : isActive
+                          ? "hover:bg-gray-50"
+                          : ""
                       }`}
                     >
-                      <div className="flex items-center gap-2 flex-1 cursor-not-allowed">
+                      <div
+                        className={`flex items-center gap-2 flex-1 ${
+                          isActive && !isSwitching
+                            ? "cursor-pointer"
+                            : "cursor-not-allowed"
+                        }`}
+                        onClick={() =>
+                          isActive &&
+                          !isSelected &&
+                          !isSwitching &&
+                          handleCompanySelect(selectedOrganization, company)
+                        }
+                      >
                         <span
                           className={`h-2.5 w-2.5 rounded-full ${
                             isActive ? "bg-green-500" : "bg-red-500"
@@ -717,6 +734,9 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
                         >
                           {company.name}
                         </span>
+                        {isSwitching && (
+                          <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-2" />
+                        )}
                       </div>
                       <button
                         onClick={(e) => {

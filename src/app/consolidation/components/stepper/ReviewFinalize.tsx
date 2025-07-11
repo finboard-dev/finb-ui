@@ -6,14 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, FileText } from "lucide-react";
 
 interface ReviewFinalizeProps {
-  onBack: () => void;
   selectedCompanyId: string;
 }
 
-export function ReviewFinalize({
-  onBack,
-  selectedCompanyId,
-}: ReviewFinalizeProps) {
+export function ReviewFinalize({ selectedCompanyId }: ReviewFinalizeProps) {
   return (
     <>
       <div className="px-10 pt-8 bg-white shrink-0">
@@ -125,9 +121,6 @@ export function ReviewFinalize({
               statements before finalizing.
             </p>
             <div className="flex gap-3 justify-center">
-              <Button variant="outline" onClick={onBack}>
-                Back
-              </Button>
               <Button className="bg-[#1E925A] hover:bg-[#167a4a]">
                 Generate Report
               </Button>
