@@ -1,5 +1,11 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   Select,
   SelectTrigger,
@@ -46,6 +52,7 @@ export type ChartOfAccountsResponse = {
 interface LinkAccountsProps {
   onNext: () => void;
   selectedCompanyId: string;
+  onAutoSaveStateChange?: (isAutoSaving: boolean) => void;
 }
 
 // Helper to render account path with correct styles
@@ -210,7 +217,11 @@ function flattenMappingTree(
   return rows;
 }
 
-export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
+export function LinkAccounts({
+  onNext,
+  selectedCompanyId,
+  onAutoSaveStateChange,
+}: LinkAccountsProps) {
   const [reportType, setReportType] = useState(REPORT_TYPES[0].value);
   const [company, setCompany] = useState("");
   const [searchName, setSearchName] = useState("");
@@ -222,6 +233,12 @@ export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
     [rowId: string]: boolean;
   }>({});
   const [showOnlyUnmapped, setShowOnlyUnmapped] = useState(false);
+  const isInitialLoad = useRef(true);
+  const hasUserChanges = useRef(false);
+  const prevMappedSelections = useRef<{ [rowId: string]: string }>({});
+  const prevEliminationStates = useRef<{ [rowId: string]: boolean }>({});
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   const companiesData = store?.getState()?.user?.companies;
   const { data: accountsData, isLoading: accountsLoading } =
@@ -378,6 +395,8 @@ export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
 
     if (hasChanges) {
       setMappedSelections(currentMappedSelections);
+      isInitialLoad.current = true;
+      hasUserChanges.current = false;
     }
   }, [mappingData, rows, selectedCompanyId, mappedSelections]);
 
@@ -394,6 +413,7 @@ export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
       console.log("New elimination states:", newState);
       return newState;
     });
+    hasUserChanges.current = true;
   }, []);
 
   const handleCheckboxChange = useCallback((id: string, value: boolean) => {
@@ -418,6 +438,7 @@ export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
       } else {
         setMappedSelections((prev) => ({ ...prev, [rowId]: mappedId }));
       }
+      hasUserChanges.current = true;
     },
     []
   );
@@ -517,36 +538,86 @@ export function LinkAccounts({ onNext, selectedCompanyId }: LinkAccountsProps) {
     accountsData,
   ]);
 
-  // Silent save function
-  const silentSave = useCallback(() => {
-    const payload = createSavePayload();
-    saveMapping.mutate(payload);
-  }, [createSavePayload, saveMapping]);
+  // Auto-save whenever payload changes (but not on initial load)
+  useEffect(() => {
+    // Skip if initial load
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      prevMappedSelections.current = { ...mappedSelections };
+      prevEliminationStates.current = { ...eliminationStates };
+      return;
+    }
 
-  // Handlers with silent save
-  const handleReportTypeChange = useCallback(
-    (newReportType: string) => {
-      silentSave();
-      setReportType(newReportType);
-    },
-    [silentSave]
-  );
+    // Skip if no user changes
+    if (!hasUserChanges.current) {
+      return;
+    }
 
-  const handleAccountTypeChange = useCallback(
-    (newAccountType: string) => {
-      silentSave();
-      setAccountType(newAccountType);
-    },
-    [silentSave]
-  );
+    // Check if there are actual changes
+    const mappedSelectionsChanged =
+      JSON.stringify(mappedSelections) !==
+      JSON.stringify(prevMappedSelections.current);
+    const eliminationStatesChanged =
+      JSON.stringify(eliminationStates) !==
+      JSON.stringify(prevEliminationStates.current);
 
-  const handleCompanyChange = useCallback(
-    (newCompany: string) => {
-      silentSave();
-      setCompany(newCompany);
-    },
-    [silentSave]
-  );
+    if (!mappedSelectionsChanged && !eliminationStatesChanged) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce the save to prevent rapid API calls
+    saveTimeoutRef.current = setTimeout(() => {
+      if (
+        Object.keys(mappedSelections).length > 0 ||
+        Object.keys(eliminationStates).length > 0
+      ) {
+        setIsAutoSaving(true);
+        onAutoSaveStateChange?.(true);
+
+        const payload = createSavePayload();
+        saveMapping.mutate(payload, {
+          onSuccess: () => {
+            console.log("Link accounts auto-saved successfully");
+            // Update previous values after successful save
+            prevMappedSelections.current = { ...mappedSelections };
+            prevEliminationStates.current = { ...eliminationStates };
+            hasUserChanges.current = false;
+            setIsAutoSaving(false);
+            onAutoSaveStateChange?.(false);
+          },
+          onError: (error) => {
+            console.error("Error auto-saving link accounts:", error);
+            setIsAutoSaving(false);
+            onAutoSaveStateChange?.(false);
+          },
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [mappedSelections, eliminationStates, onAutoSaveStateChange]);
+
+  // Handlers without silent save
+  const handleReportTypeChange = useCallback((newReportType: string) => {
+    setReportType(newReportType);
+  }, []);
+
+  const handleAccountTypeChange = useCallback((newAccountType: string) => {
+    setAccountType(newAccountType);
+  }, []);
+
+  const handleCompanyChange = useCallback((newCompany: string) => {
+    setCompany(newCompany);
+  }, []);
 
   const handleSaveAndNext = useCallback(async () => {
     try {

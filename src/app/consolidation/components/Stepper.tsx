@@ -2,16 +2,16 @@ import { Button } from "@/components/ui/button";
 import React, { useRef, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
-const FolderIcon = ({ isLoading }: { isLoading: boolean }) => {
+const FolderIcon = ({ isAutoSaving }: { isAutoSaving: boolean }) => {
   return (
     <>
-      {isLoading ? (
+      {isAutoSaving ? (
         <svg
           width="24"
           height="24"
           viewBox="0 0 512 512"
           preserveAspectRatio="xMidYMid meet"
-          className="animate-pulse"
+          className={`${isAutoSaving && "animate-pulse"}`}
         >
           <g
             transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
@@ -59,6 +59,7 @@ interface StepperProps {
   onSave: () => Promise<void>;
   isSaving?: boolean;
   isSaved?: boolean;
+  isAutoSaving?: boolean;
 }
 
 const steps = ["Create Accounts", "Link Accounts", "Review & Finalize"];
@@ -69,6 +70,7 @@ export const Stepper: React.FC<StepperProps> = ({
   onSave,
   isSaving = false,
   isSaved = false,
+  isAutoSaving = false,
 }) => {
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
   const labelRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -110,7 +112,7 @@ export const Stepper: React.FC<StepperProps> = ({
         </div>
       </div>
       <div className="flex gap-5 justify-center items-center">
-        <FolderIcon isLoading={isSaving} />
+        <FolderIcon isAutoSaving={isAutoSaving} />
         <Button
           variant="default"
           size={"default"}

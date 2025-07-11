@@ -1,15 +1,17 @@
 import React from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ConsolidationHeaderProps {
   title?: string;
-  onBack?: () => void;
+  collpaseSidebar?: () => void;
+  isCollapsed?: boolean;
 }
 
 export const ConsolidationHeader: React.FC<ConsolidationHeaderProps> = ({
   title = "Mapping",
-  onBack,
+  collpaseSidebar,
+  isCollapsed = false,
 }) => (
   <header className="flex items-center justify-between px-10 py-3 border-b bg-white shrink-0">
     <div className="flex items-center gap-4">
@@ -17,7 +19,7 @@ export const ConsolidationHeader: React.FC<ConsolidationHeaderProps> = ({
         variant="ghost"
         size="icon"
         className="text-sec hover:text-gray-700"
-        onClick={onBack}
+        onClick={collpaseSidebar}
       >
         <svg
           width="16"

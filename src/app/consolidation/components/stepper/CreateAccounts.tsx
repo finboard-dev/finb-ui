@@ -33,6 +33,7 @@ import { useSelector } from "react-redux";
 interface CreateAccountsProps {
   onNext: () => void;
   selectedCompanyId: string;
+  onAutoSaveStateChange?: (isAutoSaving: boolean) => void;
 }
 
 export interface CreateAccountsRef {
@@ -210,13 +211,18 @@ function AccountCardRecursive({
 export const CreateAccounts = forwardRef<
   CreateAccountsRef,
   CreateAccountsProps
->(({ onNext, selectedCompanyId }, ref) => {
+>(({ onNext, selectedCompanyId, onAutoSaveStateChange }, ref) => {
   const saveMapping = useSaveMappings();
   const [selectedTab, setSelectedTab] = useState<string>(REPORT_TYPES[0].value);
   const [mappingData, setMappingData] = useState<Mapping>({});
   const [localMapping, setLocalMapping] = useState<Mapping>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const scrollToRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const isInitialLoad = useRef(true);
+  const hasUserChanges = useRef(false);
+  const prevLocalMapping = useRef<Mapping>({});
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   const { data, isLoading, isError } = useMappingForAccountByType(
     selectedCompanyId,
@@ -227,6 +233,8 @@ export const CreateAccounts = forwardRef<
     if (data?.data?.mapping) {
       setMappingData(data.data.mapping);
       setLocalMapping(data.data.mapping);
+      isInitialLoad.current = true;
+      hasUserChanges.current = false;
     }
   }, [data]);
 
@@ -258,23 +266,72 @@ export const CreateAccounts = forwardRef<
   const handleReportTypeChange = (newReportType: string) => {
     // Change report type immediately
     setSelectedTab(newReportType);
-
-    // Save current mapping silently in background
-    const payload = {
-      realm_id: selectedCompanyId,
-      report_type: selectedTab,
-      mapping: localMapping,
-    };
-
-    saveMapping.mutate(payload, {
-      onSuccess: () => {
-        console.log("Mapping saved silently before report type change");
-      },
-      onError: (error) => {
-        console.error("Error saving mapping before report type change:", error);
-      },
-    });
   };
+
+  // Auto-save whenever localMapping changes (but not on initial load)
+  useEffect(() => {
+    // Skip if initial load
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      prevLocalMapping.current = JSON.parse(JSON.stringify(localMapping));
+      return;
+    }
+
+    // Skip if no user changes
+    if (!hasUserChanges.current) {
+      return;
+    }
+
+    // Check if there are actual changes
+    const localMappingChanged =
+      JSON.stringify(localMapping) !== JSON.stringify(prevLocalMapping.current);
+
+    if (!localMappingChanged) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce the save to prevent rapid API calls
+    saveTimeoutRef.current = setTimeout(() => {
+      if (Object.keys(localMapping).length > 0) {
+        setIsAutoSaving(true);
+        onAutoSaveStateChange?.(true);
+
+        const payload = {
+          realm_id: selectedCompanyId,
+          report_type: selectedTab,
+          mapping: localMapping,
+        };
+
+        saveMapping.mutate(payload, {
+          onSuccess: () => {
+            console.log("Mapping auto-saved successfully");
+            // Update previous values after successful save
+            prevLocalMapping.current = JSON.parse(JSON.stringify(localMapping));
+            hasUserChanges.current = false;
+            setIsAutoSaving(false);
+            onAutoSaveStateChange?.(false);
+          },
+          onError: (error) => {
+            console.error("Error auto-saving mapping:", error);
+            setIsAutoSaving(false);
+            onAutoSaveStateChange?.(false);
+          },
+        });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [localMapping, selectedCompanyId, selectedTab, onAutoSaveStateChange]);
+
   // Expose save functionality and loading state to parent component
   useImperativeHandle(
     ref,
@@ -322,6 +379,7 @@ export const CreateAccounts = forwardRef<
       };
     });
     setEditingId(newAccountId);
+    hasUserChanges.current = true;
 
     // Scroll to the new account after a short delay to ensure DOM is updated
     setTimeout(() => {
@@ -351,6 +409,7 @@ export const CreateAccounts = forwardRef<
           if (newAccountId) {
             setLocalMapping((prev) => ({ ...prev }));
             setEditingId(newAccountId);
+            hasUserChanges.current = true;
 
             // Scroll to the new account after a short delay
             setTimeout(() => {
@@ -374,6 +433,7 @@ export const CreateAccounts = forwardRef<
       setLocalMapping((prev) => ({ ...prev, [colKey]: updated }));
       if (newAccountId) {
         setEditingId(newAccountId);
+        hasUserChanges.current = true;
 
         // Scroll to the new account after a short delay
         setTimeout(() => {
@@ -431,6 +491,7 @@ export const CreateAccounts = forwardRef<
       }
       return updated;
     });
+    hasUserChanges.current = true;
   };
 
   // Delete account (and its children)
@@ -448,6 +509,7 @@ export const CreateAccounts = forwardRef<
       }
       return updated;
     });
+    hasUserChanges.current = true;
   };
 
   return (

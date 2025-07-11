@@ -22,6 +22,8 @@ export default function ConsolidationPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const createAccountsRef = useRef<CreateAccountsRef>(null);
 
   const selectedCompanyId = useSelector(
@@ -70,6 +72,10 @@ export default function ConsolidationPage() {
     }
   };
 
+  const handleSidebarToggle = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 0:
@@ -78,6 +84,7 @@ export default function ConsolidationPage() {
             ref={createAccountsRef}
             onNext={() => setCurrentStep(1)}
             selectedCompanyId={selectedCompanyId}
+            onAutoSaveStateChange={setIsAutoSaving}
           />
         );
       case 1:
@@ -85,6 +92,7 @@ export default function ConsolidationPage() {
           <LinkAccounts
             onNext={() => setCurrentStep(2)}
             selectedCompanyId={selectedCompanyId}
+            onAutoSaveStateChange={setIsAutoSaving}
           />
         );
       case 2:
@@ -104,15 +112,19 @@ export default function ConsolidationPage() {
   return (
     <>
       <div className="flex bg-white h-screen  overflow-hidden">
-        <Sidebar />
+        <Sidebar isCollapsed={isSidebarCollapsed} />
         <ConsolidationMain>
-          <ConsolidationHeader onBack={() => window.history.back()} />
+          <ConsolidationHeader
+            collpaseSidebar={handleSidebarToggle}
+            isCollapsed={isSidebarCollapsed}
+          />
           <Stepper
             currentStep={currentStep}
             onStepChange={handleStepChange}
             onSave={handleSave}
             isSaving={isSaving}
             isSaved={isSaved}
+            isAutoSaving={isAutoSaving}
           />
           {renderCurrentStep()}
         </ConsolidationMain>
