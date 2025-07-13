@@ -21,7 +21,7 @@ import {
 } from "../../types/consolidationUiMapping";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, SearchIcon } from "lucide-react";
 import {
   useChartOfAccounts,
   useMappingForAccountByType,
@@ -344,24 +344,6 @@ export function LinkAccounts({
     eliminationStates,
   ]);
 
-  // Memoized mapping options
-  const mappingOptions = useMemo(() => {
-    if (!mappingData?.data?.mapping) return [];
-
-    if (accountType !== "none") {
-      return flattenMappingTree(mappingData.data.mapping[accountType] || []);
-    } else {
-      const typeOptions = REPORT_TYPE_COLUMNS[reportType] || [];
-      let allOptions: { id: string; name: string }[] = [];
-      for (const typeOpt of typeOptions) {
-        allOptions = allOptions.concat(
-          flattenMappingTree(mappingData.data.mapping[typeOpt.key] || [])
-        );
-      }
-      return allOptions;
-    }
-  }, [mappingData, accountType, reportType]);
-
   // Apply mappings from API data
   useEffect(() => {
     if (!mappingData?.data?.mapping || rows.length === 0) return;
@@ -412,10 +394,8 @@ export function LinkAccounts({
 
   // Handlers
   const handleEliminateChange = useCallback((id: string, value: boolean) => {
-    console.log("Eliminate change:", id, value);
     setEliminationStates((prev) => {
       const newState = { ...prev, [id]: value };
-      console.log("New elimination states:", newState);
       return newState;
     });
     hasUserChanges.current = true;
@@ -589,8 +569,6 @@ export function LinkAccounts({
         const payload = createSavePayload();
         saveMapping.mutate(payload, {
           onSuccess: () => {
-            console.log("Link accounts auto-saved successfully");
-            // Update previous values after successful save
             prevMappedSelections.current = { ...mappedSelections };
             prevEliminationStates.current = { ...eliminationStates };
             hasUserChanges.current = false;
@@ -625,17 +603,6 @@ export function LinkAccounts({
   const handleCompanyChange = useCallback((newCompany: string) => {
     setCompany(newCompany);
   }, []);
-
-  const handleSaveAndNext = useCallback(async () => {
-    try {
-      const payload = createSavePayload();
-      await saveMapping.mutateAsync(payload);
-      onNext();
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }, [createSavePayload, saveMapping, onNext]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -804,28 +771,37 @@ export function LinkAccounts({
                     ),
                   },
                   {
-                    label: "Account Name",
+                    label: "Search by Name",
                     className:
                       "text-left border-l px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
                     showSort: true,
+                    icon: <SearchIcon className="w-4 h-4 text-sec" />,
                   },
                   {
                     label: "Type",
                     className:
                       "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
                     showSort: true,
+                    icon: <ChevronDown className="w-4 h-4 text-sec" />,
                   },
                   {
                     label: "Company",
                     className:
                       "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
                     showSort: true,
+                    icon: <ChevronDown className="w-4 h-4 text-sec" />,
                   },
                   {
                     label: "Mapped To",
                     className:
                       "text-left px-4 py-3 border-b border-[#EFF1F5] border-l border-r font-normal text-sec text-sm",
                     showSort: true,
+                    icon: (
+                      <div className="flex flex-col">
+                        <ChevronUp className="w-3 h-3 text-sec -mb-1" />
+                        <ChevronDown className="w-3 h-3 text-sec" />
+                      </div>
+                    ),
                   },
                   {
                     label: "Eliminate",
@@ -842,12 +818,13 @@ export function LinkAccounts({
                         } gap-2`}
                       >
                         {column.label}
-                        {column.showSort && (
+                        {column.icon && column.icon}
+                        {/* {column.showSort && (
                           <div className="flex flex-col">
                             <ChevronUp className="w-3 h-3 text-sec -mb-1" />
                             <ChevronDown className="w-3 h-3 text-sec" />
                           </div>
-                        )}
+                        )} */}
                       </div>
                     )}
                   </th>
@@ -989,7 +966,6 @@ export function LinkAccounts({
                                   : row.eliminate
                               }
                               onCheckedChange={(checked) => {
-                                console.log("Switch clicked:", row.id, checked);
                                 handleEliminateChange(row.id, checked);
                               }}
                               disabled={!mappedSelections[row.id]}

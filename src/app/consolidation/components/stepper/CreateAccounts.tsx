@@ -238,30 +238,6 @@ export const CreateAccounts = forwardRef<
     }
   }, [data]);
 
-  // Function to save current mapping
-  const saveCurrentMapping = async (reportType: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const payload = {
-        realm_id: selectedCompanyId,
-        report_type: reportType,
-        mapping: localMapping,
-      };
-
-      saveMapping.mutate(payload, {
-        onSuccess: () => {
-          console.log(
-            `Mapping saved successfully for report type: ${reportType}`
-          );
-          resolve(true);
-        },
-        onError: (error) => {
-          console.error("Error saving mapping:", error);
-          resolve(false);
-        },
-      });
-    });
-  };
-
   // Handle report type change with silent save
   const handleReportTypeChange = (newReportType: string) => {
     // Change report type immediately

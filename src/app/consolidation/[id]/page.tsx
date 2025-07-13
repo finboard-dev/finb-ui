@@ -96,14 +96,14 @@ export default function ConsolidationPage() {
           />
         );
       case 2:
+        return <ReviewFinalize selectedCompanyId={selectedCompanyId} />;
+      case 3:
         return (
           <AdjustEliminations
-            onNext={() => setCurrentStep(3)}
+            onNext={() => setCurrentStep(4)}
             selectedCompanyId={selectedCompanyId}
           />
         );
-      case 3:
-        return <ReviewFinalize selectedCompanyId={selectedCompanyId} />;
       default:
         return null;
     }
