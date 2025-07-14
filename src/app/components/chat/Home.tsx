@@ -12,6 +12,7 @@ import ChatContainer from "./layout/ChatContainer";
 import NoChatBranding from "./chat-container/NoChatBranding";
 import ResponsePanel from "./layout/Responsepanel";
 import ChatSidebar from "./layout/ChatSidebar";
+import Navbar from "@/components/ui/navbar";
 
 import {
   setResponsePanelWidth,
@@ -240,66 +241,72 @@ const Home: FC = () => {
       <ToolCallEventListener />
       <ChatSidebar />
       <div
-        className="flex flex-1 w-full h-full flex-row"
+        className="flex flex-1 w-full h-full flex-col"
         style={{ minWidth: 0 }}
       >
-        {" "}
-        {/* Added minWidth: 0 */}
-        {activeChatId ? (
-          !showChat && pendingChat && pendingChat.id === activeChatId ? (
-            <NoChatBranding />
-          ) : (
-            <PanelGroup
-              direction="horizontal"
-              onLayout={handlePanelResize}
-              className="flex-1"
-              style={{ minWidth: 0 }} // Added this
-            >
-              <Panel
-                className="overflow-hidden min-w-0"
-                defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
+        <Navbar />
+        <div
+          className="flex flex-1 w-full flex-row overflow-hidden"
+          style={{ minWidth: 0 }}
+        >
+          {" "}
+          {/* Added minWidth: 0 */}
+          {activeChatId ? (
+            !showChat && pendingChat && pendingChat.id === activeChatId ? (
+              <NoChatBranding />
+            ) : (
+              <PanelGroup
+                direction="horizontal"
+                onLayout={handlePanelResize}
+                className="flex-1"
+                style={{ minWidth: 0 }} // Added this
               >
-                {activeChat?.thread_id ? (
-                  <ChatConversationLoader
-                    threadId={activeChat.thread_id}
-                    chatId={activeChat.id}
-                    hasExistingMessages={shouldLoadConversation}
-                  >
+                <Panel
+                  className="overflow-hidden min-w-0"
+                  defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
+                >
+                  {activeChat?.thread_id ? (
+                    <ChatConversationLoader
+                      threadId={activeChat.thread_id}
+                      chatId={activeChat.id}
+                      hasExistingMessages={shouldLoadConversation}
+                    >
+                      <ChatContainer />
+                    </ChatConversationLoader>
+                  ) : (
                     <ChatContainer />
-                  </ChatConversationLoader>
-                ) : (
-                  <ChatContainer />
+                  )}
+                </Panel>
+                {isPanelVisible && (
+                  <>
+                    <PanelResizeHandle className="w-[0.1px] bg-gray-200 z-50 transition-colors group relative">
+                      <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
+                    </PanelResizeHandle>
+                    <Panel
+                      ref={responsePanelRef}
+                      defaultSize={responsePanelWidth}
+                      minSize={35}
+                      maxSize={60}
+                      className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
+                      style={{
+                        overflowX: "hidden",
+                        minWidth: 0,
+                        maxWidth: "60%",
+                      }}
+                    >
+                      <ResponsePanel
+                        activeMessageId={activeMessageId as any}
+                        isOpen={isPanelVisible}
+                      />
+                    </Panel>
+                  </>
                 )}
-              </Panel>
-              {isPanelVisible && (
-                <>
-                  <PanelResizeHandle className="w-[0.1px] bg-gray-200 z-50 transition-colors group relative">
-                    <div className="absolute hover:bg-slate-900 bg-inherit top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-6 rounded-full" />
-                  </PanelResizeHandle>
-                  <Panel
-                    ref={responsePanelRef}
-                    defaultSize={responsePanelWidth}
-                    minSize={35}
-                    maxSize={60}
-                    className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
-                    style={{
-                      overflowX: "hidden",
-                      minWidth: 0,
-                      maxWidth: "60%",
-                    }}
-                  >
-                    <ResponsePanel
-                      activeMessageId={activeMessageId as any}
-                      isOpen={isPanelVisible}
-                    />
-                  </Panel>
-                </>
-              )}
-            </PanelGroup>
-          )
-        ) : (
-          <NoChatBranding />
-        )}
+              </PanelGroup>
+            )
+          ) : (
+            <NoChatBranding />
+          )}
+        </div>
       </div>
 
       {/* Company Modal - rendered independently */}

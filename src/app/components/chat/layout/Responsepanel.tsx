@@ -793,7 +793,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     borderRadius: "8px",
                     padding: "16px",
                     width: "100%",
-                    height: "600px",
+                    height: "550px",
                   }}
                 />
               </div>
@@ -1140,7 +1140,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           </Button>
         </div>
         <div className="flex bg-[#F3F4F6] rounded-lg p-0.5">
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             onClick={() => setMainTab("Output")}
@@ -1163,7 +1163,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             }`}
           >
             History
-          </Button>
+          </Button> */}
         </div>
       </div>
 

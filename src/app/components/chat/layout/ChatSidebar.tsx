@@ -357,7 +357,7 @@ const ChatSidebarClient = () => {
           </Button>
         )}
       </div>
-      <div className="p-4 border-b border-gray-200 relative">
+      {/* <div className="p-4 border-b border-gray-200 relative">
         {isSidebarOpen ? (
           <Button
             variant="outline"
@@ -389,7 +389,7 @@ const ChatSidebarClient = () => {
             <UserRoundCheck className="h-4 w-4 text-text-primary" />
           </Button>
         )}
-      </div>
+      </div> */}
 
       <div className="p-4 border-b border-gray-200">
         {isSidebarOpen ? (
@@ -521,7 +521,7 @@ const ChatSidebarClient = () => {
         )}
       </div>
 
-      <div className="mt-auto">
+      {/* <div className="mt-auto">
         <div
           className={`p-3 ${isSidebarOpen ? "border-t border-gray-100" : ""}`}
         >
@@ -573,7 +573,7 @@ const ChatSidebarClient = () => {
             )}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Organization Dropdown - positioned absolutely when open */}
       {isOrgDropdownOpen && isSidebarOpen && (
