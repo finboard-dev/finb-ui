@@ -902,7 +902,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
               : isSidebarOpen
               ? "17rem"
               : "5rem",
-            top: "4rem",
+            top: "5rem",
             margin: 0,
             transform: "none",
           }}

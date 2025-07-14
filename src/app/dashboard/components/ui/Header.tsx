@@ -11,6 +11,8 @@ import {
   SaveIcon,
   CheckIcon,
   Loader2Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRef, useState, useEffect } from "react";
 
 interface DashboardSpecificHeaderProps {
   isEditing: boolean;
@@ -44,6 +47,44 @@ export default function DashboardSpecificHeader({
   loadedTabs = new Set(),
   currentTabLoading = false,
 }: DashboardSpecificHeaderProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = () => {
+    if (!scrollContainerRef.current) return;
+
+    const container = scrollContainerRef.current;
+    setCanScrollLeft(container.scrollLeft > 0);
+    setCanScrollRight(
+      container.scrollLeft < container.scrollWidth - container.clientWidth - 1
+    );
+  };
+
+  useEffect(() => {
+    updateScrollButtons();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", updateScrollButtons);
+      return () => container.removeEventListener("scroll", updateScrollButtons);
+    }
+  }, [tabs]);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -200, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 200, behavior: "smooth" });
+    }
+  };
+
+  // Calculate if we need scroll buttons
+  const needsScrolling = tabs.length > 3;
+
   return (
     <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-20 h-[65px] flex-shrink-0">
       <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -53,44 +94,86 @@ export default function DashboardSpecificHeader({
         >
           {currentDashboardName}
         </h1>
-        <Tabs
-          value={activeTab ?? ""}
-          onValueChange={onTabChange}
-          className="w-auto ml-4"
-        >
-          <TabsList className="bg-gray-100 p-1 h-auto rounded-lg">
-            {tabs.map((tab) => {
-              const isLoaded = loadedTabs.has(tab.id);
-              const isLoading = activeTab === tab.id && currentTabLoading;
 
-              return (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 text-gray-600 rounded-md relative"
-                  disabled={isLoading}
+        <div className="flex items-center ml-4 flex-1 min-w-0">
+          {needsScrolling && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`p-1 h-8 w-8 rounded-full hover:bg-gray-100 ${
+                !canScrollLeft ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              onClick={scrollLeft}
+              disabled={!canScrollLeft}
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </Button>
+          )}
+
+          <div className="flex-1 mx-1 rounded-lg max-w-[280px]">
+            <Tabs
+              value={activeTab ?? ""}
+              onValueChange={onTabChange}
+              className="w-full"
+            >
+              <div className="relative">
+                <div
+                  ref={scrollContainerRef}
+                  className="overflow-x-auto scrollbar-hide"
+                  style={{
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}
                 >
-                  {isLoading && (
-                    <Loader2Icon className="w-3 h-3 mr-1 animate-spin" />
-                  )}
-                  {/* {isLoaded && !isLoading && (
-                    <CheckIcon className="w-3 h-3 mr-1 text-green-500" />
-                  )} */}
-                  {tab.label}
-                </TabsTrigger>
-              );
-            })}
-            {!isViewOnly && (
-              <TabsTrigger
-                value="add-new-tab"
-                className="px-2 sm:px-2.5 py-1.5 text-gray-500 hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 rounded-md"
-                disabled // Disabled for now as functionality is not defined
-              >
-                <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </TabsTrigger>
-            )}
-          </TabsList>
-        </Tabs>
+                  <TabsList className="bg-gray-100 p-1 h-auto rounded-lg inline-flex min-w-full">
+                    {tabs.map((tab) => {
+                      const isLoaded = loadedTabs.has(tab.id);
+                      const isLoading =
+                        activeTab === tab.id && currentTabLoading;
+
+                      return (
+                        <TabsTrigger
+                          key={tab.id}
+                          value={tab.id}
+                          className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 text-gray-600 rounded-md relative whitespace-nowrap flex-shrink-0 min-w-[100px]"
+                          disabled={isLoading}
+                        >
+                          {isLoading && (
+                            <Loader2Icon className="w-3 h-3 mr-1 animate-spin" />
+                          )}
+                          {tab.label}
+                        </TabsTrigger>
+                      );
+                    })}
+                    {!isViewOnly && (
+                      <TabsTrigger
+                        value="add-new-tab"
+                        className="px-2 sm:px-2.5 py-1.5 text-gray-500 hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 rounded-md flex-shrink-0"
+                        disabled // Disabled for now as functionality is not defined
+                      >
+                        <PlusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                </div>
+              </div>
+            </Tabs>
+          </div>
+
+          {needsScrolling && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`p-1 h-8 w-8 rounded-full hover:bg-gray-100 ${
+                !canScrollRight ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              onClick={scrollRight}
+              disabled={!canScrollRight}
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
@@ -156,6 +239,12 @@ export default function DashboardSpecificHeader({
           </>
         )}
       </div>
+
+      <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

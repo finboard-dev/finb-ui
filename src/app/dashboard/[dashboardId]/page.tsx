@@ -61,6 +61,7 @@ export default function DashboardPage() {
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
   const [viewBlocks, setViewBlocks] = useState<Block[]>([]);
+  const [apiComponents, setApiComponents] = useState<Block[]>([]);
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(
     null
   );
@@ -255,7 +256,7 @@ export default function DashboardPage() {
               className="flex-grow h-full"
               dashboardItems={dashboardItems}
               setDashboardItems={setDashboardItems}
-              blocks={viewBlocks}
+              blocks={[...viewBlocks, ...apiComponents]}
               draggingBlock={draggingBlock}
               isEditing={isEditing}
             />
@@ -264,6 +265,7 @@ export default function DashboardPage() {
                 blocks={viewBlocks}
                 setBlocks={() => {}}
                 onDragStart={setDraggingBlock}
+                onApiComponentsLoaded={setApiComponents}
               />
             )}
           </main>

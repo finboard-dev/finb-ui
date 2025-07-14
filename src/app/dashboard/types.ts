@@ -32,6 +32,8 @@ export interface Block {
     filter: Record<string, any>;
     content: any;         // Data for the block: object for graph/metric, array/object for table.
     previewImage?: string; // Data URL for a preview image.
+    htmlTable?: string;   // HTML table string for table rendering
+    scopeLevel?: string;  // Scope level: "global", "organization", "company"
 }
 
 /**
@@ -42,6 +44,7 @@ export interface DraggingBlock {
     type: BlockType;
     width: number;  // Default width for the react-grid-layout item.
     height: number; // Default height for the react-grid-layout item.
+    htmlTable?: string; // HTML table data for table components
 }
 
 // Dashboard Structure Types
