@@ -108,6 +108,7 @@ export default function MessageInput({
   const inputRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isCreatingNewChatRef = useRef(false);
 
   const { sendMessage } = useChatStream();
 
@@ -576,12 +577,22 @@ export default function MessageInput({
   };
 
   const handleAssistantChange = (assistantId: string) => {
+    // Prevent infinite loop by checking if the assistant is already selected
+    if (selectedAssistantId === assistantId || isCreatingNewChatRef.current) {
+      return;
+    }
+
     // If the chat already has messages, create a new chat with the selected assistant
     if (hasMessages) {
+      isCreatingNewChatRef.current = true;
       dispatch(initializeNewChat({ assistantId }));
       // Add a small delay to ensure Redux state is properly updated before URL change
       setTimeout(() => {
         startNewChat();
+        // Reset the flag after a delay to allow future changes
+        setTimeout(() => {
+          isCreatingNewChatRef.current = false;
+        }, 100);
       }, 0);
     } else {
       // Otherwise, just update the assistant for the current chat

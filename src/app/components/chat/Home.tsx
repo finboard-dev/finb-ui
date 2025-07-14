@@ -57,6 +57,7 @@ const Home: FC = () => {
   };
   const availableAssistants: any[] = selectedCompany?.assistants || [];
   const pendingChat = useAppSelector((state) => state.chat.pendingChat);
+  const chats = useAppSelector((state) => state.chat.chats);
   const selectedCompanyId = selectedCompany?.id;
 
   const [error, setError] = useState<string | null>(null);
@@ -255,7 +256,7 @@ const Home: FC = () => {
               style={{ minWidth: 0 }} // Added this
             >
               <Panel
-                className="overflow-hidden min-w-0" // Added min-w-0
+                className="overflow-hidden min-w-0"
                 defaultSize={isPanelVisible ? 100 - responsePanelWidth : 100}
               >
                 {activeChat?.thread_id ? (
