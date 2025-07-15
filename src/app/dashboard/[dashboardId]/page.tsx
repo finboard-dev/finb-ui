@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppSidebar from "../components/ui/LeftSidebar";
 import DashboardSpecificHeader from "../components/ui/Header";
 import DashboardControls from "../components/Dashboard/DashBoardControls";
 import DashboardView from "../components/Dashboard/DashboardView";
@@ -14,6 +13,7 @@ import {
 import { toast } from "sonner";
 import type { Block, DashboardItem, DraggingBlock } from "../types";
 import { useDashboard } from "../hooks/useDashboard";
+import { Sidebar } from "../components/ui/LeftSidebar";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -217,17 +217,11 @@ export default function DashboardPage() {
     );
   }
 
+  console.log(structure);
+
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-      {!structure.view_only && (
-        <AppSidebar
-          savedDashboards={[]}
-          onLoadDashboard={handleLoadDashboard}
-          currentDashboardId={dashboardId}
-          onNewDashboard={handleNewDashboard}
-          isEditing={isEditing}
-        />
-      )}
+      {!structure.view_only && <Sidebar isCollapsed={false} />}
       <div className="flex-1 flex flex-col overflow-x-hidden ml-0">
         <DashboardSpecificHeader
           isEditing={isEditing}

@@ -2,44 +2,65 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LayoutDashboardIcon, SearchIcon, PlusIcon } from "lucide-react";
+import {
+  LayoutDashboardIcon,
+  SearchIcon,
+  PlusIcon,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
-
-// Mock dashboard data - in a real app, this would come from an API
-const availableDashboards = [
-  {
-    id: "XERO_DASH_001",
-    name: "Xero Financial Dashboard",
-    description: "Main financial overview dashboard",
-  },
-];
+import { CreateDashboardModal } from "./components/CreateDashboardModal";
+import { DashboardCard } from "./components/DashboardCard";
+import { useDashboards } from "@/hooks/query-hooks/useDashboard";
 
 export default function DashboardSelectPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredDashboards, setFilteredDashboards] =
-    useState(availableDashboards);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  useEffect(() => {
-    const filtered = availableDashboards.filter(
+  const { data: dashboards, isLoading, error } = useDashboards();
+
+  // Filter dashboards based on search term
+  const filteredDashboards =
+    dashboards?.filter(
       (dashboard) =>
-        dashboard.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dashboard.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredDashboards(filtered);
-  }, [searchTerm]);
+        dashboard.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dashboard.createdBy.name
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+    ) || [];
 
   const handleDashboardSelect = (dashboardId: string) => {
     router.push(`/dashboard/${dashboardId}`);
   };
 
   const handleCreateNew = () => {
-    // In a real app, this would create a new dashboard
-    toast.info("Create new dashboard functionality coming soon!");
+    setIsCreateModalOpen(true);
   };
+
+  const handleCreateSuccess = (dashboardId: string) => {
+    // Navigate to the newly created dashboard
+    router.push(`/dashboard/${dashboardId}`);
+  };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white p-6">
+        <div className="max-w-6xl mx-auto text-center py-12">
+          <LayoutDashboardIcon className="w-16 h-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">
+            Failed to load dashboards
+          </h3>
+          <p className="text-gray-500 mb-4">
+            There was an error loading your dashboards. Please try again.
+          </p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white p-6">
@@ -74,52 +95,35 @@ export default function DashboardSelectPage() {
           </Button>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <span className="text-gray-600">Loading dashboards...</span>
+            </div>
+          </div>
+        )}
+
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDashboards.map((dashboard) => (
-            <Card
-              key={dashboard.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-300"
-              onClick={() => handleDashboardSelect(dashboard.id)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <LayoutDashboardIcon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-semibold text-slate-800">
-                      {dashboard.name}
-                    </CardTitle>
-                    <p className="text-sm text-slate-500">ID: {dashboard.id}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-600 text-sm mb-4">
-                  {dashboard.description}
-                </p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDashboardSelect(dashboard.id);
-                  }}
-                >
-                  Open Dashboard
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {!isLoading && (
+          <div className="space-y-4">
+            {filteredDashboards.map((dashboard) => (
+              <DashboardCard
+                key={dashboard.id}
+                dashboard={dashboard}
+                onClick={handleDashboardSelect}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Empty State */}
-        {filteredDashboards.length === 0 && (
+        {!isLoading && filteredDashboards.length === 0 && (
           <div className="text-center py-12">
             <LayoutDashboardIcon className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-600 mb-2">
-              No dashboards found
+              {searchTerm ? "No dashboards found" : "No dashboards yet"}
             </h3>
             <p className="text-slate-500 mb-4">
               {searchTerm
@@ -139,6 +143,13 @@ export default function DashboardSelectPage() {
           </div>
         )}
       </div>
+
+      {/* Create Dashboard Modal */}
+      <CreateDashboardModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 }

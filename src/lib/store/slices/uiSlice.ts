@@ -13,12 +13,14 @@ interface UIState {
   components: Record<string, UIComponentState>;
   mainContent: "chat" | "settings";
   activeSettingsSection: "data-connections" | "profile" | "security" | "logout" | 'users-roles';
+  isSidebarCollapsed: boolean;
 }
 
 const initialState: UIState = {
   components: {},
   mainContent: "chat",
   activeSettingsSection: "data-connections", // Default to data-connections
+  isSidebarCollapsed: false,
 };
 
 const generateComponentId = (type: UIComponentType, identifier?: string): string => {
@@ -103,6 +105,14 @@ const uiSlice = createSlice({
     ) => {
       state.activeSettingsSection = action.payload;
     },
+
+    toggleSidebarCollapse: (state) => {
+      state.isSidebarCollapsed = !state.isSidebarCollapsed;
+    },
+
+    setSidebarCollapse: (state, action: PayloadAction<boolean>) => {
+      state.isSidebarCollapsed = action.payload;
+    },
   },
 });
 
@@ -114,6 +124,8 @@ export const {
   resetComponents,
   setMainContent,
   setActiveSettingsSection,
+  toggleSidebarCollapse,
+  setSidebarCollapse,
 } = uiSlice.actions;
 
 export const selectComponentState = (state: { ui: UIState }, id: string) =>
@@ -128,5 +140,7 @@ export const selectComponentParams = (state: { ui: UIState }, id: string) =>
 export const selectMainContent = (state: { ui: UIState }) => state.ui.mainContent;
 
 export const selectActiveSettingsSection = (state: { ui: UIState }) => state.ui.activeSettingsSection;
+
+export const selectIsSidebarCollapsed = (state: { ui: UIState }) => state.ui.isSidebarCollapsed;
 
 export default uiSlice.reducer;

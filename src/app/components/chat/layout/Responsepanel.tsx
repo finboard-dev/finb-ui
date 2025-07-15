@@ -1226,61 +1226,12 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     )}
                   </div>
                   {currentActiveResponse.type === "table" && (
-                    <DropdownMenu
-                      open={isSaveDropdownOpen}
-                      onOpenChange={setIsSaveDropdownOpen}
+                    <Button
+                      onClick={() => setIsPublishModalOpen(true)}
+                      className="bg-[#4F7CFF] hover:bg-[#3B6BFF] text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm flex items-center gap-1.5"
                     >
-                      <DropdownMenuTrigger asChild>
-                        <Button className="bg-[#4F7CFF] hover:bg-[#3B6BFF] text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm flex items-center gap-1.5">
-                          Save/Publish <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-80 select-none bg-white border-gray-200 shadow-xl rounded-lg p-0"
-                      >
-                        {/* Publish Options */}
-                        <div className="p-3 border-b border-gray-200">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">
-                            Publish Component
-                          </h4>
-                          <div className="space-y-1">
-                            <div
-                              onClick={() => {
-                                setPublishType("Global");
-                                handlePublishComponent();
-                              }}
-                              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded-md cursor-pointer"
-                            >
-                              {getPublishTypeIcon("Global")}
-                              <span className="text-gray-700">Global</span>
-                            </div>
-                            <div
-                              onClick={() => {
-                                setPublishType("Organization");
-                                handlePublishComponent();
-                              }}
-                              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded-md cursor-pointer"
-                            >
-                              {getPublishTypeIcon("Organization")}
-                              <span className="text-gray-700">
-                                Organization
-                              </span>
-                            </div>
-                            <div
-                              onClick={() => {
-                                setPublishType("Company");
-                                handlePublishComponent();
-                              }}
-                              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded-md cursor-pointer"
-                            >
-                              {getPublishTypeIcon("Company")}
-                              <span className="text-gray-700">Company</span>
-                            </div>
-                          </div>
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      Save/Publish
+                    </Button>
                   )}
                 </div>
                 <div className="flex-1 flex flex-col">

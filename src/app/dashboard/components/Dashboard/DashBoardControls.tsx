@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { log } from "vega";
 
 // (BlockListItem sub-component remains the same as in the original file)
 interface BlockListItemProps {
@@ -52,6 +53,8 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
         </div>
       );
     }
+
+    console.log("b", block);
 
     // For tables, show a preview of the HTML table if available
     if (b.type === "table" && b.htmlTable) {
@@ -92,9 +95,9 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
       icon = <TrendingUpIcon className="w-10 h-10 text-slate-400" />;
 
     return (
-      <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md flex flex-col items-center justify-center text-slate-500 p-2 text-center border-b border-slate-200">
+      <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md flex flex-col items-center justify-center text-slate-500 p-2 text-center border-b border-slate-200 overflow-hidden">
         {icon}
-        <span className="text-xs mt-2 line-clamp-2">
+        <span className="text-xs mt-2 line-clamp-2 w-full">
           {b.title || "Untitled Component"}
         </span>
         <span className="text-xs text-slate-400 mt-1">(Preview N/A)</span>
@@ -131,7 +134,7 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     <Card
       ref={blockRef}
       className={cn(
-        "mb-3 w-full max-w-full bg-white hover:shadow-xl transition-all duration-200 group relative border-gray-200 hover:border-blue-500/50",
+        "mb-3 w-full max-w-full bg-white hover:shadow-xl transition-all duration-200 group relative border-gray-200 hover:border-blue-500/50 overflow-hidden py-0",
         isDragging
           ? "opacity-60 ring-2 ring-blue-600 scale-95 shadow-2xl"
           : "shadow-md",
@@ -144,10 +147,10 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
       aria-label={`Drag component: ${block.title}`}
     >
       {renderPreview(block)}
-      <CardHeader className="p-3">
-        <div className="flex justify-between items-center w-full min-w-0">
+      <CardHeader className="p-3 px-3 py-3">
+        <div className="flex justify-between items-center w-full min-w-0 gap-2">
           <CardTitle
-            className="text-sm font-semibold text-gray-800 truncate flex-1 min-w-0 mr-2"
+            className="text-sm font-semibold text-gray-800 truncate flex-1 min-w-0"
             title={block.title || "Untitled"}
           >
             {block.title || "Untitled"}
@@ -444,7 +447,7 @@ export default function DashboardControls({
           className="bg-white rounded-l-lg rounded-r-none px-2 py-6 text-sm text-slate-600 hover:bg-slate-50 border-slate-300 shadow-lg flex flex-col items-center h-auto gap-1 hover:border-slate-400"
           aria-label="Show components panel"
         >
-          <ChevronRightIcon className="w-5 h-5" />
+          <ChevronLeftIcon className="w-5 h-5" />
           <span className="[writing-mode:vertical-rl] transform rotate-180 text-xs font-medium tracking-wider uppercase">
             Components
           </span>
@@ -456,45 +459,43 @@ export default function DashboardControls({
   return (
     <aside
       className={cn(
-        "w-[320px] md:w-[360px] h-[calc(100vh-65px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[65px]"
+        "w-[320px] md:w-[360px] h-[calc(100vh-110px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[110px]"
       )}
     >
-      <div className="bg-slate-50 border-b border-slate-200 py-4 px-4 flex justify-between items-center h-[65px] flex-shrink-0">
-        <h2 className="text-lg font-semibold text-slate-900">Components</h2>
-        <Button
-          onClick={() => setIsOpen(false)}
-          variant="ghost"
-          size="icon"
-          className="text-slate-500 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-md"
-          aria-label="Hide components panel"
-        >
-          <ChevronLeftIcon className="w-5 h-5" />
-        </Button>
-      </div>
-
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="flex flex-col flex-grow min-h-0"
       >
-        <div className="p-3 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-          <TabsList className="grid w-full grid-cols-2 mb-3">
-            <TabsTrigger value="my-components" className="text-xs">
-              My Components
-            </TabsTrigger>
-            <TabsTrigger value="global-components" className="text-xs">
-              Global Components
-            </TabsTrigger>
-          </TabsList>
+        <div className="p-3 border-b border-slate-200 bg-white flex-shrink-0">
+          <div className="flex justify-between items-center mb-3">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="my-components" className="text-xs">
+                My Components
+              </TabsTrigger>
+              <TabsTrigger value="global-components" className="text-xs">
+                Global Components
+              </TabsTrigger>
+            </TabsList>
+            <Button
+              onClick={() => setIsOpen(false)}
+              variant="ghost"
+              size="icon"
+              className="text-slate-500 hover:text-slate-700 hover:bg-gray-100 p-1.5 rounded-md ml-2 flex-shrink-0"
+              aria-label="Hide components panel"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </Button>
+          </div>
 
           <div className="relative mb-2.5">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-sec pointer-events-none" />
             <Input
               type="text"
               placeholder="Find by name"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 h-9 border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 bg-white placeholder-slate-400"
+              className="w-full pl-9 pr-3 py-2 h-9 border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 bg-white placeholder-sec"
             />
           </div>
 
@@ -533,7 +534,7 @@ export default function DashboardControls({
           className="flex-1 min-h-0 m-0 overflow-hidden"
         >
           <ScrollArea className="h-full">
-            <div className="p-3">
+            <div className="p-3 w-full max-w-full box-border">
               {displayComponents.length > 0 ? (
                 displayComponents.map((block) => (
                   <BlockListItem
@@ -556,7 +557,7 @@ export default function DashboardControls({
           className="flex-1 min-h-0 m-0 overflow-hidden"
         >
           <ScrollArea className="h-full">
-            <div className="p-3">
+            <div className="p-3 w-full max-w-full box-border">
               {loadingGlobalComponents ? (
                 <div className="flex items-center justify-center py-10">
                   <div className="text-sm text-slate-500">
@@ -573,11 +574,11 @@ export default function DashboardControls({
                 ))
               ) : (
                 <div className="text-center py-10">
-                  <BarChart3Icon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500 mb-2">
+                  <BarChart3Icon className="w-12 h-12 text-sec mx-auto mb-3" />
+                  <p className="text-sm text-sec mb-2">
                     No global components found.
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-sec">
                     {!selectedOrganization || !selectedCompany
                       ? "Please select an organization and company to view global components."
                       : "Published global components will appear here."}
@@ -589,7 +590,7 @@ export default function DashboardControls({
         </TabsContent>
       </Tabs>
 
-      <div className="h-10 flex-shrink-0 bg-slate-50 border-t border-slate-200"></div>
+      <div className="h-10 flex-shrink-0 bg-white border-t border-gray-200"></div>
     </aside>
   );
 }

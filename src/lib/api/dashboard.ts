@@ -1,4 +1,6 @@
 import { fetcher } from "../axios/config"
+import { store } from "../store/store";
+import { getCompanyId, getOrgId } from "../utils/helpers";
 
 export const getDashboardStructure = async (dashboardId: string) => {
   if (!dashboardId) {
@@ -95,4 +97,87 @@ export const getWidgetData = async (params: WidgetDataRequest) => {
       timestamp: new Date().toISOString()
     };
   }
+}
+
+export interface CreateDashboardRequest {
+  title: string;
+  startDate: string;
+  endDate: string;
+  companyId: string;
+  orgId: string;
+}
+
+export interface CreateDashboardResponse {
+  id: string;
+  title: string;
+  sharedUsers: any[];
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  publishedVersionId: string | null;
+  draftVersionId: string;
+  orgId: string;
+  companyId: string;
+}
+
+export interface Dashboard {
+  id: string;
+  title: string;
+  sharedUsers: any[];
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  publishedVersionId: string | null;
+  draftVersionId: string;
+  orgId: string;
+  companyId: string;
+}
+
+export const createDashboard = async (dashboardData: any): Promise<CreateDashboardResponse> => {
+  const companyId = getCompanyId();
+  const orgId = getOrgId();
+  
+  console.log('Creating dashboard with data:', { ...dashboardData, companyId, orgId });
+  
+  try {
+    const response = await fetcher.post(
+      `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/`,
+      {
+        ...dashboardData,
+        companyId,
+        orgId
+      }
+    );
+    
+    console.log('Dashboard creation response:', response);
+    
+    // Check if response has the expected structure
+    if (!response || typeof response !== 'object') {
+      console.error('Invalid response structure:', response);
+      throw new Error('Invalid response from server');
+    }
+    
+    return response;
+  } catch (error: any) {
+    console.error('Error creating dashboard:', error);
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    throw new Error('Failed to create dashboard');
+  }
+}
+
+export const getDashboards = async (): Promise<Dashboard[]> => {
+  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/dashboard/all?companyId=${getCompanyId()}&orgId=${getOrgId()}`);
+  return response;
 }
