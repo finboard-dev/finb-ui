@@ -22,6 +22,11 @@ export default function DashboardSelectPage() {
 
   const { data: dashboards, isLoading, error } = useDashboards();
 
+  // Debug logging
+  console.log("Dashboard Select Page - Raw data:", dashboards);
+  console.log("Dashboard Select Page - Loading:", isLoading);
+  console.log("Dashboard Select Page - Error:", error);
+
   // Filter dashboards based on search term
   const filteredDashboards =
     dashboards?.filter(

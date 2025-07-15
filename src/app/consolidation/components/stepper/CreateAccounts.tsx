@@ -6,7 +6,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
 } from "react";
-import { Plus, Trash, Loader2 } from "lucide-react";
+import { Plus, Trash, Loader2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,22 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import {
-  Account,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  type Account,
   ACCOUNT_COLUMNS,
-  Mapping,
+  type Mapping,
   REPORT_TYPE_COLUMNS,
   REPORT_TYPES,
 } from "../../types/consolidationUiMapping";
@@ -28,7 +41,6 @@ import {
   useMappingForAccountByType,
   useSaveMappings,
 } from "@/hooks/query-hooks/useConsolidationApi";
-import { useSelector } from "react-redux";
 
 interface CreateAccountsProps {
   onNext: () => void;
@@ -53,6 +65,7 @@ function AccountCardRecursive({
   editingId,
   setEditingId,
   scrollToRef,
+  isDragOverlay = false,
 }: {
   account: Account;
   level: number;
@@ -69,30 +82,40 @@ function AccountCardRecursive({
   editingId: string | null;
   setEditingId: (id: string | null) => void;
   scrollToRef: React.RefObject<{ [key: string]: HTMLDivElement | null }>;
+  isDragOverlay?: boolean;
 }) {
   const isTopLevel = level === 0;
   const [inputValue, setInputValue] = React.useState(account.title);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const isEditing = editingId === account.account_id;
 
-  // Debug logging
-  if (isEditing) {
-    console.log(
-      "Account is in editing mode:",
-      account.account_id,
-      "Level:",
-      level,
-      "Title:",
-      account.title
-    );
-  }
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: account.account_id,
+    data: {
+      account: account,
+      colKey: colKey,
+      level: level,
+    },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   React.useEffect(() => {
     if (isEditing && inputRef.current) inputRef.current.focus();
   }, [isEditing]);
 
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling to parent accounts
+    e.stopPropagation();
     console.log(
       "Clicking account:",
       account.account_id,
@@ -103,6 +126,7 @@ function AccountCardRecursive({
     );
     setEditingId(account.account_id);
   };
+
   const handleBlur = () => {
     setEditingId(null);
     if (inputValue.trim() && inputValue !== account.title) {
@@ -111,6 +135,7 @@ function AccountCardRecursive({
       setInputValue(account.title);
     }
   };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleBlur();
     else if (e.key === "Escape") {
@@ -122,38 +147,66 @@ function AccountCardRecursive({
   return (
     <div
       ref={(el) => {
-        if (scrollToRef.current) {
-          scrollToRef.current[account.account_id] = el;
+        if (!isDragOverlay) {
+          setNodeRef(el);
+          if (scrollToRef.current) {
+            scrollToRef.current[account.account_id] = el;
+          }
         }
       }}
-      className={
-        isTopLevel
-          ? "bg-white border-[#EFF1F5] rounded-xl text-sm shadow-sm border mb-2 w-full min-w-[260px] max-w-md cursor-pointer"
-          : "border-t border-[#EFF1F5] w-full cursor-pointer"
-      }
-      onClick={handleClick}
+      style={!isDragOverlay ? style : undefined}
+      className={`
+        ${
+          isTopLevel
+            ? "bg-white border-[#EFF1F5] rounded-xl text-sm shadow-sm border mb-2 w-full min-w-[260px] max-w-md cursor-pointer"
+            : "border-t border-[#EFF1F5] w-full cursor-pointer"
+        }
+        ${isDragging ? "opacity-50" : ""}
+        ${
+          isDragOverlay
+            ? "rotate-2 shadow-xl bg-white border-2 border-blue-400"
+            : ""
+        }
+      `}
+      onClick={!isDragOverlay ? handleClick : undefined}
     >
       <div
         className="flex items-center justify-between py-3 group pr-4"
         style={
-          !isTopLevel ? { paddingLeft: `${level * 24}px` } : { paddingLeft: 16 }
+          !isTopLevel
+            ? { paddingLeft: `${level * 24 + 16}px` }
+            : { paddingLeft: 16 }
         }
       >
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            maxLength={50}
-            className="font-medium text-sm text-black bg-transparent border-b border-gray-200 px-0 py-0 h-7 focus:outline-none"
-          />
-        ) : (
-          <span className="font-medium text-sm text-black">
-            {account.title}
-          </span>
-        )}
+        <div className="flex items-center flex-1">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="mr-2 p-1 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-4 h-4 text-gray-400" />
+          </div>
+
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              maxLength={50}
+              className="font-medium text-sm text-black bg-transparent border-b border-gray-200 px-0 py-0 h-7 focus:outline-none flex-1"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="font-medium text-sm text-black flex-1">
+              {account.title}
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-1 ml-2">
           {!isEditing && (
             <Button
@@ -185,6 +238,7 @@ function AccountCardRecursive({
           )}
         </div>
       </div>
+
       {account.children && account.children.length > 0 && (
         <div>
           {account.children.map((child: Account) => (
@@ -208,6 +262,64 @@ function AccountCardRecursive({
   );
 }
 
+// Droppable Column Component
+function DroppableColumn({
+  col,
+  children,
+  onAddRootAccount,
+}: {
+  col: { key: string; label: string };
+  children: React.ReactNode;
+  onAddRootAccount: (colKey: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${col.key}`,
+    data: {
+      colKey: col.key,
+      type: "column",
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-w-[260px] max-w-xs bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full transition-colors ${
+        isOver ? "border-blue-400 bg-blue-50" : ""
+      }`}
+    >
+      {/* Fixed Header */}
+      <div className="px-4 pt-4 pb-2 shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-medium text-sm text-primary">{col.label}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onAddRootAccount(col.key)}
+            className="p-0 h-6 w-6 text-[#1E925A] hover:bg-transparent"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="border-b border-gray-200" />
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 px-4 overflow-y-auto">{children}</div>
+
+      {/* Fixed Footer */}
+      <div className="px-4 pb-4 shrink-0">
+        <Button
+          variant="ghost"
+          className="flex items-center text-sec w-full px-0 py-2 font-medium text-base hover:bg-transparent justify-start"
+          onClick={() => onAddRootAccount(col.key)}
+        >
+          <Plus className="w-5 h-5 mr-1" /> New Account
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export const CreateAccounts = forwardRef<
   CreateAccountsRef,
   CreateAccountsProps
@@ -217,12 +329,23 @@ export const CreateAccounts = forwardRef<
   const [mappingData, setMappingData] = useState<Mapping>({});
   const [localMapping, setLocalMapping] = useState<Mapping>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedAccount, setDraggedAccount] = useState<Account | null>(null);
   const scrollToRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const isInitialLoad = useRef(true);
   const hasUserChanges = useRef(false);
   const prevLocalMapping = useRef<Mapping>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   const { data, isLoading, isError } = useMappingForAccountByType(
     selectedCompanyId,
@@ -261,7 +384,6 @@ export const CreateAccounts = forwardRef<
     // Check if there are actual changes
     const localMappingChanged =
       JSON.stringify(localMapping) !== JSON.stringify(prevLocalMapping.current);
-
     if (!localMappingChanged) {
       return;
     }
@@ -276,13 +398,11 @@ export const CreateAccounts = forwardRef<
       if (Object.keys(localMapping).length > 0) {
         setIsAutoSaving(true);
         onAutoSaveStateChange?.(true);
-
         const payload = {
           realm_id: selectedCompanyId,
           report_type: selectedTab,
           mapping: localMapping,
         };
-
         saveMapping.mutate(payload, {
           onSuccess: () => {
             console.log("Mapping auto-saved successfully");
@@ -300,7 +420,6 @@ export const CreateAccounts = forwardRef<
         });
       }
     }, 500); // 500ms debounce
-
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -319,7 +438,6 @@ export const CreateAccounts = forwardRef<
             report_type: selectedTab,
             mapping: localMapping,
           };
-
           saveMapping.mutate(payload, {
             onSuccess: () => {
               // Don't navigate to next step, just save
@@ -337,6 +455,246 @@ export const CreateAccounts = forwardRef<
     }),
     [selectedCompanyId, selectedTab, localMapping, saveMapping]
   );
+
+  // Helper function to deep clone an account with all its children
+  const deepCloneAccount = (account: Account): Account => {
+    return {
+      ...account,
+      children: account.children ? account.children.map(deepCloneAccount) : [],
+    };
+  };
+
+  // Helper function to find and extract account from tree (preserving children)
+  const extractAccountFromTree = (
+    accounts: Account[],
+    accountId: string
+  ): { newAccounts: Account[]; extractedAccount: Account | null } => {
+    let extractedAccount: Account | null = null;
+
+    const newAccounts = accounts.filter((account) => {
+      if (account.account_id === accountId) {
+        extractedAccount = deepCloneAccount(account);
+        return false;
+      }
+      return true;
+    });
+
+    // If not found at root level, search in children
+    if (!extractedAccount) {
+      const updatedAccounts = newAccounts.map((account) => {
+        if (account.children && account.children.length > 0) {
+          const result = extractAccountFromTree(account.children, accountId);
+          if (result.extractedAccount) {
+            extractedAccount = result.extractedAccount;
+            return { ...account, children: result.newAccounts };
+          }
+        }
+        return account;
+      });
+      return { newAccounts: updatedAccounts, extractedAccount };
+    }
+
+    return { newAccounts, extractedAccount };
+  };
+
+  // Helper function to insert account as child of target
+  const insertAccountAsChild = (
+    accounts: Account[],
+    targetId: string,
+    accountToInsert: Account
+  ): Account[] => {
+    return accounts.map((account) => {
+      if (account.account_id === targetId) {
+        return {
+          ...account,
+          children: [...(account.children || []), accountToInsert],
+        };
+      }
+      if (account.children && account.children.length > 0) {
+        return {
+          ...account,
+          children: insertAccountAsChild(
+            account.children,
+            targetId,
+            accountToInsert
+          ),
+        };
+      }
+      return account;
+    });
+  };
+
+  // Helper function to check if account is descendant of another
+  const isDescendant = (parent: Account, childId: string): boolean => {
+    if (parent.account_id === childId) return true;
+    if (parent.children) {
+      return parent.children.some((child) => isDescendant(child, childId));
+    }
+    return false;
+  };
+
+  // Helper function to get account level in tree
+  const getAccountLevel = (
+    accounts: Account[],
+    accountId: string,
+    currentLevel = 0
+  ): number => {
+    for (const account of accounts) {
+      if (account.account_id === accountId) {
+        return currentLevel;
+      }
+      if (account.children && account.children.length > 0) {
+        const level = getAccountLevel(
+          account.children,
+          accountId,
+          currentLevel + 1
+        );
+        if (level !== -1) return level;
+      }
+    }
+    return -1;
+  };
+
+  // Helper function to get max depth of subtree
+  const getMaxDepth = (account: Account): number => {
+    if (!account.children || account.children.length === 0) {
+      return 0;
+    }
+    return 1 + Math.max(...account.children.map(getMaxDepth));
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+
+    const activeData = active.data.current;
+    if (activeData && activeData.account) {
+      setDraggedAccount(deepCloneAccount(activeData.account));
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    setActiveId(null);
+    setDraggedAccount(null);
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    if (!activeData) {
+      return;
+    }
+
+    const sourceColKey = activeData.colKey;
+    const draggedAccountId = active.id as string;
+
+    console.log(
+      "Drag end - Source:",
+      sourceColKey,
+      "Dragged ID:",
+      draggedAccountId,
+      "Over:",
+      over.id
+    );
+
+    // Extract account first to ensure it exists
+    const sourceAccounts = [...(localMapping[sourceColKey] || [])];
+    const { newAccounts: updatedSourceAccounts, extractedAccount } =
+      extractAccountFromTree(sourceAccounts, draggedAccountId);
+
+    if (!extractedAccount) {
+      console.log("Could not find account to move");
+      return;
+    }
+
+    // Handle dropping on another account (same or different column)
+    if (overData && overData.account) {
+      const targetColKey = overData.colKey;
+      const targetAccountId = over.id as string;
+
+      // Prevent dropping parent on its own descendant
+      if (isDescendant(activeData.account, targetAccountId)) {
+        console.log("Cannot drop: would create circular reference");
+        return;
+      }
+
+      // Check nesting limits
+      const targetLevel = getAccountLevel(
+        localMapping[targetColKey] || [],
+        targetAccountId
+      );
+      const draggedDepth = getMaxDepth(activeData.account);
+
+      if (targetLevel + 1 + draggedDepth > 3) {
+        console.log("Cannot drop: would exceed maximum nesting level");
+        return;
+      }
+
+      setLocalMapping((prev) => {
+        const newMapping = { ...prev };
+
+        // Update source column
+        newMapping[sourceColKey] = updatedSourceAccounts;
+
+        // Add to target column
+        const targetAccounts = [...(newMapping[targetColKey] || [])];
+        const finalTargetAccounts = insertAccountAsChild(
+          targetAccounts,
+          targetAccountId,
+          extractedAccount
+        );
+        newMapping[targetColKey] = finalTargetAccounts;
+
+        return newMapping;
+      });
+
+      hasUserChanges.current = true;
+      return;
+    }
+
+    // Handle dropping on a column container (empty space in column)
+    const overElement = over.id as string;
+    if (overElement.startsWith("column-")) {
+      const targetColKey = overElement.replace("column-", "");
+
+      setLocalMapping((prev) => {
+        const newMapping = { ...prev };
+
+        // Update source column
+        newMapping[sourceColKey] = updatedSourceAccounts;
+
+        // Add to target column as root account
+        const targetAccounts = [...(newMapping[targetColKey] || [])];
+        targetAccounts.push(extractedAccount);
+        newMapping[targetColKey] = targetAccounts;
+
+        return newMapping;
+      });
+
+      hasUserChanges.current = true;
+      return;
+    }
+
+    // If no specific drop target, keep in same column as root account
+    // This handles the case where you drag outside but don't hit a specific drop zone
+    setLocalMapping((prev) => {
+      const newMapping = { ...prev };
+
+      // Update source column by adding the extracted account back as root
+      const updatedAccounts = [...updatedSourceAccounts];
+      updatedAccounts.push(extractedAccount);
+      newMapping[sourceColKey] = updatedAccounts;
+
+      return newMapping;
+    });
+
+    hasUserChanges.current = true;
+  };
 
   // Add new root account
   const handleAddRootAccount = (colKey: string) => {
@@ -356,7 +714,6 @@ export const CreateAccounts = forwardRef<
     });
     setEditingId(newAccountId);
     hasUserChanges.current = true;
-
     // Scroll to the new account after a short delay to ensure DOM is updated
     setTimeout(() => {
       const element = scrollToRef.current[newAccountId];
@@ -371,7 +728,7 @@ export const CreateAccounts = forwardRef<
     parentAccount: Account,
     parentObj: Account | null = null,
     colKey: string | null = null,
-    level: number = 0
+    level = 0
   ) => {
     // Find the column key if not provided
     if (!colKey) {
@@ -386,7 +743,6 @@ export const CreateAccounts = forwardRef<
             setLocalMapping((prev) => ({ ...prev }));
             setEditingId(newAccountId);
             hasUserChanges.current = true;
-
             // Scroll to the new account after a short delay
             setTimeout(() => {
               const element = scrollToRef.current[newAccountId];
@@ -410,7 +766,6 @@ export const CreateAccounts = forwardRef<
       if (newAccountId) {
         setEditingId(newAccountId);
         hasUserChanges.current = true;
-
         // Scroll to the new account after a short delay
         setTimeout(() => {
           const element = scrollToRef.current[newAccountId];
@@ -428,7 +783,7 @@ export const CreateAccounts = forwardRef<
     id: string,
     level: number
   ): string | null {
-    for (let acc of accounts) {
+    for (const acc of accounts) {
       if (acc.account_id === id) {
         if (!acc.children) acc.children = [];
         const newAccountId = Math.random().toString(36).slice(2);
@@ -528,6 +883,7 @@ export const CreateAccounts = forwardRef<
           </div>
         </div>
       </div>
+
       {/* Main Content Area: Account Columns */}
       <div className="flex-1 min-h-0 px-10 pt-5 bg-white overflow-hidden">
         <div className="h-full overflow-x-auto">
@@ -536,32 +892,18 @@ export const CreateAccounts = forwardRef<
               <Loader2 className="animate-spin w-10 h-10 text-[#1E925A]" />
             </div>
           ) : (
-            <div className="flex gap-6 w-max h-full pb-20">
-              {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
-                <div
-                  key={col.key}
-                  className="min-w-[260px] max-w-xs bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full"
-                >
-                  {/* Fixed Header */}
-                  <div className="px-4 pt-4 pb-2 shrink-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-primary">
-                        {col.label}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleAddRootAccount(col.key)}
-                        className="p-0 h-6 w-6 text-[#1E925A] hover:bg-transparent"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </Button>
-                    </div>
-                    <div className="border-b border-gray-200" />
-                  </div>
-
-                  {/* Scrollable Content */}
-                  <div className="flex-1 min-h-0 px-4 overflow-y-auto">
+            <DndContext
+              sensors={sensors}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-6 w-max h-full pb-20">
+                {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
+                  <DroppableColumn
+                    key={col.key}
+                    col={col}
+                    onAddRootAccount={handleAddRootAccount}
+                  >
                     {localMapping[col.key] &&
                       localMapping[col.key].length > 0 && (
                         <div className="space-y-2">
@@ -582,21 +924,28 @@ export const CreateAccounts = forwardRef<
                           ))}
                         </div>
                       )}
-                  </div>
+                  </DroppableColumn>
+                ))}
+              </div>
 
-                  {/* Fixed Footer */}
-                  <div className="px-4 pb-4 shrink-0">
-                    <Button
-                      variant="ghost"
-                      className="flex items-center text-sec w-full px-0 py-2 font-medium text-base hover:bg-transparent justify-start"
-                      onClick={() => handleAddRootAccount(col.key)}
-                    >
-                      <Plus className="w-5 h-5 mr-1" /> New Account
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+              <DragOverlay>
+                {draggedAccount && (
+                  <AccountCardRecursive
+                    account={draggedAccount}
+                    level={0}
+                    maxLevel={3}
+                    colKey=""
+                    onAddChild={() => {}}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    editingId={null}
+                    setEditingId={() => {}}
+                    scrollToRef={scrollToRef}
+                    isDragOverlay={true}
+                  />
+                )}
+              </DragOverlay>
+            </DndContext>
           )}
         </div>
       </div>

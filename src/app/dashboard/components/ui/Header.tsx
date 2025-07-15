@@ -41,6 +41,14 @@ interface DashboardSpecificHeaderProps {
   onTabReorder?: (newTabs: { id: string; label: string }[]) => void;
   loadedTabs?: Set<string>;
   currentTabLoading?: boolean;
+  // New props for versioning
+  currentVersion?: "draft" | "published";
+  canEdit?: boolean;
+  canPublish?: boolean;
+  onSaveDraft?: () => void;
+  onPublishDraft?: () => void;
+  onSwitchToDraft?: () => void;
+  onSwitchToPublished?: () => void;
 }
 
 export default function DashboardSpecificHeader({
@@ -55,6 +63,14 @@ export default function DashboardSpecificHeader({
   onTabReorder,
   loadedTabs = new Set(),
   currentTabLoading = false,
+  // New props for versioning
+  currentVersion = "published",
+  canEdit = false,
+  canPublish = false,
+  onSaveDraft,
+  onPublishDraft,
+  onSwitchToDraft,
+  onSwitchToPublished,
 }: DashboardSpecificHeaderProps) {
   const dispatch = useAppDispatch();
   const isSidebarCollapsed = useAppSelector(selectIsSidebarCollapsed);
@@ -278,7 +294,7 @@ export default function DashboardSpecificHeader({
         <div className="flex items-center gap-2 sm:gap-3">
           {!isViewOnly && (
             <>
-              {isEditing && (
+              {/* {isEditing && (
                 <Button
                   variant="default"
                   size="sm"
@@ -288,7 +304,7 @@ export default function DashboardSpecificHeader({
                   <SaveIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                   Save
                 </Button>
-              )}
+              )} */}
 
               <Button
                 variant="outline"
@@ -434,8 +450,63 @@ export default function DashboardSpecificHeader({
           </div>
 
           {/* Right side buttons */}
-          {!isViewOnly && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {/* Version indicator and switch buttons */}
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-md">
+              <span className="text-xs text-gray-600 font-medium">
+                {currentVersion === "draft" ? "Draft" : "Published"}
+              </span>
+              {canEdit && currentVersion === "published" && onSwitchToDraft && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onSwitchToDraft}
+                  className="h-6 px-2 text-xs hover:bg-gray-100"
+                >
+                  Edit
+                </Button>
+              )}
+              {canEdit && currentVersion === "draft" && onSwitchToPublished && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onSwitchToPublished}
+                  className="h-6 px-2 text-xs hover:bg-gray-100"
+                >
+                  View Published
+                </Button>
+              )}
+            </div>
+
+            {/* Save and Publish buttons for draft mode */}
+            {currentVersion === "draft" && (
+              <>
+                {onSaveDraft && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onSaveDraft}
+                    className="h-8 px-3 text-xs border-gray-200 hover:bg-gray-50"
+                  >
+                    <SaveIcon className="w-3 h-3 mr-1" />
+                    Save
+                  </Button>
+                )}
+                {canPublish && onPublishDraft && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onPublishDraft}
+                    className="h-8 px-3 text-xs bg-primary text-white hover:bg-primary/90"
+                  >
+                    Publish
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Share button */}
+            {!isViewOnly && (
               <Button
                 variant="default"
                 size="sm"
@@ -485,31 +556,32 @@ export default function DashboardSpecificHeader({
                   <ChevronDownIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </Button>
+            )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="w-8 h-8 border-gray-200 hover:shadow-md transition-all duration-200 bg-white"
-                  >
-                    <MoreHorizontalIcon className="w-4 h-4 text-gray-600" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-white shadow-xl border-slate-200 z-50"
+            {/* More options dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="w-8 h-8 border-gray-200 hover:shadow-md transition-all duration-200 bg-white"
                 >
-                  <DropdownMenuItem className="text-sm cursor-pointer text-slate-700 hover:!bg-slate-100 focus:!bg-slate-100">
-                    Export Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-sm cursor-pointer text-slate-700 hover:!bg-slate-100 focus:!bg-slate-100">
-                    Dashboard Settings
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                  <MoreHorizontalIcon className="w-4 h-4 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-white shadow-xl border-slate-200 z-50"
+              >
+                <DropdownMenuItem className="text-sm cursor-pointer text-slate-700 hover:!bg-slate-100 focus:!bg-slate-100">
+                  Export Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-sm cursor-pointer text-slate-700 hover:!bg-slate-100 focus:!bg-slate-100">
+                  Dashboard Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 

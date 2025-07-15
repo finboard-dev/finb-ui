@@ -57,6 +57,13 @@ export default function DashboardPage() {
     switchTab,
     isEditing,
     setIsEditing,
+    currentVersion,
+    canEdit,
+    canPublish,
+    switchToDraft,
+    switchToPublished,
+    saveDraft,
+    publishDraft,
   } = useDashboard(dashboardId);
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
@@ -157,6 +164,34 @@ export default function DashboardPage() {
     setIsEditing(false);
   };
 
+  const handleSaveDraft = async () => {
+    try {
+      await saveDraft();
+      toast.success("Draft saved successfully");
+    } catch (error) {
+      toast.error("Failed to save draft");
+    }
+  };
+
+  const handlePublishDraft = async () => {
+    try {
+      await publishDraft();
+      toast.success("Dashboard published successfully");
+    } catch (error) {
+      toast.error("Failed to publish dashboard");
+    }
+  };
+
+  const handleSwitchToDraft = () => {
+    switchToDraft();
+    toast.info("Switched to draft version");
+  };
+
+  const handleSwitchToPublished = () => {
+    switchToPublished();
+    toast.info("Switched to published version");
+  };
+
   const handleSetIsEditing = (editing: boolean) => {
     if (structure?.view_only) {
       toast.error("You do not have permission to edit this dashboard.");
@@ -234,6 +269,13 @@ export default function DashboardPage() {
           onTabChange={handleTabChange}
           loadedTabs={loadedTabs}
           currentTabLoading={loading.widgetData}
+          currentVersion={currentVersion}
+          canEdit={canEdit}
+          canPublish={canPublish}
+          onSaveDraft={handleSaveDraft}
+          onPublishDraft={handlePublishDraft}
+          onSwitchToDraft={handleSwitchToDraft}
+          onSwitchToPublished={handleSwitchToPublished}
         />
 
         {/* Show loading state for widget data */}
