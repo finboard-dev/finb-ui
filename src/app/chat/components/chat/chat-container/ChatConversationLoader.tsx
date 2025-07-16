@@ -9,7 +9,7 @@ import {
 } from "@/lib/store/slices/chatSlice";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { useChatConversation } from "@/hooks/query-hooks/useChatConversation";
-import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer";
+import { FinancialReportShimmer } from "@/app/chat/components/chat/ui/shimmer/ChatShimmer";
 
 interface ChatConversationLoaderProps {
   threadId: string;
@@ -26,7 +26,7 @@ const ErrorSvg = () => {
         <path d="M0 .335h253.49v253.49H0z"></path>
         <path d="M0 293.665h253.49V.401H0z"></path>
       </defs>
-      <g fill="none" fill-rule="evenodd">
+      <g fill="none" fillRule="evenodd">
         <g transform="translate(0 .067)">
           <mask fill="#fff"></mask>
           <path

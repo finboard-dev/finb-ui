@@ -1,0 +1,207 @@
+import React from "react";
+import { ChevronUpIcon, ChevronDownIcon, Settings } from "lucide-react";
+import { store } from "@/lib/store/store";
+import { useUrlParams } from "@/lib/utils/urlParams";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
+import UserIconLogo from "@/../public/images/icons/sidebarIcons/user.svg";
+import DashboardIconLogo from "@/../public/images/icons/sidebarIcons/dashboard.svg";
+import ConsolidationIconLogo from "@/../public/images/icons/sidebarIcons/consolidation.svg";
+import ReportsIconLogo from "@/../public/images/icons/sidebarIcons/reports.svg";
+import FinChatIconLogo from "@/../public/images/icons/sidebarIcons/chat.svg";
+import ComponentsIconLogo from "@/../public/images/icons/sidebarIcons/components.svg";
+import Image from "next/image";
+
+const UserIcon = () => {
+  return <Image src={UserIconLogo} alt="User" width={16} height={16} />;
+};
+
+const navigationItems = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: (
+      <Image src={DashboardIconLogo} alt="Dashboard" width={16} height={16} />
+    ),
+    href: "/dashboard",
+  },
+  {
+    id: "FinChat",
+    label: "Fin Chat",
+    icon: <Image src={FinChatIconLogo} alt="Fin Chat" width={16} height={16} />,
+
+    href: "/chat",
+  },
+  {
+    id: "components",
+    label: "Components",
+    icon: (
+      <Image src={ComponentsIconLogo} alt="Components" width={16} height={16} />
+    ),
+    href: "/components",
+  },
+  {
+    id: "Reports",
+    label: "Reports",
+    icon: <Image src={ReportsIconLogo} alt="Reports" width={16} height={16} />,
+    href: "/reports",
+  },
+  {
+    id: "Mapping",
+    label: "Mapping",
+    icon: (
+      <Image src={ConsolidationIconLogo} alt="Mapping" width={16} height={16} />
+    ),
+    href: "/consolidation",
+  },
+];
+
+// Reusable Navigation Button Component
+interface NavButtonProps {
+  item: {
+    id: string;
+    label: string;
+    icon?: React.ReactNode;
+    href?: string;
+    onClickSettings?: () => void;
+  };
+  variant?: "ghost" | "outline" | "link";
+  className?: string;
+  onClick?: (e: React.MouseEvent) => void;
+  children?: React.ReactNode;
+  isCollapsed?: boolean;
+}
+
+const buttonBase =
+  "flex items-center hover:bg-gray-100 gap-2 px-3 py-2 rounded-md transition-colors duration-150 w-full text-sm justify-start focus:outline-none focus:ring-2 text-primary focus:ring-offset-2";
+
+const footerItems = [
+  {
+    id: "settings",
+    label: "Settings",
+    icon: <Settings className="w-4 h-4" />,
+    onClickSettings: () => {
+      // This will be handled by the onClick prop in the NavButton
+    },
+  },
+];
+
+const NavButton: React.FC<NavButtonProps> = ({
+  item,
+  className = "",
+  onClick,
+  children,
+  isCollapsed = false,
+}) => {
+  return (
+    <button
+      type="button"
+      className={`${buttonBase} ${
+        isCollapsed ? "justify-center" : ""
+      } ${className}`}
+      onClick={onClick}
+      title={isCollapsed ? item.label : undefined}
+    >
+      {item.icon && (
+        <span className="text-primary w-4 h-4 flex items-center justify-center">
+          {item.icon}
+        </span>
+      )}
+      {!isCollapsed && (
+        <span className="truncate text-left">{children || item.label}</span>
+      )}
+    </button>
+  );
+};
+
+interface SidebarProps {
+  isCollapsed?: boolean;
+  onClickSettings?: () => void;
+}
+
+export function Sidebar({
+  isCollapsed = false,
+  onClickSettings,
+}: SidebarProps) {
+  const companyModalId = "company-selection";
+  const selectedCompany = store.getState().user.selectedCompany;
+  const router = useRouter();
+  const { toggleComponentState } = useUrlParams();
+  return (
+    <aside
+      className={`${
+        isCollapsed ? "w-16" : "w-56"
+      } bg-white border-r flex flex-col justify-between transition-all duration-300`}
+    >
+      <div>
+        <div
+          className={`flex items-center py-3.5 border-b ${
+            isCollapsed ? "px-2 justify-center" : "px-4 gap-3"
+          }`}
+        >
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleComponentState(companyModalId, true);
+            }}
+            className={`flex cursor-pointer h-full w-full ${
+              isCollapsed
+                ? "justify-center"
+                : "justify-between items-center gap-3"
+            }`}
+          >
+            <Avatar className="bg-[#E8F1FF]">
+              <AvatarFallback>
+                <UserIcon />
+              </AvatarFallback>
+            </Avatar>
+            {!isCollapsed && (
+              <>
+                <span className="font-medium text-base text-primary truncate">
+                  {selectedCompany?.name || "Select Company"}
+                </span>
+                <div className="flex flex-col ml-auto">
+                  <ChevronUpIcon className="h-3 w-3 text-sec" />
+                  <ChevronDownIcon className="h-3 w-3 text-sec -mt-1" />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <nav className={`space-y-4 py-3 ${isCollapsed ? "px-2" : "px-4"}`}>
+          {navigationItems.map((item) => (
+            <NavButton
+              onClick={() => {
+                if (item.href) {
+                  router.push(item.href);
+                }
+              }}
+              item={item}
+              className="text-primary"
+              key={item.id}
+              variant="link"
+              isCollapsed={isCollapsed}
+            >
+              {item.label}
+            </NavButton>
+          ))}
+        </nav>
+      </div>
+      <div className={`space-y-2 pb-2 ${isCollapsed ? "px-2" : "px-4"}`}>
+        {/* Mapped Footer Items */}
+        {footerItems.map((item) => (
+          <NavButton
+            item={item}
+            className="text-primary"
+            key={item.id}
+            variant="link"
+            isCollapsed={isCollapsed}
+            onClick={() => onClickSettings?.()}
+          >
+            {item.label}
+          </NavButton>
+        ))}
+      </div>
+    </aside>
+  );
+}

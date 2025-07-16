@@ -19,6 +19,9 @@ import {
   PanelRightClose,
   ArrowRightFromLine,
   ArrowLeftFromLine,
+  Globe,
+  Building2,
+  Building,
 } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -30,12 +33,13 @@ import {
   setResponsePanelWidth,
   setActiveMessageId,
 } from "@/lib/store/slices/chatSlice";
-import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
+import EChartsRenderer from "@/components/visualizationV2/VisualizationRenderer";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
-import RestrictedChart from "@/app/components/visualizationV2/VisualizationRenderer";
+import RestrictedChart from "@/components/visualizationV2/VisualizationRenderer";
+import PublishModal from "@/app/chat/components/chat/ui/PublishModal";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -211,6 +215,10 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     new Set()
   );
   const [editedSchema, setEditedSchema] = useState<any>(null);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [publishType, setPublishType] = useState<
+    "Global" | "Organization" | "Company"
+  >("Company");
   const user = useAppSelector((state) => state.user.user);
   const selectedOrg = user?.selectedOrganization;
   const companies = selectedOrg?.companies || [];
@@ -475,7 +483,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   };
 
-  const currentActiveResponse = displayedResponses.find(
+  const currentActiveResponse: any = displayedResponses.find(
     (response) => response.tool_call_id === activeToolCallId
   );
 
@@ -661,6 +669,26 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     }
   };
 
+  const handlePublishComponent = () => {
+    if (currentActiveResponse) {
+      setIsPublishModalOpen(true);
+      setIsSaveDropdownOpen(false);
+    } else {
+      toast.error("No active response to publish.");
+    }
+  };
+
+  const getPublishTypeIcon = (type: "Global" | "Organization" | "Company") => {
+    switch (type) {
+      case "Global":
+        return <Globe className="h-4 w-4" />;
+      case "Organization":
+        return <Building2 className="h-4 w-4" />;
+      case "Company":
+        return <Building className="h-4 w-4" />;
+    }
+  };
+
   const handleSchemaChange = (value: string | undefined) => {
     if (!value) return;
 
@@ -793,7 +821,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     borderRadius: "8px",
                     padding: "16px",
                     width: "100%",
-                    height: "600px",
+                    height: "550px",
                   }}
                 />
               </div>
@@ -807,7 +835,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               <div className="w-full h-full flex-1 rounded-md bg-white">
                 <DynamicTable
                   data={tableData}
-                  title={processedData?.report_name || "Table Data"}
+                  title={processedData?.display_name || "Table Data"}
                   isLoading={false}
                   error={null}
                   maxHeight="420px"
@@ -1140,7 +1168,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           </Button>
         </div>
         <div className="flex bg-[#F3F4F6] rounded-lg p-0.5">
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             onClick={() => setMainTab("Output")}
@@ -1163,7 +1191,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             }`}
           >
             History
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -1197,106 +1225,14 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       )
                     )}
                   </div>
-                  <DropdownMenu
-                    open={isSaveDropdownOpen}
-                    onOpenChange={setIsSaveDropdownOpen}
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button className="bg-[#4F7CFF] hover:bg-[#3B6BFF] text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm flex items-center gap-1.5">
-                        Save to <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-64 select-none bg-white border-gray-200 shadow-xl rounded-lg p-0"
+                  {currentActiveResponse.type === "table" && (
+                    <Button
+                      onClick={() => setIsPublishModalOpen(true)}
+                      className="bg-[#4F7CFF] hover:bg-[#3B6BFF] text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm flex items-center gap-1.5"
                     >
-                      <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto">
-                        {selectedOrg && (
-                          <div className="space-y-1">
-                            <div
-                              onClick={() => {
-                                if (
-                                  selectedCompanies.size === companies.length
-                                ) {
-                                  // If all companies are selected, deselect all
-                                  setSelectedCompanies(new Set());
-                                } else {
-                                  // Select all companies
-                                  setSelectedCompanies(
-                                    new Set(companies.map((c) => c.id))
-                                  );
-                                }
-                              }}
-                              className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-100 rounded-md cursor-pointer"
-                            >
-                              <span className="font-medium text-gray-800">
-                                {selectedOrg.name}
-                              </span>
-                              <div
-                                className={`w-5 h-5 border-2 rounded flex items-center justify-center 
-            ${
-              selectedCompanies.size === companies.length
-                ? "border-blue-600 bg-blue-600"
-                : "border-gray-300"
-            }`}
-                              >
-                                {selectedCompanies.size ===
-                                  companies.length && (
-                                  <Check className="h-3 w-3 text-white" />
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="ml-4 space-y-1">
-                              {companies.map((company) => (
-                                <div
-                                  key={company.id}
-                                  onClick={() => {
-                                    const newSelected = new Set(
-                                      selectedCompanies
-                                    );
-                                    if (selectedCompanies.has(company.id)) {
-                                      newSelected.delete(company.id);
-                                    } else {
-                                      newSelected.add(company.id);
-                                    }
-                                    setSelectedCompanies(newSelected);
-                                  }}
-                                  className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-100 rounded-md cursor-pointer"
-                                >
-                                  <span className="text-gray-600">
-                                    {company.name}
-                                  </span>
-                                  <div
-                                    className={`w-5 h-5 border-2 rounded flex items-center justify-center 
-                ${
-                  selectedCompanies.has(company.id)
-                    ? "border-blue-600 bg-blue-600"
-                    : "border-gray-300"
-                }`}
-                                  >
-                                    {selectedCompanies.has(company.id) && (
-                                      <Check className="h-3 w-3 text-white" />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="border-t border-gray-200 mt-1 p-2">
-                        <Button
-                          variant="outline"
-                          className="w-full bg-white hover:bg-gray-50 border-gray-300 text-gray-700 font-semibold py-2 text-sm"
-                          onClick={handleSaveCurrentResponse}
-                          disabled={selectedCompanies.size === 0}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      Save/Publish
+                    </Button>
+                  )}
                 </div>
                 <div className="flex-1 flex flex-col">
                   {renderOutputContentArea(currentActiveResponse, outputView)}
@@ -1392,7 +1328,26 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
     );
   }
 
-  return responsePanelWidth > 0 ? panelDisplayContent : null;
+  return (
+    <>
+      {responsePanelWidth > 0 ? panelDisplayContent : null}
+
+      {/* Publish Modal */}
+      {currentActiveResponse &&
+        (console.log(currentActiveResponse),
+        (
+          <PublishModal
+            isOpen={isPublishModalOpen}
+            onClose={() => setIsPublishModalOpen(false)}
+            componentId={currentActiveResponse?.data?.metric_id}
+            defaultTitle={
+              currentActiveResponse.tool_name?.split("/").pop() ||
+              `${currentActiveResponse.type} Component`
+            }
+          />
+        ))}
+    </>
+  );
 };
 
 export default ResponsePanel;

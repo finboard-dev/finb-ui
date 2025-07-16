@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppSidebar from "../components/ui/LeftSidebar";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
 import DashboardSpecificHeader from "../components/ui/Header";
 import DashboardControls from "../components/Dashboard/DashBoardControls";
 import DashboardView from "../components/Dashboard/DashboardView";
@@ -14,6 +18,8 @@ import {
 import { toast } from "sonner";
 import type { Block, DashboardItem, DraggingBlock } from "../types";
 import { useDashboard } from "../hooks/useDashboard";
+import { Sidebar } from "@/components/ui/common/sidebar";
+import { CompanyModal } from "@/components/ui/common/CompanyModal";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -45,6 +51,13 @@ export default function DashboardPage() {
   const params = useParams();
   const router = useRouter();
   const dashboardId = params.dashboardId as string;
+  const dispatch = useAppDispatch();
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
 
   const {
     structure,
@@ -57,13 +70,33 @@ export default function DashboardPage() {
     switchTab,
     isEditing,
     setIsEditing,
+    currentVersion,
+    canEdit,
+    canPublish,
+    switchToDraft,
+    switchToPublished,
+    saveDraft,
+    publishDraft,
   } = useDashboard(dashboardId);
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
   const [viewBlocks, setViewBlocks] = useState<Block[]>([]);
+  const [apiComponents, setApiComponents] = useState<Block[]>([]);
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(
     null
   );
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // Initialize dashboard on component mount or when dashboardId changes
   useEffect(() => {
@@ -156,6 +189,34 @@ export default function DashboardPage() {
     setIsEditing(false);
   };
 
+  const handleSaveDraft = async () => {
+    try {
+      await saveDraft();
+      toast.success("Draft saved successfully");
+    } catch (error) {
+      toast.error("Failed to save draft");
+    }
+  };
+
+  const handlePublishDraft = async () => {
+    try {
+      await publishDraft();
+      toast.success("Dashboard published successfully");
+    } catch (error) {
+      toast.error("Failed to publish dashboard");
+    }
+  };
+
+  const handleSwitchToDraft = () => {
+    switchToDraft();
+    toast.info("Switched to draft version");
+  };
+
+  const handleSwitchToPublished = () => {
+    switchToPublished();
+    toast.info("Switched to published version");
+  };
+
   const handleSetIsEditing = (editing: boolean) => {
     if (structure?.view_only) {
       toast.error("You do not have permission to edit this dashboard.");
@@ -216,15 +277,14 @@ export default function DashboardPage() {
     );
   }
 
+  console.log(structure);
+
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
       {!structure.view_only && (
-        <AppSidebar
-          savedDashboards={[]}
-          onLoadDashboard={handleLoadDashboard}
-          currentDashboardId={dashboardId}
-          onNewDashboard={handleNewDashboard}
-          isEditing={isEditing}
+        <Sidebar
+          onClickSettings={() => router.push("/dashboard/settings")}
+          isCollapsed={isSidebarCollapsed}
         />
       )}
       <div className="flex-1 flex flex-col overflow-x-hidden ml-0">
@@ -239,6 +299,13 @@ export default function DashboardPage() {
           onTabChange={handleTabChange}
           loadedTabs={loadedTabs}
           currentTabLoading={loading.widgetData}
+          currentVersion={currentVersion}
+          canEdit={canEdit}
+          canPublish={canPublish}
+          onSaveDraft={handleSaveDraft}
+          onPublishDraft={handlePublishDraft}
+          onSwitchToDraft={handleSwitchToDraft}
+          onSwitchToPublished={handleSwitchToPublished}
         />
 
         {/* Show loading state for widget data */}
@@ -255,7 +322,7 @@ export default function DashboardPage() {
               className="flex-grow h-full"
               dashboardItems={dashboardItems}
               setDashboardItems={setDashboardItems}
-              blocks={viewBlocks}
+              blocks={[...viewBlocks, ...apiComponents]}
               draggingBlock={draggingBlock}
               isEditing={isEditing}
             />
@@ -264,11 +331,13 @@ export default function DashboardPage() {
                 blocks={viewBlocks}
                 setBlocks={() => {}}
                 onDragStart={setDraggingBlock}
+                onApiComponentsLoaded={setApiComponents}
               />
             )}
           </main>
         )}
       </div>
+      <CompanyModal />
     </div>
   );
 }

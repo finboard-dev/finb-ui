@@ -18,7 +18,7 @@ import { LayoutGridIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
 import MetricsCard from "../ui/MetricsCard";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
-import RestrictedChart from "@/app/components/visualizationV2/VisualizationRenderer";
+import RestrictedChart from "@/components/visualizationV2/VisualizationRenderer";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -192,6 +192,14 @@ export default function DashboardView({
       event.preventDefault();
       setDragOverIndicator(false);
       const blockTemplateId = event.dataTransfer?.getData("text/plain");
+
+      console.log("Drop event:", {
+        blockTemplateId,
+        draggingBlock,
+        totalBlocks: blocks.length,
+        blockIds: blocks.map((b) => b.id),
+      });
+
       if (
         !blockTemplateId ||
         !draggingBlock ||
@@ -201,6 +209,19 @@ export default function DashboardView({
         return;
       }
       const blockToAdd = blocks.find((b) => b.id === blockTemplateId);
+
+      console.log(
+        "Found block to add:",
+        blockToAdd
+          ? {
+              id: blockToAdd.id,
+              title: blockToAdd.title,
+              type: blockToAdd.type,
+              hasContent: !!blockToAdd.content,
+            }
+          : null
+      );
+
       if (!blockToAdd) {
         toast.error(`Component (ID: ${blockTemplateId}) definition not found.`);
         return;
@@ -273,6 +294,22 @@ export default function DashboardView({
         const blockTemplate = blocks.find(
           (b) => b.id === dashboardItem?.blockId
         );
+
+        console.log("Rendering dashboard item:", {
+          itemId: dashboardItem?.id,
+          blockId: dashboardItem?.blockId,
+          blockTemplate: blockTemplate
+            ? {
+                id: blockTemplate.id,
+                title: blockTemplate.title,
+                type: blockTemplate.type,
+                hasContent: !!blockTemplate.content,
+                contentType: typeof blockTemplate.content,
+              }
+            : null,
+          totalBlocks: blocks.length,
+        });
+
         if (!dashboardItem || !blockTemplate) {
           return (
             <div

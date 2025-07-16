@@ -1,10 +1,12 @@
-import { getDashboardStructure, getWidgetData } from '@/lib/api/dashboard';
+import { getDashboardStructure, getWidgetData, saveDraft, publishDraft } from '@/lib/api/dashboard';
 import { 
   DashboardStructure, 
   WidgetDataRequest, 
   WidgetData,
   DashboardStructureResponse,
-  WidgetDataResponse 
+  WidgetDataResponse,
+  DashboardApiResponse,
+  DashboardVersion
 } from '../types';
 import { monitorApiCall } from '../utils/apiMonitor';
 
@@ -71,6 +73,35 @@ export class DashboardService {
   }
 
   /**
+   * Transform API response to DashboardStructure format
+   */
+  private transformApiResponse(apiResponse: DashboardApiResponse): DashboardStructure {
+    console.log('Transforming API response:', apiResponse);
+    
+    const { publishedVersion, draftVersion } = apiResponse;
+    
+    // Determine which version to use
+    const currentVersion = publishedVersion ? 'published' : 'draft';
+    const activeVersion = publishedVersion || draftVersion;
+    
+    if (!activeVersion) {
+      console.error('No active version found in API response');
+      throw new Error('No dashboard version data available');
+    }
+    
+    return {
+      uid: apiResponse.id,
+      title: `Dashboard ${apiResponse.id}`, // You might want to add title to the API response
+      view_only: false, // This could be determined by user permissions
+      links: [],
+      tabs: activeVersion.tabs,
+      currentVersion,
+      publishedVersion,
+      draftVersion,
+    };
+  }
+
+  /**
    * Fetch dashboard structure with caching and request deduplication
    */
   async fetchDashboardStructure(dashboardId: string): Promise<DashboardStructure> {
@@ -104,12 +135,16 @@ export class DashboardService {
 
       const response = await requestPromise;
       
+      console.log('Dashboard service received response:', response);
+      
       // Validate response structure
       if (!response) {
+        console.error('Response is null or undefined');
         throw new Error('Invalid dashboard structure response');
       }
 
-      const dashboardStructure = response as DashboardStructure;
+      // Transform the new API response to the expected format
+      const dashboardStructure = this.transformApiResponse(response as DashboardApiResponse);
       
       // Cache the dashboard structure
       this.setCache(cacheKey, dashboardStructure);
@@ -118,6 +153,10 @@ export class DashboardService {
       return dashboardStructure;
     } catch (error) {
       console.error('Error fetching dashboard structure:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: error
+      });
       throw new Error(`Failed to fetch dashboard structure: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       this.pendingRequests.delete(cacheKey);
@@ -279,6 +318,54 @@ export class DashboardService {
       throw new Error(`Failed to fetch tab widget data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       this.pendingRequests.delete(cacheKey);
+    }
+  }
+
+  /**
+   * Save draft version
+   */
+  async saveDraftVersion(dashboardId: string, draftData: any): Promise<DashboardVersion> {
+    try {
+      console.log(`Saving draft version for dashboard: ${dashboardId}`);
+      
+      const response = await monitorApiCall(
+        'dashboard/save-draft',
+        dashboardId,
+        () => saveDraft(dashboardId, draftData)
+      );
+      
+      // Clear cache for this dashboard since we've updated it
+      this.clearDashboardCache(dashboardId);
+      
+      console.log('Draft saved successfully');
+      return response;
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      throw new Error(`Failed to save draft: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Publish draft version
+   */
+  async publishDraftVersion(dashboardId: string): Promise<DashboardVersion> {
+    try {
+      console.log(`Publishing draft version for dashboard: ${dashboardId}`);
+      
+      const response = await monitorApiCall(
+        'dashboard/publish-draft',
+        dashboardId,
+        () => publishDraft(dashboardId)
+      );
+      
+      // Clear cache for this dashboard since we've updated it
+      this.clearDashboardCache(dashboardId);
+      
+      console.log('Draft published successfully');
+      return response;
+    } catch (error) {
+      console.error('Error publishing draft:', error);
+      throw new Error(`Failed to publish draft: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

@@ -19,6 +19,10 @@ const initialState: DashboardState = {
   },
   error: null,
   isEditing: false,
+  // New versioning state
+  currentVersion: 'published',
+  canEdit: false,
+  canPublish: false,
 };
 
 export const useDashboard = (dashboardId?: string) => {
@@ -189,6 +193,91 @@ export const useDashboard = (dashboardId?: string) => {
     }
   }, [setLoading, setError]);
 
+  // Switch to draft version
+  const switchToDraft = useCallback(() => {
+    if (!state.structure?.draftVersion) {
+      console.warn('No draft version available');
+      return;
+    }
+
+    setState(prev => ({
+      ...prev,
+      structure: prev.structure ? {
+        ...prev.structure,
+        tabs: prev.structure.draftVersion!.tabs,
+        currentVersion: 'draft'
+      } : null,
+      currentVersion: 'draft',
+      isEditing: true,
+      canEdit: true,
+      canPublish: true,
+      // Reset loaded tabs when switching versions
+      loadedTabs: new Set(),
+      widgetData: {}
+    }));
+  }, [state.structure]);
+
+  // Switch to published version
+  const switchToPublished = useCallback(() => {
+    if (!state.structure?.publishedVersion) {
+      console.warn('No published version available');
+      return;
+    }
+
+    setState(prev => ({
+      ...prev,
+      structure: prev.structure ? {
+        ...prev.structure,
+        tabs: prev.structure.publishedVersion!.tabs,
+        currentVersion: 'published'
+      } : null,
+      currentVersion: 'published',
+      isEditing: false,
+      canEdit: true,
+      canPublish: false,
+      // Reset loaded tabs when switching versions
+      loadedTabs: new Set(),
+      widgetData: {}
+    }));
+  }, [state.structure]);
+
+  // Save draft version
+  const saveDraft = useCallback(async () => {
+    if (!state.structure || state.currentVersion !== 'draft') {
+      console.warn('Cannot save: not in draft mode or no structure');
+      return;
+    }
+
+    try {
+      console.log('Saving draft version...');
+      await dashboardService.saveDraftVersion(state.structure.uid, state.structure);
+      console.log('Draft saved successfully');
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      throw error;
+    }
+  }, [state.structure, state.currentVersion]);
+
+  // Publish draft version
+  const publishDraft = useCallback(async () => {
+    if (!state.structure || state.currentVersion !== 'draft') {
+      console.warn('Cannot publish: not in draft mode or no structure');
+      return;
+    }
+
+    try {
+      console.log('Publishing draft version...');
+      await dashboardService.publishDraftVersion(state.structure.uid);
+      console.log('Draft published successfully');
+      
+      // Switch to published version after successful publish
+      switchToPublished();
+    } catch (error) {
+      console.error('Failed to publish draft:', error);
+      throw error;
+    }
+  }, [state.structure, state.currentVersion, switchToPublished]);
+
   // Initialize dashboard with proper memoization
   const initializeDashboard = useCallback(async () => {
     const currentDashboardId = currentDashboardIdRef.current;
@@ -213,6 +302,18 @@ export const useDashboard = (dashboardId?: string) => {
       
       // First, fetch dashboard structure
       const structure = await fetchDashboardStructure();
+      
+      // Set initial version and permissions
+      const hasPublishedVersion = !!structure?.publishedVersion;
+      const hasDraftVersion = !!structure?.draftVersion;
+      
+      setState(prev => ({
+        ...prev,
+        currentVersion: hasPublishedVersion ? 'published' : 'draft',
+        canEdit: hasDraftVersion,
+        canPublish: hasDraftVersion && !hasPublishedVersion,
+        isEditing: !hasPublishedVersion // Start in edit mode if no published version
+      }));
       
       if (structure && structure.tabs.length > 0) {
         // Only fetch widget data for the first tab initially
@@ -374,6 +475,9 @@ export const useDashboard = (dashboardId?: string) => {
       loading: state.loading,
       error: state.error,
       isEditing: state.isEditing,
+      currentVersion: state.currentVersion,
+      canEdit: state.canEdit,
+      canPublish: state.canPublish,
     });
     console.log('⏱️ Pending Requests:', Array.from(pendingRequestsRef.current));
     console.log('🔄 Is Initializing:', isInitializingRef.current);
@@ -400,6 +504,9 @@ export const useDashboard = (dashboardId?: string) => {
     error: state.error,
     loadedTabs: state.loadedTabs,
     isEditing: state.isEditing,
+    currentVersion: state.currentVersion,
+    canEdit: state.canEdit,
+    canPublish: state.canPublish,
 
     // Actions
     initializeDashboard,
@@ -407,6 +514,10 @@ export const useDashboard = (dashboardId?: string) => {
     refreshTabData,
     setIsEditing,
     getWidgetData,
+    switchToDraft,
+    switchToPublished,
+    saveDraft,
+    publishDraft,
     debug, // Expose debug method
   };
 }; 

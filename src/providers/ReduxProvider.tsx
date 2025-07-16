@@ -4,7 +4,7 @@ import { persistor, store } from "@/lib/store/store";
 import { PropsWithChildren, useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
-import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
+import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 
 export function ReduxProvider({ children }: PropsWithChildren) {
   const [showPersistGate, setShowPersistGate] = useState(false);

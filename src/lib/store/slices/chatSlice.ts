@@ -264,8 +264,17 @@ export const chatSlice = createSlice({
           state.pendingChat.chats[0].messages.push(message);
           state.pendingChat.lastMessageAt = now;
           if (message.role === "user") {
+            // Move pending chat to chats array
             state.chats.unshift(state.pendingChat);
             state.activeChatId = state.pendingChat.id;
+            
+            // Update URL with the actual thread_id from the pending chat
+            if (typeof window !== 'undefined' && state.pendingChat.thread_id) {
+              const url = new URL(window.location.href);
+              url.searchParams.set('id', state.pendingChat.thread_id);
+              window.history.replaceState({}, '', url.toString());
+            }
+            
             state.pendingChat = null;
           }
         }
@@ -426,6 +435,7 @@ export const chatSlice = createSlice({
       state.pendingChat = null;
       state.activeChatId = null;
     },
+
   },
 });
 

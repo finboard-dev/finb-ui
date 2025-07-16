@@ -32,6 +32,8 @@ export interface Block {
     filter: Record<string, any>;
     content: any;         // Data for the block: object for graph/metric, array/object for table.
     previewImage?: string; // Data URL for a preview image.
+    htmlTable?: string;   // HTML table string for table rendering
+    scopeLevel?: string;  // Scope level: "global", "organization", "company"
 }
 
 /**
@@ -42,6 +44,7 @@ export interface DraggingBlock {
     type: BlockType;
     width: number;  // Default width for the react-grid-layout item.
     height: number; // Default height for the react-grid-layout item.
+    htmlTable?: string; // HTML table data for table components
 }
 
 // Dashboard Structure Types
@@ -91,6 +94,10 @@ export interface DashboardStructure {
   view_only: boolean;
   links: DashboardLink[];
   tabs: Tab[];
+  // New fields for versioning
+  currentVersion?: 'draft' | 'published';
+  publishedVersion?: DashboardVersion | null;
+  draftVersion?: DashboardVersion;
 }
 
 // API Response Types
@@ -124,11 +131,50 @@ export interface DashboardState {
   };
   error: string | null;
   isEditing: boolean;
+  // New fields for versioning
+  currentVersion: 'draft' | 'published';
+  canEdit: boolean;
+  canPublish: boolean;
 }
 
 // Tab Selection Types
 export interface TabSelection {
   tabId: string;
   tab: Tab;
+}
+
+// New API Response Types for Versioning
+export interface DashboardVersion {
+  id: string;
+  dashboardId: string;
+  tabs: Tab[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  updatedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface DashboardApiResponse {
+  id: string;
+  sharedUsers: any[];
+  createdAt: string;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  publishedVersion: DashboardVersion | null;
+  draftVersion: DashboardVersion;
+  orgId: string;
+  companyId: string;
+  updatedAt: string;
 }
 

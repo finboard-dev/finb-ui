@@ -14,6 +14,7 @@ export const useChatStream = () => {
   const activeChatId = useAppSelector((state) => state.chat.activeChatId)
   const user = useAppSelector((state) => state.user)
   const selectedCompanyId = user?.selectedCompany?.id
+  const selectedOrganizationId = user?.selectedOrganization?.id 
 
   const activeChat = useAppSelector((state) => {
     if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
@@ -77,6 +78,7 @@ export const useChatStream = () => {
           message: payload.text,
           threadId: threadId,
           companyId: selectedCompanyId,
+          orgId: selectedOrganizationId,
           toolMentions:
               payload.mentions && payload.mentions.length > 0
                   ? payload.mentions.map((mention) => ({
