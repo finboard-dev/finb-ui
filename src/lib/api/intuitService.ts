@@ -115,18 +115,17 @@ export const addCompany = async (authCode: string, realmId: string | null) => {
 };
 
 export const initAddQuickBookAccount = async () => {
-    const organisation: any = store.getState().user.selectedOrganization
-
-    const organisation_id = organisation?.id;
     try {
-        const response = await fetcher.get(`/datasource/add?provider=QUICKBOOKS`);
-        const { state, connection_url } = response;
+        const response = await fetcher.get(`/connection/add?provider=QUICKBOOKS`);
+        const { state, redirectUrl } = response;
 
         localStorage.setItem(CSRF_TOKEN, state);
         localStorage.setItem(REDIRECT_TYPE, ADD_COMPANY);
 
+        console.log(response);
+        
 
-        return connection_url;
+        return redirectUrl;
     } catch (error) {
         console.error('Failed to add QuickBook account:', error);
         throw error;
@@ -219,7 +218,7 @@ export const syncAllDraftOfTemplate = async (id: any, version: any) => {
 
 export const disconnectAccount = async (uuid: any) => {
     try {
-        const response = await fetcher.post(`/datasource/disconnect?datasource=${uuid}`, {});
+        const response = await fetcher.post(`/connection/disconnect?datasource=${uuid}`, {});
         return response.data;
     } catch (error) {
         console.error('Failed to disconnect account ', error);
