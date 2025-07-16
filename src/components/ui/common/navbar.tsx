@@ -20,6 +20,8 @@ import {
   Building2,
   HelpCircle,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useAppSelector } from "@/lib/store/hooks";
 import { selectSelectedCompany } from "@/lib/store/slices/userSlice";
@@ -32,9 +34,19 @@ import { useClearReduxState } from "@/hooks/useClearReduxState";
 
 interface NavbarProps {
   className?: string;
+  title: string;
+  collpaseSidebar?: () => void;
+  isCollapsed?: boolean;
+  children?: React.ReactNode;
 }
 
-const Navbar: FC<NavbarProps> = ({ className = "" }) => {
+const Navbar: FC<NavbarProps> = ({
+  className = "",
+  title,
+  collpaseSidebar,
+  isCollapsed,
+  children,
+}) => {
   const clearReduxState = useClearReduxState();
   const { navigateToChatSettings, toggleComponentState } = useUrlParams();
   const router = useRouter();
@@ -61,69 +73,30 @@ const Navbar: FC<NavbarProps> = ({ className = "" }) => {
     >
       {/* Left Section - Logo and Company */}
       <div className="flex items-center gap-4 flex-1 min-w-0">
-        {selectedCompany && (
+        {/* TODO: Add company selection */}
+        <div className="flex items-center gap-4">
           <Button
-            variant="outline"
-            id="company-select-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleComponentState(companyModalId, true);
-            }}
-            className="w-fit flex cursor-pointer border-gray-200 bg-white text-text-primary justify-between items-center"
+            variant="ghost"
+            size="icon"
+            className="text-sec hover:text-gray-700"
+            onClick={collpaseSidebar}
           >
-            <div className="flex items-center ">
-              <span className="truncate">
-                {selectedCompany?.name || "Select Company"}
-              </span>
-            </div>
-            <ChevronDown className="h-4 w-4" />
+            {isCollapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-sec" />
+            ) : (
+              <PanelLeftClose className="w-5 h-5 text-sec" />
+            )}
           </Button>
-        )}
+          <h1 className="text-xl text-primary font-medium">{title}</h1>
+        </div>
       </div>
 
       {/* Center Section - Search */}
-      {/* <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search conversations, reports..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300"
-          />
-        </div>
-      </div> */}
+      <div className="hidden lg:flex items-center flex-1 max-w-md mx-8"></div>
 
       {/* Right Section - Actions and User */}
-      <div className="flex items-center gap-2">
-        {/* Notifications */}
-        {/* <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-        >
-          <Bell className="h-4 w-4" />
-        </Button> */}
-
-        {/* Help */}
-        {/* <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={handleHelp}
-        >
-          <HelpCircle className="h-4 w-4" />
-        </Button> */}
-
-        {/* Settings */}
-        {/* <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={handleSettings}
-        >
-          <Settings className="h-4 w-4" />
-        </Button> */}
-
+      <div className="flex items-center gap-12">
+        <div>{children}</div>
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -151,10 +124,6 @@ const Navbar: FC<NavbarProps> = ({ className = "" }) => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {/* <DropdownMenuItem className="text-sm cursor-pointer text-gray-700 hover:bg-gray-100 focus:bg-gray-100">
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem> */}
             <DropdownMenuItem
               onClick={() => navigateToChatSettings("data-connections")}
               className="text-sm cursor-pointer text-gray-700 hover:bg-gray-100 focus:bg-gray-100"

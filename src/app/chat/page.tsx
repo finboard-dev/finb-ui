@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { setActiveChatId } from "@/lib/store/slices/chatSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
-import Home from "../components/chat/Home";
+import Home from "./components/chat/Home";
 import { syncUrlParamsToRedux } from "@/lib/utils/urlParams";
 
 const ChatPage = () => {

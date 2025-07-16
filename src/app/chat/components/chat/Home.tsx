@@ -12,7 +12,7 @@ import ChatContainer from "./layout/ChatContainer";
 import NoChatBranding from "./chat-container/NoChatBranding";
 import ResponsePanel from "./layout/Responsepanel";
 import ChatSidebar from "./layout/ChatSidebar";
-import Navbar from "@/components/ui/navbar";
+import Navbar from "@/components/ui/common/navbar";
 
 import {
   setResponsePanelWidth,
@@ -29,16 +29,23 @@ import {
 } from "@/lib/store/slices/userSlice";
 import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
-import { setMainContent, toggleComponent } from "@/lib/store/slices/uiSlice";
+import {
+  setMainContent,
+  toggleComponent,
+  selectIsComponentOpen,
+} from "@/lib/store/slices/uiSlice";
 import { store } from "@/lib/store/store";
 import { useRouter, useSearchParams } from "next/navigation";
-import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
+import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 import { useUrlParams } from "@/lib/utils/urlParams";
 import {
   useAllCompanies,
   useCurrentCompany,
 } from "@/hooks/query-hooks/useCompany";
-import { CompanyModal } from "./sidebar/CompanyModal";
+import { CompanyModal } from "../../../../components/ui/common/CompanyModal";
+import NewChatButton from "./ui/NewChatButton";
+import ChatSearchDropdown from "./ui/ChatSearchDropdown";
+import { Sidebar } from "@/components/ui/common/sidebar";
 
 interface ToolCallResponse {
   messageId: string;
@@ -48,7 +55,15 @@ const Home: FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { navigateToContent, navigateToChat } = useUrlParams();
+  const {
+    isParamSet,
+    isHashParamSet,
+    startNewChat,
+    navigateToChat,
+    navigateToSettings,
+    navigateToChatSettings,
+    toggleComponentState,
+  } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isCompanyLoading = useAppSelector(selectDropDownLoading);
   const selectedCompany: any = useAppSelector(
@@ -67,6 +82,24 @@ const Home: FC = () => {
     (state) => state.user.selectedOrganization
   );
   const user = useAppSelector((state) => state.user.user);
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // React Query hooks
   const {
@@ -90,12 +123,13 @@ const Home: FC = () => {
     return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
   });
 
-  const isSidebarOpen = useAppSelector((state) => {
-    const activeChat = state.chat.chats.find(
-      (chat) => chat.id === state.chat.activeChatId
-    );
-    return activeChat?.chats[0]?.isSidebarOpen ?? true;
-  });
+  // Remove the old chat-specific sidebar state logic
+  // const isSidebarOpen = useAppSelector((state) => {
+  //   const activeChat = state.chat.chats.find(
+  //     (chat) => chat.id === state.chat.activeChatId
+  //   );
+  //   return activeChat?.chats[0]?.isSidebarOpen ?? true;
+  // });
 
   const responsePanelWidth = activeChat?.chats[0]?.responsePanelWidth || 0;
   const activeMessageId = activeChat?.chats[0]?.activeMessageId || null;
@@ -199,6 +233,11 @@ const Home: FC = () => {
     }
   };
 
+  // Add sidebar collapse handler
+  const handleSidebarCollapse = () => {
+    dispatch(toggleComponent({ id: "sidebar-chat" }));
+  };
+
   const ToolCallEventListener: FC = () => {
     useEffect(() => {
       const handleToolCallClick = (event: CustomEvent) => {
@@ -239,12 +278,29 @@ const Home: FC = () => {
       style={{ minWidth: 0, minHeight: 0 }}
     >
       <ToolCallEventListener />
-      <ChatSidebar />
+      {/* <ChatSidebar /> */}
+      <Sidebar
+        isCollapsed={isSidebarCollapsed}
+        onClickSettings={() => {
+          console.log("clicked settings");
+          navigateToChatSettings("data-connections");
+        }}
+      />
       <div
         className="flex flex-1 w-full h-full flex-col"
         style={{ minWidth: 0 }}
       >
-        <Navbar />
+        <Navbar
+          title="Chat"
+          className="!h-[3.8rem]"
+          isCollapsed={isSidebarCollapsed}
+          collpaseSidebar={handleSidebarCollapse}
+        >
+          <div className="flex items-center gap-3">
+            <ChatSearchDropdown />
+            <NewChatButton />
+          </div>
+        </Navbar>
         <div
           className="flex flex-1 w-full flex-row overflow-hidden"
           style={{ minWidth: 0 }}

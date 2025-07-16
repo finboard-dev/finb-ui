@@ -33,13 +33,13 @@ import {
   setResponsePanelWidth,
   setActiveMessageId,
 } from "@/lib/store/slices/chatSlice";
-import EChartsRenderer from "@/app/components/visualizationV2/VisualizationRenderer";
+import EChartsRenderer from "@/components/visualizationV2/VisualizationRenderer";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
-import RestrictedChart from "@/app/components/visualizationV2/VisualizationRenderer";
-import PublishModal from "@/app/components/chat/ui/PublishModal";
+import RestrictedChart from "@/components/visualizationV2/VisualizationRenderer";
+import PublishModal from "@/app/chat/components/chat/ui/PublishModal";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 

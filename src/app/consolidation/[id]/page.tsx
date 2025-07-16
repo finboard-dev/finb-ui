@@ -1,10 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { Sidebar } from "../components/Sidebar";
 import { ConsolidationHeader } from "../components/ConsolidationHeader";
 import { Stepper } from "../components/Stepper";
 import { ConsolidationMain } from "../components/ConsolidationMain";
-import { CompanyModal } from "@/app/components/chat/sidebar/CompanyModal";
+import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import {
   CreateAccounts,
   CreateAccountsRef,
@@ -15,15 +14,28 @@ import { ReviewFinalize } from "../components/stepper/ReviewFinalize";
 import { store } from "@/lib/store/store";
 import { useRouter, useParams } from "next/navigation";
 import { useSelector } from "react-redux";
+import { Sidebar } from "@/components/ui/common/sidebar";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
 
 export default function ConsolidationPage() {
   const router = useRouter();
   const params = useParams();
+  const dispatch = useAppDispatch();
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
+
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const createAccountsRef = useRef<CreateAccountsRef>(null);
 
   const selectedCompanyId = useSelector(
@@ -34,6 +46,18 @@ export default function ConsolidationPage() {
   const realmId = companies.find(
     (company: any) => company.id === selectedCompanyId
   )?.realmId;
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // Sync URL with selectedCompany
   useEffect(() => {
@@ -73,7 +97,7 @@ export default function ConsolidationPage() {
   };
 
   const handleSidebarToggle = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
+    dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
 
   const renderCurrentStep = () => {

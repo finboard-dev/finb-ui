@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
 import DashboardSpecificHeader from "../components/ui/Header";
 import DashboardControls from "../components/Dashboard/DashBoardControls";
 import DashboardView from "../components/Dashboard/DashboardView";
@@ -13,7 +18,8 @@ import {
 import { toast } from "sonner";
 import type { Block, DashboardItem, DraggingBlock } from "../types";
 import { useDashboard } from "../hooks/useDashboard";
-import { Sidebar } from "../components/ui/LeftSidebar";
+import { Sidebar } from "@/components/ui/common/sidebar";
+import { CompanyModal } from "@/components/ui/common/CompanyModal";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -45,6 +51,13 @@ export default function DashboardPage() {
   const params = useParams();
   const router = useRouter();
   const dashboardId = params.dashboardId as string;
+  const dispatch = useAppDispatch();
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
 
   const {
     structure,
@@ -72,6 +85,18 @@ export default function DashboardPage() {
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(
     null
   );
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // Initialize dashboard on component mount or when dashboardId changes
   useEffect(() => {
@@ -256,7 +281,12 @@ export default function DashboardPage() {
 
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-      {!structure.view_only && <Sidebar isCollapsed={false} />}
+      {!structure.view_only && (
+        <Sidebar
+          onClickSettings={() => router.push("/dashboard/settings")}
+          isCollapsed={isSidebarCollapsed}
+        />
+      )}
       <div className="flex-1 flex flex-col overflow-x-hidden ml-0">
         <DashboardSpecificHeader
           isEditing={isEditing}
@@ -307,6 +337,7 @@ export default function DashboardPage() {
           </main>
         )}
       </div>
+      <CompanyModal />
     </div>
   );
 }

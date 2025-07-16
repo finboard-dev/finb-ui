@@ -28,7 +28,7 @@ import MetricsCard from "../ui/MetricsCard";
 
 const RestrictedChart = dynamic(
   () =>
-    import("@/app/components/visualizationV2/VisualizationRenderer").catch(
+    import("@/components/visualizationV2/VisualizationRenderer").catch(
       () => () => <ErrorDisplay message="Chart renderer failed to load." />
     ),
   { ssr: false, loading: () => <LoadingDisplay message="Loading chart..." /> }

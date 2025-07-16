@@ -25,6 +25,7 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDndContext, // Import useDndContext
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -36,11 +37,11 @@ import {
   type Mapping,
   REPORT_TYPE_COLUMNS,
   REPORT_TYPES,
-} from "../../types/consolidationUiMapping";
+} from "../../types/consolidationUiMapping"; // Adjust path as needed
 import {
   useMappingForAccountByType,
   useSaveMappings,
-} from "@/hooks/query-hooks/useConsolidationApi";
+} from "@/hooks/query-hooks/useConsolidationApi"; // Adjust path as needed
 
 interface CreateAccountsProps {
   onNext: () => void;
@@ -105,6 +106,28 @@ function AccountCardRecursive({
     },
   });
 
+  // Use useDroppable to check if an item is being dragged *over* this specific account card
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
+    id: account.account_id, // Use the same ID as sortable for droppable context
+    data: {
+      account: account,
+      colKey: colKey,
+      level: level,
+      type: "account", // Add a type to distinguish from column droppables
+    },
+  });
+
+  // Combine refs
+  const combinedRef = (el: HTMLDivElement | null) => {
+    if (!isDragOverlay) {
+      setNodeRef(el); // for sortable
+      setDroppableNodeRef(el); // for droppable
+      if (scrollToRef.current) {
+        scrollToRef.current[account.account_id] = el;
+      }
+    }
+  };
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -144,16 +167,15 @@ function AccountCardRecursive({
     }
   };
 
+  // Determine if the current active dragged item can be dropped here
+  const { active } = useDndContext();
+  const activeData = active?.data.current;
+  const isDragValidTarget =
+    activeData && activeData.colKey === colKey && isOver;
+
   return (
     <div
-      ref={(el) => {
-        if (!isDragOverlay) {
-          setNodeRef(el);
-          if (scrollToRef.current) {
-            scrollToRef.current[account.account_id] = el;
-          }
-        }
-      }}
+      ref={combinedRef} // Use the combined ref here
       style={!isDragOverlay ? style : undefined}
       className={`
         ${
@@ -165,6 +187,11 @@ function AccountCardRecursive({
         ${
           isDragOverlay
             ? "rotate-2 shadow-xl bg-white border-2 border-blue-400"
+            : ""
+        }
+        ${
+          isDragValidTarget
+            ? "border-dashed border-2 border-green-400 bg-green-50" // Visual cue for valid drop on account
             : ""
         }
       `}
@@ -280,11 +307,21 @@ function DroppableColumn({
     },
   });
 
+  // Access the active (dragged) item's data
+  const { active } = useDndContext();
+  const isDragActiveInThisColumn =
+    active?.data.current?.colKey === col.key && isOver;
+
   return (
     <div
       ref={setNodeRef}
       className={`min-w-[260px] max-w-xs bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full transition-colors ${
         isOver ? "border-blue-400 bg-blue-50" : ""
+      }
+      ${
+        isDragActiveInThisColumn
+          ? "border-green-500 bg-green-50 shadow-md" // Stronger visual for valid drop zone
+          : ""
       }`}
     >
       {/* Fixed Header */}
@@ -337,6 +374,7 @@ export const CreateAccounts = forwardRef<
   const prevLocalMapping = useRef<Mapping>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const preDragState = useRef<Mapping>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -567,6 +605,9 @@ export const CreateAccounts = forwardRef<
     const { active } = event;
     setActiveId(active.id as string);
 
+    // Store the current state before drag starts
+    preDragState.current = JSON.parse(JSON.stringify(localMapping));
+
     const activeData = active.data.current;
     if (activeData && activeData.account) {
       setDraggedAccount(deepCloneAccount(activeData.account));
@@ -586,7 +627,8 @@ export const CreateAccounts = forwardRef<
     const activeData = active.data.current;
     const overData = over.data.current;
 
-    if (!activeData) {
+    if (!activeData || !activeData.colKey) {
+      // If activeData or its colKey is missing, we can't process the drag
       return;
     }
 
@@ -602,97 +644,117 @@ export const CreateAccounts = forwardRef<
       over.id
     );
 
+    let targetColKey: string | null = null;
+    let targetAccountId: string | null = null;
+
+    // Determine the target column based on where it's dropped
+    if (overData && overData.type === "column") {
+      // Dropped directly on a column (empty space)
+      targetColKey = overData.colKey;
+    } else if (overData && overData.account) {
+      // Dropped on another account
+      targetColKey = overData.colKey;
+      targetAccountId = over.id as string;
+    }
+
+    // --- Fix for 'null' cannot be used as an index type and cross-column prevention ---
+    // If there's no valid target column key, or it's a cross-column drop,
+    // revert the item to its original position in the source column.
+    if (!targetColKey || targetColKey !== sourceColKey) {
+      console.log(
+        `Cannot drop account into a different report type column or an invalid target. Source: ${sourceColKey}, Target: ${targetColKey}`
+      );
+
+      // For invalid drops, restore the pre-drag state
+      setLocalMapping(preDragState.current);
+      hasUserChanges.current = true;
+      return; // Stop processing further as the drop is invalid
+    }
+    // --- End of fix ---
+
+    // If we reach here, targetColKey is guaranteed to be a string and equal to sourceColKey.
+    // So, it's safe to use targetColKey for indexing.
+
     // Extract account first to ensure it exists
-    const sourceAccounts = [...(localMapping[sourceColKey] || [])];
+    // We get `extractedAccount` again because the previous `extractedAccount` might have
+    // been from a temporary state or for the revert logic.
+    // Now we are sure we are processing a valid within-column drop.
+    const currentSourceAccounts = [...(localMapping[sourceColKey] || [])];
     const { newAccounts: updatedSourceAccounts, extractedAccount } =
-      extractAccountFromTree(sourceAccounts, draggedAccountId);
+      extractAccountFromTree(currentSourceAccounts, draggedAccountId);
 
     if (!extractedAccount) {
-      console.log("Could not find account to move");
+      console.log("Could not find account to move after valid target check.");
       return;
     }
 
-    // Handle dropping on another account (same or different column)
-    if (overData && overData.account) {
-      const targetColKey = overData.colKey;
-      const targetAccountId = over.id as string;
-
+    // Handle dropping on another account within the same column (nesting)
+    if (targetAccountId) {
+      // targetColKey is implicitly sourceColKey here
       // Prevent dropping parent on its own descendant
-      if (isDescendant(activeData.account, targetAccountId)) {
+      if (
+        activeData.account &&
+        isDescendant(activeData.account, targetAccountId)
+      ) {
         console.log("Cannot drop: would create circular reference");
+        // Revert if circular reference is detected - restore pre-drag state
+        setLocalMapping(preDragState.current);
+        hasUserChanges.current = true;
         return;
       }
 
       // Check nesting limits
       const targetLevel = getAccountLevel(
-        localMapping[targetColKey] || [],
+        localMapping[targetColKey] || [], // targetColKey is string here
         targetAccountId
       );
       const draggedDepth = getMaxDepth(activeData.account);
 
       if (targetLevel + 1 + draggedDepth > 3) {
         console.log("Cannot drop: would exceed maximum nesting level");
+        // Revert if nesting limit is exceeded - restore pre-drag state
+        setLocalMapping(preDragState.current);
+        hasUserChanges.current = true;
         return;
       }
 
+      // Perform the actual move and nesting
       setLocalMapping((prev) => {
         const newMapping = { ...prev };
-
-        // Update source column
-        newMapping[sourceColKey] = updatedSourceAccounts;
-
-        // Add to target column
-        const targetAccounts = [...(newMapping[targetColKey] || [])];
+        newMapping[sourceColKey] = updatedSourceAccounts; // Remove from original position
+        const targetAccounts = [...(newMapping[targetColKey] || [])]; // targetColKey is string here
         const finalTargetAccounts = insertAccountAsChild(
           targetAccounts,
           targetAccountId,
           extractedAccount
         );
-        newMapping[targetColKey] = finalTargetAccounts;
-
+        newMapping[targetColKey] = finalTargetAccounts; // targetColKey is string here
         return newMapping;
       });
-
       hasUserChanges.current = true;
       return;
     }
 
-    // Handle dropping on a column container (empty space in column)
-    const overElement = over.id as string;
-    if (overElement.startsWith("column-")) {
-      const targetColKey = overElement.replace("column-", "");
-
-      setLocalMapping((prev) => {
-        const newMapping = { ...prev };
-
-        // Update source column
-        newMapping[sourceColKey] = updatedSourceAccounts;
-
-        // Add to target column as root account
-        const targetAccounts = [...(newMapping[targetColKey] || [])];
-        targetAccounts.push(extractedAccount);
-        newMapping[targetColKey] = targetAccounts;
-
-        return newMapping;
-      });
-
-      hasUserChanges.current = true;
-      return;
-    }
-
-    // If no specific drop target, keep in same column as root account
-    // This handles the case where you drag outside but don't hit a specific drop zone
+    // Handle dropping on a column container (empty space in the *same* column) as a root account
+    // This is the default if not dropped on another account for nesting, but within the same column.
     setLocalMapping((prev) => {
       const newMapping = { ...prev };
+      // First, ensure it's removed from its previous nested/root position
+      newMapping[sourceColKey] = updatedSourceAccounts;
 
-      // Update source column by adding the extracted account back as root
-      const updatedAccounts = [...updatedSourceAccounts];
-      updatedAccounts.push(extractedAccount);
-      newMapping[sourceColKey] = updatedAccounts;
-
+      // Then, add to the target column (which is the source column here) as a root account
+      const targetAccounts = [...(newMapping[targetColKey] || [])]; // targetColKey is string here
+      // Only add if not already present at the root level to prevent duplicates
+      if (
+        !targetAccounts.some(
+          (acc) => acc.account_id === extractedAccount.account_id
+        )
+      ) {
+        targetAccounts.push(extractedAccount);
+      }
+      newMapping[targetColKey] = targetAccounts; // targetColKey is string here
       return newMapping;
     });
-
     hasUserChanges.current = true;
   };
 
@@ -726,21 +788,29 @@ export const CreateAccounts = forwardRef<
   // Add child account (nesting)
   const handleAddChildAccount = (
     parentAccount: Account,
-    parentObj: Account | null = null,
+    parentObj: Account | null = null, // This parameter seems unused, consider removing
     colKey: string | null = null,
     level = 0
   ) => {
+    // Check if the parent account is already at the maximum nesting level
+    if (level >= 3) {
+      console.warn("Cannot add child: maximum nesting level reached.");
+      return;
+    }
+
     // Find the column key if not provided
     if (!colKey) {
+      // This logic will find the column key by iterating through all columns
+      // It assumes the parentAccount exists in one of the columns
       for (const col of ACCOUNT_COLUMNS) {
         if (localMapping[col.key]) {
           const newAccountId = findAccountAndAdd(
             localMapping[col.key],
             parentAccount.account_id,
-            level
+            0 // Always start from level 0 when searching
           );
           if (newAccountId) {
-            setLocalMapping((prev) => ({ ...prev }));
+            setLocalMapping((prev) => ({ ...prev })); // Trigger re-render with updated nested structure
             setEditingId(newAccountId);
             hasUserChanges.current = true;
             // Scroll to the new account after a short delay
@@ -755,12 +825,12 @@ export const CreateAccounts = forwardRef<
         }
       }
     } else {
-      // Add to the provided column
+      // Add to the provided column (more direct if colKey is known)
       const updated = localMapping[colKey] ? [...localMapping[colKey]] : [];
       const newAccountId = findAccountAndAdd(
         updated,
         parentAccount.account_id,
-        level
+        0 // Always start from level 0 when searching
       );
       setLocalMapping((prev) => ({ ...prev, [colKey]: updated }));
       if (newAccountId) {
@@ -785,6 +855,7 @@ export const CreateAccounts = forwardRef<
   ): string | null {
     for (const acc of accounts) {
       if (acc.account_id === id) {
+        // Add child to this account (level check is handled in parent function)
         if (!acc.children) acc.children = [];
         const newAccountId = Math.random().toString(36).slice(2);
         acc.children.push({
@@ -934,7 +1005,7 @@ export const CreateAccounts = forwardRef<
                     account={draggedAccount}
                     level={0}
                     maxLevel={3}
-                    colKey=""
+                    colKey="" // colKey not strictly necessary for overlay, but keeps prop consistent
                     onAddChild={() => {}}
                     onEdit={() => {}}
                     onDelete={() => {}}

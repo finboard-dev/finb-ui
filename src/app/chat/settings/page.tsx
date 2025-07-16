@@ -2,20 +2,42 @@
 
 import React, { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAppDispatch } from "@/lib/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   setActiveSettingsSection,
   setMainContent,
+  toggleComponent,
+  selectIsComponentOpen,
 } from "@/lib/store/slices/uiSlice";
-import Settings from "../../components/pages/Settings";
-import ChatSidebar from "../../components/chat/layout/ChatSidebar";
+import Settings from "../../../components/pages/Settings";
 import { syncUrlParamsToRedux, useUrlParams } from "@/lib/utils/urlParams";
+import { Sidebar } from "@/components/ui/common/sidebar";
+import Navbar from "@/components/ui/common/navbar";
+import { CompanyModal } from "../../../components/ui/common/CompanyModal";
 
 const ChatSettingsPage = () => {
   const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const { navigateToContent } = useUrlParams();
   const section = searchParams.get("section");
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // Sync URL parameters to Redux state
   useEffect(() => {
@@ -45,15 +67,31 @@ const ChatSettingsPage = () => {
     navigateToContent("chat");
   };
 
+  const handleSidebarCollapse = () => {
+    dispatch(toggleComponent({ id: "sidebar-chat" }));
+  };
+
   return (
     <div className="flex h-screen">
-      {/* Chat Sidebar */}
-      <ChatSidebar />
+      {/* Sidebar */}
+      <Sidebar isCollapsed={isSidebarCollapsed} />
 
-      {/* Settings Content */}
-      <div className="flex-1 overflow-hidden">
-        <Settings onBackClick={handleBackClick} />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <Navbar
+          title="Settings"
+          isCollapsed={isSidebarCollapsed}
+          className="!h-[3.8rem]"
+          collpaseSidebar={handleSidebarCollapse}
+        />
+
+        {/* Settings Content */}
+        <div className="flex-1 overflow-hidden">
+          <Settings onBackClick={handleBackClick} />
+        </div>
       </div>
+      <CompanyModal />
     </div>
   );
 };

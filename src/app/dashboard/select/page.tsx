@@ -14,13 +14,40 @@ import { toast } from "sonner";
 import { CreateDashboardModal } from "./components/CreateDashboardModal";
 import { DashboardCard } from "./components/DashboardCard";
 import { useDashboards } from "@/hooks/query-hooks/useDashboard";
+import { Sidebar } from "@/components/ui/common/sidebar";
+import Navbar from "@/components/ui/common/navbar";
+import { CompanyModal } from "@/components/ui/common/CompanyModal";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  selectIsComponentOpen,
+  toggleComponent,
+} from "@/lib/store/slices/uiSlice";
 
 export default function DashboardSelectPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: dashboards, isLoading, error } = useDashboards();
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
+
+  // Initialize sidebar component if it doesn't exist
+  useEffect(() => {
+    dispatch({
+      type: "ui/initializeComponent",
+      payload: {
+        type: "sidebar",
+        id: "sidebar-chat",
+        isOpenFromUrl: true, // Default to open
+      },
+    });
+  }, [dispatch]);
 
   // Debug logging
   console.log("Dashboard Select Page - Raw data:", dashboards);
@@ -50,103 +77,125 @@ export default function DashboardSelectPage() {
     router.push(`/dashboard/${dashboardId}`);
   };
 
+  const handleSidebarCollapse = () => {
+    dispatch(toggleComponent({ id: "sidebar-chat" }));
+  };
+
   if (error) {
     return (
-      <div className="min-h-screen bg-white p-6">
-        <div className="max-w-6xl mx-auto text-center py-12">
-          <LayoutDashboardIcon className="w-16 h-16 text-red-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">
-            Failed to load dashboards
-          </h3>
-          <p className="text-gray-500 mb-4">
-            There was an error loading your dashboards. Please try again.
-          </p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
+      <div className="flex h-screen">
+        <Sidebar isCollapsed={isSidebarCollapsed} />
+        <div className="flex-1 flex flex-col">
+          <Navbar
+            title="Select Dashboard"
+            isCollapsed={isSidebarCollapsed}
+            className="!h-[3.8rem]"
+            collpaseSidebar={handleSidebarCollapse}
+          />
+          <div className="flex-1 overflow-auto bg-white p-6">
+            <div className="max-w-6xl mx-auto text-center py-12">
+              <LayoutDashboardIcon className="w-16 h-16 text-red-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                Failed to load dashboards
+              </h3>
+              <p className="text-gray-500 mb-4">
+                There was an error loading your dashboards. Please try again.
+              </p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          </div>
         </div>
+        <CompanyModal />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">
-            Select Dashboard
-          </h1>
-          <p className="text-slate-600">
-            Choose a dashboard to view or create a new one
-          </p>
-        </div>
-
-        {/* Search and Create */}
-        <div className="flex gap-4 mb-6">
-          <div className="flex-1 bg-white relative">
-            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Search dashboards..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button
-            onClick={handleCreateNew}
-            className="flex bg-primary text-white items-center gap-2"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Dashboard
-          </Button>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-3">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              <span className="text-gray-600">Loading dashboards...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Dashboard Grid */}
-        {!isLoading && (
-          <div className="space-y-4">
-            {filteredDashboards.map((dashboard) => (
-              <DashboardCard
-                key={dashboard.id}
-                dashboard={dashboard}
-                onClick={handleDashboardSelect}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && filteredDashboards.length === 0 && (
-          <div className="text-center py-12">
-            <LayoutDashboardIcon className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-600 mb-2">
-              {searchTerm ? "No dashboards found" : "No dashboards yet"}
-            </h3>
-            <p className="text-slate-500 mb-4">
-              {searchTerm
-                ? "Try adjusting your search terms"
-                : "Get started by creating your first dashboard"}
-            </p>
-            {searchTerm && (
+    <div className="flex h-screen">
+      <Sidebar isCollapsed={isSidebarCollapsed} />
+      <div className="flex-1 flex flex-col">
+        <Navbar
+          title="Select Dashboard"
+          isCollapsed={isSidebarCollapsed}
+          className="!h-[3.8rem]"
+          collpaseSidebar={handleSidebarCollapse}
+        />
+        <div className="flex-1 overflow-auto bg-white p-6">
+          <div className="max-w-6xl mx-auto">
+            {/* Search and Create */}
+            <div className="flex gap-4 mb-6 py-8">
+              <div className="flex-1 bg-white relative">
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="Search dashboards..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-12 rounded-md"
+                />
+              </div>
               <Button
-                variant="outline"
-                onClick={() => setSearchTerm("")}
-                className="mr-2"
+                onClick={handleCreateNew}
+                className="flex bg-primary text-white items-center gap-2 h-12 rounded-md"
               >
-                Clear Search
+                <PlusIcon className="w-4 h-4" />
+                New Dashboard
               </Button>
+            </div>
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="text-gray-600">Loading dashboards...</span>
+                </div>
+              </div>
             )}
-            <Button onClick={handleCreateNew}>Create Dashboard</Button>
+
+            {/* Dashboard Grid */}
+            {!isLoading && (
+              <div className="space-y-4">
+                {filteredDashboards.map((dashboard) => (
+                  <DashboardCard
+                    key={dashboard.id}
+                    dashboard={dashboard}
+                    onClick={handleDashboardSelect}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && filteredDashboards.length === 0 && (
+              <div className="text-center py-12">
+                <LayoutDashboardIcon className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">
+                  {searchTerm ? "No dashboards found" : "No dashboards yet"}
+                </h3>
+                <p className="text-slate-500 mb-4">
+                  {searchTerm
+                    ? "Try adjusting your search terms"
+                    : "Get started by creating your first dashboard"}
+                </p>
+                {searchTerm && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSearchTerm("")}
+                    className="mr-2 text-primary"
+                  >
+                    Clear Search
+                  </Button>
+                )}
+                <Button
+                  className="bg-primary text-white"
+                  onClick={handleCreateNew}
+                >
+                  Create Dashboard
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Create Dashboard Modal */}
@@ -155,6 +204,7 @@ export default function DashboardSelectPage() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
       />
+      <CompanyModal />
     </div>
   );
 }

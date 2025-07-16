@@ -66,7 +66,13 @@ const uiSlice = createSlice({
       const { id, forceState } = action.payload;
       const component = state.components[id];
       if (component) {
-        component.isOpen = forceState !== undefined ? forceState : !component.isOpen;
+        const newState = forceState !== undefined ? forceState : !component.isOpen;
+        component.isOpen = newState;
+        
+        // Sync sidebar collapse state when sidebar-chat component is toggled
+        if (id === "sidebar-chat") {
+          state.isSidebarCollapsed = !newState; // Invert because isOpen=true means not collapsed
+        }
       }
     },
 

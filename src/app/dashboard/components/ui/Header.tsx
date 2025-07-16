@@ -25,8 +25,8 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
-  toggleSidebarCollapse,
-  selectIsSidebarCollapsed,
+  toggleComponent,
+  selectIsComponentOpen,
 } from "@/lib/store/slices/uiSlice";
 
 interface DashboardSpecificHeaderProps {
@@ -73,7 +73,13 @@ export default function DashboardSpecificHeader({
   onSwitchToPublished,
 }: DashboardSpecificHeaderProps) {
   const dispatch = useAppDispatch();
-  const isSidebarCollapsed = useAppSelector(selectIsSidebarCollapsed);
+
+  // Use component-based sidebar state
+  const isSidebarOpen = useAppSelector((state) =>
+    selectIsComponentOpen(state, "sidebar-chat")
+  );
+  const isSidebarCollapsed = !isSidebarOpen;
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -252,6 +258,10 @@ export default function DashboardSpecificHeader({
 
   const needsScrolling = localTabs.length > 3;
 
+  const handleSidebarToggle = () => {
+    dispatch(toggleComponent({ id: "sidebar-chat" }));
+  };
+
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
       {/* Top Row - Dashboard Title and Action Buttons */}
@@ -261,7 +271,7 @@ export default function DashboardSpecificHeader({
             variant="ghost"
             size="icon"
             className="text-sec hover:text-gray-700"
-            onClick={() => dispatch(toggleSidebarCollapse())}
+            onClick={handleSidebarToggle}
           >
             <svg
               width="16"

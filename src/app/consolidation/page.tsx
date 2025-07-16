@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import LoadingAnimation from "../components/common/ui/GlobalLoading";
+import LoadingAnimation from "../../components/ui/common/GlobalLoading";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 

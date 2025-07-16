@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { useClickEventTracking } from "@/hooks/useClickTracking";
-import LoadingAnimation from "@/app/components/common/ui/GlobalLoading";
+import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 import { useAppSelector } from "@/lib/store/hooks";
 import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 

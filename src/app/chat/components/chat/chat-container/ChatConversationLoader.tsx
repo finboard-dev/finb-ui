@@ -9,7 +9,7 @@ import {
 } from "@/lib/store/slices/chatSlice";
 import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
 import { useChatConversation } from "@/hooks/query-hooks/useChatConversation";
-import { FinancialReportShimmer } from "@/app/components/chat/ui/shimmer/ChatShimmer";
+import { FinancialReportShimmer } from "@/app/chat/components/chat/ui/shimmer/ChatShimmer";
 
 interface ChatConversationLoaderProps {
   threadId: string;

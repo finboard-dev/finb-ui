@@ -1194,7 +1194,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   return (
     <div className="flex-1 mt-12">
       {/* Header */}
-      <div className="flex pt-8 items-center pl-6">
+      {/* <div className="flex pt-8 items-center pl-6">
         <Button
           variant="ghost"
           size="icon"
@@ -1204,7 +1204,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
           <ArrowLeft className="h-5 w-5 text-gray-500" />
         </Button>
         <h1 className="text-2xl font-semibold">Settings</h1>
-      </div>
+      </div> */}
 
       <div className="flex w-full h-full gap-5 px-6 justify-center">
         {/* Settings Sidebar */}
