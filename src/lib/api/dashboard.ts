@@ -234,3 +234,44 @@ export const publishDraft = async (dashboardId: string): Promise<DashboardVersio
     throw new Error('Failed to publish draft');
   }
 }
+
+export interface SaveDashboardRequest {
+  id: string;
+  dashboardId: string;
+  tabs: Array<{
+    id: string;
+    title: string;
+    position: number;
+    startDate: string;
+    endDate: string;
+    widgets: Array<{
+      id: string;
+      title: string;
+      position: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        min_w: number;
+        min_h: number;
+      };
+      refId: string;
+      refVersion: string;
+      refType: string;
+      outputType: string;
+    }>;
+  }>;
+}
+
+export const saveDashboard = async (dashboardData: SaveDashboardRequest): Promise<any> => {
+  try {
+    const response = await fetcher.post(
+      `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/save`,
+      dashboardData
+    );
+    return response.data || response;
+  } catch (error) {
+    console.error('Error saving dashboard:', error);
+    throw new Error('Failed to save dashboard');
+  }
+}

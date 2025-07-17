@@ -21,6 +21,7 @@ import { useDashboard } from "../hooks/useDashboard";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import GlobalLoading from "@/components/ui/common/GlobalLoading";
+import { saveDashboard } from "@/lib/api/dashboard";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -185,18 +186,278 @@ export default function DashboardPage() {
     setDashboardItems(newDashboardItems);
   }, [currentTabWidgets]);
 
-  const handleSaveDashboard = () => {
-    toast.success(
-      `Dashboard "${structure?.title || "Untitled"}" saved (simulation).`
-    );
-    setIsEditing(false);
+  const handleSaveDashboard = async () => {
+    if (!structure || !currentVersion || currentVersion !== "draft") {
+      toast.error("Cannot save: not in draft mode or no structure available");
+      return;
+    }
+
+    try {
+      // Map all tabs with their widgets
+      const tabs = structure.tabs.map((tab) => {
+        if (tab.id === currentTabId) {
+          // For the current tab, use ALL dashboardItems (current state after drag/drop/resize)
+          // This handles: new components from sidebar, deleted components, moved components
+          const widgets = dashboardItems
+            .map((item) => {
+              // Find the corresponding widget in the current tab (for existing widgets)
+              const existingWidget = tab.widgets.find((w) => w.id === item.id);
+
+              if (existingWidget) {
+                // This is an existing widget - use its metadata but update position
+                return {
+                  id: existingWidget.id,
+                  title: existingWidget.title,
+                  position: {
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h,
+                    min_w: item.minW,
+                    min_h: item.minH,
+                  },
+                  refId: existingWidget.refId,
+                  refVersion: existingWidget.refVersion,
+                  refType: existingWidget.refType,
+                  outputType: existingWidget.outputType,
+                };
+              } else {
+                // This is a new widget from sidebar - create new widget data
+                // Find the block to get metadata from viewBlocks OR apiComponents (sidebar components)
+                const block =
+                  viewBlocks.find((b) => b.id === item.blockId) ||
+                  apiComponents.find((b) => b.id === item.blockId);
+                if (!block) {
+                  console.warn(
+                    `Block not found for item ${item.id} with blockId ${item.blockId}`
+                  );
+                  console.log("Available blocks:", {
+                    viewBlocks: viewBlocks.map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                    })),
+                    apiComponents: apiComponents.map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                    })),
+                  });
+                  return null;
+                }
+
+                return {
+                  id: item.id, // Use the dashboard item ID
+                  title: block.title,
+                  position: {
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h,
+                    min_w: item.minW,
+                    min_h: item.minH,
+                  },
+                  refId: block.id, // Use the block ID as refId
+                  refVersion: "1.0.0", // Default version for new components
+                  refType: "COMPONENT", // Default type for new components
+                  outputType: block.type, // Use the block type
+                };
+              }
+            })
+            .filter(
+              (widget): widget is NonNullable<typeof widget> => widget !== null
+            ); // Remove any null entries
+
+          return {
+            id: tab.id,
+            title: tab.title,
+            position: tab.position,
+            startDate: tab.startDate,
+            endDate: tab.endDate,
+            widgets: widgets,
+          };
+        } else {
+          // For other tabs, use the original widget data
+          const widgets = tab.widgets.map((widget) => ({
+            id: widget.id,
+            title: widget.title,
+            position: {
+              x: widget.position.x,
+              y: widget.position.y,
+              w: widget.position.w,
+              h: widget.position.h,
+              min_w: widget.position.minW,
+              min_h: widget.position.minH,
+            },
+            refId: widget.refId,
+            refVersion: widget.refVersion,
+            refType: widget.refType,
+            outputType: widget.outputType,
+          }));
+
+          return {
+            id: tab.id,
+            title: tab.title,
+            position: tab.position,
+            startDate: tab.startDate,
+            endDate: tab.endDate,
+            widgets: widgets,
+          };
+        }
+      });
+
+      // Prepare the save request
+      const saveRequest = {
+        id: structure.draftVersion?.id || structure.uid, // Use draftVersion.id as specified
+        dashboardId: dashboardId, // Add the dashboard ID
+        tabs: tabs,
+      };
+
+      console.log("Saving dashboard with data:", saveRequest);
+
+      // Call the save API
+      await saveDashboard(saveRequest);
+
+      toast.success(`Dashboard "${structure.title}" saved successfully!`);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving dashboard:", error);
+      toast.error("Failed to save dashboard");
+    }
   };
 
   const handleSaveDraft = async () => {
+    // Use the same logic as handleSaveDashboard to save with the new API
+    if (!structure || !currentVersion || currentVersion !== "draft") {
+      toast.error("Cannot save: not in draft mode or no structure available");
+      return;
+    }
+
     try {
-      await saveDraft();
+      // Map all tabs with their widgets
+      const tabs = structure.tabs.map((tab) => {
+        if (tab.id === currentTabId) {
+          // For the current tab, use ALL dashboardItems (current state after drag/drop/resize)
+          // This handles: new components from sidebar, deleted components, moved components
+          const widgets = dashboardItems
+            .map((item) => {
+              // Find the corresponding widget in the current tab (for existing widgets)
+              const existingWidget = tab.widgets.find((w) => w.id === item.id);
+
+              if (existingWidget) {
+                // This is an existing widget - use its metadata but update position
+                return {
+                  id: existingWidget.id,
+                  title: existingWidget.title,
+                  position: {
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h,
+                    min_w: item.minW,
+                    min_h: item.minH,
+                  },
+                  refId: existingWidget.refId,
+                  refVersion: existingWidget.refVersion,
+                  refType: existingWidget.refType,
+                  outputType: existingWidget.outputType,
+                };
+              } else {
+                // This is a new widget from sidebar - create new widget data
+                // Find the block to get metadata from viewBlocks OR apiComponents (sidebar components)
+                const block =
+                  viewBlocks.find((b) => b.id === item.blockId) ||
+                  apiComponents.find((b) => b.id === item.blockId);
+                if (!block) {
+                  console.warn(
+                    `Block not found for item ${item.id} with blockId ${item.blockId}`
+                  );
+                  console.log("Available blocks:", {
+                    viewBlocks: viewBlocks.map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                    })),
+                    apiComponents: apiComponents.map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                    })),
+                  });
+                  return null;
+                }
+
+                return {
+                  id: item.id, // Use the dashboard item ID
+                  title: block.title,
+                  position: {
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h,
+                    min_w: item.minW,
+                    min_h: item.minH,
+                  },
+                  refId: block.id, // Use the block ID as refId
+                  refVersion: "1.0.0", // Default version for new components
+                  refType: "COMPONENT", // Default type for new components
+                  outputType: block.type, // Use the block type
+                };
+              }
+            })
+            .filter(
+              (widget): widget is NonNullable<typeof widget> => widget !== null
+            ); // Remove any null entries
+
+          return {
+            id: tab.id,
+            title: tab.title,
+            position: tab.position,
+            startDate: tab.startDate,
+            endDate: tab.endDate,
+            widgets: widgets,
+          };
+        } else {
+          // For other tabs, use the original widget data
+          const widgets = tab.widgets.map((widget) => ({
+            id: widget.id,
+            title: widget.title,
+            position: {
+              x: widget.position.x,
+              y: widget.position.y,
+              w: widget.position.w,
+              h: widget.position.h,
+              min_w: widget.position.minW,
+              min_h: widget.position.minH,
+            },
+            refId: widget.refId,
+            refVersion: widget.refVersion,
+            refType: widget.refType,
+            outputType: widget.outputType,
+          }));
+
+          return {
+            id: tab.id,
+            title: tab.title,
+            position: tab.position,
+            startDate: tab.startDate,
+            endDate: tab.endDate,
+            widgets: widgets,
+          };
+        }
+      });
+
+      // Prepare the save request
+      const saveRequest = {
+        id: structure.draftVersion?.id || structure.uid, // Use draftVersion.id as specified
+        dashboardId: dashboardId, // Add the dashboard ID
+        tabs: tabs,
+      };
+
+      console.log("Saving dashboard with data:", saveRequest);
+
+      // Call the save API
+      await saveDashboard(saveRequest);
+
       toast.success("Draft saved successfully");
     } catch (error) {
+      console.error("Error saving dashboard:", error);
       toast.error("Failed to save draft");
     }
   };

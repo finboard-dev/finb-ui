@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createDashboard, getDashboardStructure, getDashboards } from '@/lib/api/dashboard'
-import type { CreateDashboardRequest } from '@/lib/api/dashboard'
+import { createDashboard, getDashboardStructure, getDashboards, saveDashboard } from '@/lib/api/dashboard'
+import type { CreateDashboardRequest, SaveDashboardRequest } from '@/lib/api/dashboard'
 
 export function useCreateDashboard() {
   const queryClient = useQueryClient()
@@ -41,5 +41,25 @@ export function useDashboards() {
     },
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useSaveDashboard() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (dashboardData: SaveDashboardRequest) => saveDashboard(dashboardData),
+    onSuccess: (data, variables) => {
+      // Invalidate and refetch dashboard-related queries
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboards'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'structure', variables.id] })
+      
+      // Optionally, you can also update the cache directly
+      queryClient.setQueryData(['dashboard', variables.id], data)
+    },
+    onError: (error) => {
+      console.error('Failed to save dashboard:', error)
+    }
   })
 } 
