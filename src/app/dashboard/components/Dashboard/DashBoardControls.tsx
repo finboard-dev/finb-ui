@@ -57,7 +57,7 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     console.log("b", block);
 
     // For tables, show a preview of the HTML table if available
-    if (b.type === "table" && b.htmlTable) {
+    if (b.type === "TABLE" && b.htmlTable) {
       return (
         <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md overflow-hidden relative border-b border-slate-200">
           <div
@@ -87,11 +87,11 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     }
 
     let icon = <ComponentIcon className="w-10 h-10 text-slate-400" />;
-    if (b.type === "graph")
+    if (b.type === "GRAPH")
       icon = <LayoutGridIcon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "table")
+    else if (b.type === "TABLE")
       icon = <Rows3Icon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "metric")
+    else if (b.type === "KPI")
       icon = <TrendingUpIcon className="w-10 h-10 text-slate-400" />;
 
     return (
@@ -252,19 +252,18 @@ export default function DashboardControls({
 
           const block: Block = {
             id: metric.id || `metric-${Date.now()}-${Math.random()}`,
-            component_id: metric.componentId || metric.id,
             title: metric.title || "Untitled Metric",
             subtitle: metric.subtitle || "",
             type: getComponentType(metric), // Use smart type detection
             filter: metric.filter || {},
             // Map the content properly based on type
             content:
-              getComponentType(metric) === "table"
+              getComponentType(metric) === "TABLE"
                 ? metric.published_version?.html_table || ""
-                : getComponentType(metric) === "graph"
+                : getComponentType(metric) === "GRAPH"
                 ? metric.published_version?.table_data || {}
                 : {
-                    // For metrics, create a simple metric structure
+                    // For KPIs, create a simple metric structure
                     value:
                       metric.published_version?.table_data?.rows?.[0]
                         ?.values?.[0] || 0,
@@ -339,19 +338,18 @@ export default function DashboardControls({
     });
   }, [selectedOrganization, selectedCompany]);
 
-  // Fetch all components when tab changes or when org/company changes
+  // Fetch all components only when org/company changes, not on tab switches
   useEffect(() => {
-    console.log("Tab changed or dependencies updated:", {
-      activeTab,
+    console.log("Org/Company changed, fetching components:", {
       orgId: selectedOrganization?.id,
       companyId: selectedCompany?.id,
     });
 
-    if (activeTab === "global-components" || activeTab === "my-components") {
-      console.log("Fetching components for tab:", activeTab);
+    if (selectedOrganization?.id && selectedCompany?.id) {
+      console.log("Fetching components for new org/company");
       fetchAllComponents();
     }
-  }, [activeTab, fetchAllComponents]);
+  }, [selectedOrganization?.id, selectedCompany?.id, fetchAllComponents]);
 
   // Helper function to detect if content is a table
   const isTableContent = (content: any): boolean => {
@@ -366,10 +364,10 @@ export default function DashboardControls({
   };
 
   // Helper function to determine component type
-  const getComponentType = (metric: any): "metric" | "graph" | "table" => {
+  const getComponentType = (metric: any): "KPI" | "GRAPH" | "TABLE" => {
     // If it has html_table, it's a table
     if (metric.published_version?.html_table) {
-      return "table";
+      return "TABLE";
     }
 
     // If it has python_code that creates charts/graphs, it's a graph
@@ -382,12 +380,12 @@ export default function DashboardControls({
         pythonCode.includes("plot") ||
         pythonCode.includes("graph")
       ) {
-        return "graph";
+        return "GRAPH";
       }
     }
 
-    // Default to metric
-    return "metric";
+    // Default to KPI
+    return "KPI";
   };
 
   // Filtering logic based on search and type filters
@@ -402,11 +400,15 @@ export default function DashboardControls({
 
     if (activeViewFilter) {
       if (activeViewFilter === "metric") {
-        // Show both metric and table types under "Metric" filter
+        // Show both KPI and TABLE types under "Metric" filter
         filtered = filtered.filter(
-          (b) => b.type === "metric" || b.type === "table"
+          (b) => b.type === "KPI" || b.type === "TABLE"
         );
         console.log("After metric filter:", filtered.length);
+      } else if (activeViewFilter === "graph") {
+        // Show GRAPH types under "Graph" filter
+        filtered = filtered.filter((b) => b.type === "GRAPH");
+        console.log("After graph filter:", filtered.length);
       } else {
         filtered = filtered.filter((b) => b.type === activeViewFilter);
         console.log("After type filter:", filtered.length);

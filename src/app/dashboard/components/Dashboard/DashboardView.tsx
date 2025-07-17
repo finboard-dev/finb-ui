@@ -48,11 +48,11 @@ const ROW_HEIGHT = 20;
 function getMins(t: BlockType): { minW: number; minH: number } {
   const factor = GRID_GRANULARITY;
   switch (t) {
-    case "table":
+    case "TABLE":
       return { minW: 3 * factor, minH: 2 * factor };
-    case "graph":
+    case "GRAPH":
       return { minW: 3 * factor, minH: 2 * factor };
-    case "metric":
+    case "KPI":
       return { minW: 2 * factor, minH: 1 * factor };
     default:
       return { minW: 2 * factor, minH: 1 * factor };
@@ -62,11 +62,11 @@ function getMins(t: BlockType): { minW: number; minH: number } {
 function getDefaults(t: BlockType): { w: number; h: number } {
   const factor = GRID_GRANULARITY;
   switch (t) {
-    case "table":
+    case "TABLE":
       return { w: 4 * factor, h: 3 * factor };
-    case "graph":
+    case "GRAPH":
       return { w: 4 * factor, h: 3 * factor };
-    case "metric":
+    case "KPI":
       return { w: 2 * factor, h: 1 * factor };
     default:
       return { w: 3 * factor, h: 2 * factor };
@@ -327,7 +327,7 @@ export default function DashboardView({
             key={itemLayout.i}
             className="react-grid-item group/item outline-none focus:outline-none relative"
           >
-            {blockTemplate.type === "graph" && (
+            {blockTemplate.type === "GRAPH" && (
               <RestrictedChart
                 data={blockTemplate.content || {}}
                 title={blockTemplate.title}
@@ -352,7 +352,7 @@ export default function DashboardView({
                 style={{ borderRadius: isEditing ? "0px" : "6px" }}
               />
             )}
-            {blockTemplate.type === "table" && (
+            {blockTemplate.type === "TABLE" && (
               <DynamicTable
                 data={blockTemplate.content || ""}
                 title={blockTemplate.title}
@@ -376,7 +376,7 @@ export default function DashboardView({
                 style={{ borderRadius: isEditing ? "0px" : "6px" }}
               />
             )}
-            {blockTemplate.type === "metric" && (
+            {blockTemplate.type === "KPI" && (
               <MetricsCard
                 title={blockTemplate.title}
                 value={blockTemplate.content?.value || 0}

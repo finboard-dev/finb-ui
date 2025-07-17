@@ -9,22 +9,28 @@ export interface DashboardData {
 export interface Tab {
   id: string;
   title: string;
-  filter: Record<string, any>;
-  last_refreshed_at: string;
+  startDate: string;
+  endDate: string;
+  position: number;
+  lastRefreshedAt: string | null;
   widgets: Widget[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-export type WidgetType = 'metric' | 'table' | 'graph';
+export type WidgetType = 'GRAPH' | 'TABLE' | 'KPI';
 
 export interface Widget {
   id: string;
-  component_id: string;
   title: string;
-  subtitle?: string;
-  type: WidgetType;
-  filter: Record<string, any>;
-  data: any;
   position: WidgetPosition;
+  refId: string;
+  refVersion: string;
+  refType: string;
+  outputType: 'GRAPH' | 'TABLE' | 'KPI';
+  output: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WidgetPosition {

@@ -32,6 +32,7 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
     console.warn('API not available, using mock data:', error);
     return {
       id: dashboardId,
+      title: "Mock Dashboard", // Added title for mock data
       sharedUsers: [],
       createdAt: new Date().toISOString(),
       createdBy: {
@@ -46,27 +47,14 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
         tabs: [
           {
             id: 'tab-1',
-            title: 'Default Tab',
-            filter: {},
-            last_refreshed_at: null,
-            widgets: [
-              {
-                id: 'widget-1',
-                component_id: 'metric-1',
-                title: 'Total Revenue',
-                type: 'metric',
-                filter: {},
-                position: { x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 1 }
-              },
-              {
-                id: 'widget-2',
-                component_id: 'chart-1',
-                title: 'Revenue Trend',
-                type: 'graph',
-                filter: {},
-                position: { x: 3, y: 0, w: 6, h: 4, minW: 4, minH: 2 }
-              }
-            ]
+            title: 'tab error',
+            startDate: '2024-01-01',
+            endDate: '2024-12-31',
+            position: 0,
+            lastRefreshedAt: null,
+            widgets: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           }
         ],
         createdAt: new Date().toISOString(),

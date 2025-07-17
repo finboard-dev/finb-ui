@@ -167,7 +167,11 @@ export const useDashboard = (dashboardId?: string) => {
       const widgetData = await dashboardService.fetchTabWidgetData(
         currentDashboardId,
         tabId,
-        tab.widgets
+        tab.widgets.map(widget => ({
+          refId: widget.refId,
+          outputType: widget.outputType,
+          output: widget.output
+        }))
       );
 
       setState(prev => ({
@@ -394,7 +398,7 @@ export const useDashboard = (dashboardId?: string) => {
 
     return currentTab.widgets.map((widget: Widget) => ({
       ...widget,
-      data: state.widgetData[widget.component_id] || null
+      data: state.widgetData[widget.refId] || null
     })) as (Widget & { data: WidgetData | null })[];
   }, [currentTab, state.widgetData]);
 

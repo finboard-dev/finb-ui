@@ -20,31 +20,35 @@ import type { Block, DashboardItem, DraggingBlock } from "../types";
 import { useDashboard } from "../hooks/useDashboard";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
+import GlobalLoading from "@/components/ui/common/GlobalLoading";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
- * @param data - The data from the API widget.
- * @param type - The type of the widget ('graph', 'table', 'metric').
+ * @param output - The output data from the API widget.
+ * @param outputType - The type of the widget ('GRAPH', 'TABLE', 'KPI').
  * @returns The processed content for the Block.
  */
-function parseWidgetData(data: any, type: "metric" | "graph" | "table"): any {
+function parseWidgetData(
+  output: string,
+  outputType: "GRAPH" | "TABLE" | "KPI"
+): any {
   // Handle null or undefined data (widget data is fetched separately)
-  if (!data) {
-    console.warn("Widget data is null or undefined - may still be loading");
+  if (!output) {
+    console.warn("Widget output is null or undefined - may still be loading");
     return null;
   }
 
-  if (type === "graph" && typeof data === "string") {
+  if (outputType === "GRAPH" && typeof output === "string") {
     try {
-      return JSON.parse(data);
+      return JSON.parse(output);
     } catch (e) {
       console.error("Failed to parse graph data:", e);
       return { error: "Invalid JSON format" };
     }
   }
   // For tables, we will pass the HTML string directly. GridElement will handle it.
-  // For metrics, the data is already in a compatible object format.
-  return data;
+  // For KPIs, the data is already in a compatible object format.
+  return output;
 }
 
 export default function DashboardPage() {
@@ -141,7 +145,7 @@ export default function DashboardPage() {
     });
   }, [dashboardId, initializeDashboard, router]);
 
-  // Transform widgets to blocks and dashboard items when current tab widgets change
+  // Transform widgets to blocks and dashboard items when currentTabWidgets change
   useEffect(() => {
     if (!currentTabWidgets || currentTabWidgets.length === 0) return;
 
@@ -151,20 +155,19 @@ export default function DashboardPage() {
     currentTabWidgets.forEach((widget) => {
       // Create a Block definition from the widget
       const block: Block = {
-        id: widget.component_id,
-        component_id: widget.component_id,
+        id: widget.refId,
         title: widget.title,
         subtitle: "", // Default subtitle since it's not in Widget type
-        type: widget.type,
-        filter: widget.filter,
-        content: parseWidgetData(widget.data, widget.type),
+        type: widget.outputType,
+        filter: {}, // Filter is not in the new widget structure
+        content: parseWidgetData(widget.output, widget.outputType),
       };
       newBlocks.push(block);
 
       // Create a DashboardItem for the grid layout from the widget
       const item: DashboardItem = {
         id: widget.id,
-        blockId: widget.component_id,
+        blockId: widget.refId,
         x: widget.position.x,
         y: widget.position.y,
         w: widget.position.w,
@@ -249,11 +252,7 @@ export default function DashboardPage() {
 
   // Show loading state for dashboard structure
   if (loading.structure) {
-    return (
-      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-        <DashboardLoading type="structure" />
-      </div>
-    );
+    return <GlobalLoading message="Loading Dashboard..." />;
   }
 
   // Show error state
