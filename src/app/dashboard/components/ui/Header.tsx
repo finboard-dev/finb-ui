@@ -28,6 +28,7 @@ import {
   toggleComponent,
   selectIsComponentOpen,
 } from "@/lib/store/slices/uiSlice";
+import Navbar from "@/components/ui/common/navbar";
 
 interface DashboardSpecificHeaderProps {
   isEditing: boolean;
@@ -264,43 +265,12 @@ export default function DashboardSpecificHeader({
 
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
-      {/* Top Row - Dashboard Title and Action Buttons */}
-      <div className="px-4 md:px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-sec hover:text-gray-700"
-            onClick={handleSidebarToggle}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M5.49992 1.33496V14.6683M1.33325 3.00163C1.33325 2.5596 1.50885 2.13568 1.82141 1.82312C2.13397 1.51056 2.55789 1.33496 2.99992 1.33496H12.9999C13.4419 1.33496 13.8659 1.51056 14.1784 1.82312C14.491 2.13568 14.6666 2.5596 14.6666 3.00163V13.0016C14.6666 13.4437 14.491 13.8676 14.1784 14.1801C13.8659 14.4927 13.4419 14.6683 12.9999 14.6683H2.99992C2.55789 14.6683 2.13397 14.4927 1.82141 14.1801C1.50885 13.8676 1.33325 13.4437 1.33325 13.0016V3.00163Z"
-                stroke="#AEB5C2"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9.6665 6.33496L11.3332 8.00163L9.6665 9.66829"
-                stroke="#AEB5C2"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Button>
-          <h1 className="text-xl text-primary font-medium">
-            {currentDashboardName}
-          </h1>
-        </div>
-
+      <Navbar
+        className="h-[3.8rem] !px-4 !shadow-none"
+        title={currentDashboardName || "Dashboard"}
+        isCollapsed={isSidebarCollapsed}
+        collpaseSidebar={handleSidebarToggle}
+      >
         <div className="flex items-center gap-2 sm:gap-3">
           {!isViewOnly && (
             <>
@@ -337,10 +307,10 @@ export default function DashboardSpecificHeader({
             </>
           )}
         </div>
-      </div>
+      </Navbar>
 
       {/* Bottom Row - Tabs Navigation */}
-      <div className="px-4 md:px-6 py-2 border-t border-gray-100">
+      <div className="px-4 md:px-6 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             {needsScrolling && (
