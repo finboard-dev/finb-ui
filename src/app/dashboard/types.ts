@@ -33,6 +33,8 @@ export interface Block {
     previewImage?: string; // Data URL for a preview image.
     htmlTable?: string;   // HTML table string for table rendering
     scopeLevel?: string;  // Scope level: "global", "organization", "company"
+    refVersion?: string;  // Reference version from API
+    refType?: string;     // Reference type from API
 }
 
 /**

@@ -16,7 +16,7 @@ import {
 } from "../components/ui/DashboardLoading";
 
 import { toast } from "sonner";
-import type { Block, DashboardItem, DraggingBlock } from "../types";
+import type { Block, DashboardItem, DraggingBlock, Tab } from "../types";
 import { useDashboard } from "../hooks/useDashboard";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
@@ -25,9 +25,9 @@ import { saveDashboard } from "@/lib/api/dashboard";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
- * @param output - The output data from the API widget.
- * @param outputType - The type of the widget ('GRAPH', 'TABLE', 'KPI').
- * @returns The processed content for the Block.
+ * @param output
+ * @param outputType
+ * @returns
  */
 function parseWidgetData(
   output: string,
@@ -90,6 +90,8 @@ export default function DashboardPage() {
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(
     null
   );
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsLoaded, setMetricsLoaded] = useState(false);
 
   // Initialize sidebar component if it doesn't exist
   useEffect(() => {
@@ -102,6 +104,12 @@ export default function DashboardPage() {
       },
     });
   }, [dispatch]);
+
+  // Reset metrics loaded state when dashboard changes
+  useEffect(() => {
+    setMetricsLoaded(false);
+    setApiComponents([]);
+  }, [dashboardId]);
 
   // Initialize dashboard on component mount or when dashboardId changes
   useEffect(() => {
@@ -148,7 +156,19 @@ export default function DashboardPage() {
 
   // Transform widgets to blocks and dashboard items when currentTabWidgets change
   useEffect(() => {
-    if (!currentTabWidgets || currentTabWidgets.length === 0) return;
+    // Clear dashboard items when switching tabs, even if no widgets
+    if (!currentTabWidgets) {
+      setViewBlocks([]);
+      setDashboardItems([]);
+      return;
+    }
+
+    // If current tab has no widgets, clear the dashboard
+    if (currentTabWidgets.length === 0) {
+      setViewBlocks([]);
+      setDashboardItems([]);
+      return;
+    }
 
     const newBlocks: Block[] = [];
     const newDashboardItems: DashboardItem[] = [];
@@ -162,6 +182,8 @@ export default function DashboardPage() {
         type: widget.outputType,
         filter: {}, // Filter is not in the new widget structure
         content: parseWidgetData(widget.output, widget.outputType),
+        refVersion: widget.refVersion, // Include refVersion from widget
+        refType: widget.refType, // Include refType from widget
       };
       newBlocks.push(block);
 
@@ -182,9 +204,38 @@ export default function DashboardPage() {
     // De-duplicate block definitions to have a single source of truth
     const uniqueBlocks = [...new Map(newBlocks.map((b) => [b.id, b])).values()];
 
+    console.log("Transformed widgets to blocks:", {
+      originalWidgetsCount: currentTabWidgets.length,
+      uniqueBlocksCount: uniqueBlocks.length,
+      dashboardItemsCount: newDashboardItems.length,
+      blocks: uniqueBlocks.map((b) => ({
+        id: b.id,
+        title: b.title,
+        type: b.type,
+        hasContent: !!b.content,
+      })),
+    });
+
     setViewBlocks(uniqueBlocks);
     setDashboardItems(newDashboardItems);
   }, [currentTabWidgets]);
+
+  // Determine if we should show edit/view mode based on versioning logic
+  const shouldShowEditMode = currentVersion === "draft";
+  const shouldShowViewMode = currentVersion === "published";
+  const isViewOnlyMode = shouldShowViewMode || !canEdit;
+
+  // Override isEditing based on versioning logic
+  const effectiveIsEditing = shouldShowEditMode ? isEditing : false;
+
+  // Load metrics when not in edit mode (DashboardControls not rendered)
+  useEffect(() => {
+    if (!effectiveIsEditing && !metricsLoaded && !metricsLoading) {
+      // If not in edit mode, we still need to load metrics for potential future use
+      // This ensures metrics are available when switching to edit mode
+      setMetricsLoaded(true); // Mark as loaded to avoid infinite loading
+    }
+  }, [effectiveIsEditing, metricsLoaded, metricsLoading]);
 
   const handleSaveDashboard = async () => {
     if (!structure || !currentVersion || currentVersion !== "draft") {
@@ -198,73 +249,68 @@ export default function DashboardPage() {
         if (tab.id === currentTabId) {
           // For the current tab, use ALL dashboardItems (current state after drag/drop/resize)
           // This handles: new components from sidebar, deleted components, moved components
-          const widgets = dashboardItems
+          const updatedWidgets = dashboardItems
             .map((item) => {
-              // Find the corresponding widget in the current tab (for existing widgets)
-              const existingWidget = tab.widgets.find((w) => w.id === item.id);
+              // Search in both viewBlocks and apiComponents to find the block
+              const block =
+                viewBlocks.find((b) => b.id === item.blockId) ||
+                apiComponents.find((b) => b.id === item.blockId);
 
-              if (existingWidget) {
-                // This is an existing widget - use its metadata but update position
-                return {
-                  id: existingWidget.id,
-                  title: existingWidget.title,
-                  position: {
-                    x: item.x,
-                    y: item.y,
-                    w: item.w,
-                    h: item.h,
-                    min_w: item.minW,
-                    min_h: item.minH,
-                  },
-                  refId: existingWidget.refId,
-                  refVersion: existingWidget.refVersion,
-                  refType: existingWidget.refType,
-                  outputType: existingWidget.outputType,
-                };
-              } else {
-                // This is a new widget from sidebar - create new widget data
-                // Find the block to get metadata from viewBlocks OR apiComponents (sidebar components)
-                const block =
-                  viewBlocks.find((b) => b.id === item.blockId) ||
-                  apiComponents.find((b) => b.id === item.blockId);
-                if (!block) {
-                  console.warn(
-                    `Block not found for item ${item.id} with blockId ${item.blockId}`
-                  );
-                  console.log("Available blocks:", {
-                    viewBlocks: viewBlocks.map((b) => ({
-                      id: b.id,
-                      title: b.title,
-                    })),
-                    apiComponents: apiComponents.map((b) => ({
-                      id: b.id,
-                      title: b.title,
-                    })),
-                  });
-                  return null;
-                }
-
-                return {
-                  id: item.id, // Use the dashboard item ID
-                  title: block.title,
-                  position: {
-                    x: item.x,
-                    y: item.y,
-                    w: item.w,
-                    h: item.h,
-                    min_w: item.minW,
-                    min_h: item.minH,
-                  },
-                  refId: block.id, // Use the block ID as refId
-                  refVersion: "1.0.0", // Default version for new components
-                  refType: "COMPONENT", // Default type for new components
-                  outputType: block.type, // Use the block type
-                };
+              if (!block) {
+                console.warn(
+                  `Block ${item.blockId} not found in viewBlocks or apiComponents`
+                );
+                console.log("Available blocks:", {
+                  viewBlocks: viewBlocks.map((b) => ({
+                    id: b.id,
+                    title: b.title,
+                    type: b.type,
+                  })),
+                  apiComponents: apiComponents.map((b) => ({
+                    id: b.id,
+                    title: b.title,
+                    type: b.type,
+                    refVersion: b.refVersion,
+                    refType: b.refType,
+                  })),
+                  dashboardItems: dashboardItems.map((item) => ({
+                    id: item.id,
+                    blockId: item.blockId,
+                  })),
+                });
+                return null;
               }
+
+              console.log(`Creating widget for block:`, {
+                blockId: item.blockId,
+                blockTitle: block.title,
+                blockType: block.type,
+                blockRefVersion: block.refVersion,
+                blockRefType: block.refType,
+                hasContent: !!block.content,
+              });
+
+              return {
+                id: item.id,
+                title: block.title,
+                position: {
+                  x: item.x,
+                  y: item.y,
+                  w: item.w,
+                  h: item.h,
+                  min_w: item.minW,
+                  min_h: item.minH,
+                },
+                refId: item.blockId,
+                refVersion: block.refVersion || "latest", // Use block's refVersion if available
+                refType: block.refType || "METRIC", // Use block's refType if available
+                outputType: block.type as string,
+                output: block.content || "", // Include the output data
+              };
             })
             .filter(
               (widget): widget is NonNullable<typeof widget> => widget !== null
-            ); // Remove any null entries
+            );
 
           return {
             id: tab.id,
@@ -272,11 +318,16 @@ export default function DashboardPage() {
             position: tab.position,
             startDate: tab.startDate,
             endDate: tab.endDate,
-            widgets: widgets,
+            widgets: updatedWidgets,
           };
-        } else {
-          // For other tabs, use the original widget data
-          const widgets = tab.widgets.map((widget) => ({
+        }
+        return {
+          id: tab.id,
+          title: tab.title,
+          position: tab.position,
+          startDate: tab.startDate,
+          endDate: tab.endDate,
+          widgets: tab.widgets.map((widget) => ({
             id: widget.id,
             title: widget.title,
             position: {
@@ -291,17 +342,8 @@ export default function DashboardPage() {
             refVersion: widget.refVersion,
             refType: widget.refType,
             outputType: widget.outputType,
-          }));
-
-          return {
-            id: tab.id,
-            title: tab.title,
-            position: tab.position,
-            startDate: tab.startDate,
-            endDate: tab.endDate,
-            widgets: widgets,
-          };
-        }
+          })),
+        };
       });
 
       // Prepare the save request
@@ -312,145 +354,13 @@ export default function DashboardPage() {
       };
 
       console.log("Saving dashboard with data:", saveRequest);
-
-      // Call the save API
-      await saveDashboard(saveRequest);
-
-      toast.success(`Dashboard "${structure.title}" saved successfully!`);
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving dashboard:", error);
-      toast.error("Failed to save dashboard");
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    // Use the same logic as handleSaveDashboard to save with the new API
-    if (!structure || !currentVersion || currentVersion !== "draft") {
-      toast.error("Cannot save: not in draft mode or no structure available");
-      return;
-    }
-
-    try {
-      // Map all tabs with their widgets
-      const tabs = structure.tabs.map((tab) => {
-        if (tab.id === currentTabId) {
-          // For the current tab, use ALL dashboardItems (current state after drag/drop/resize)
-          // This handles: new components from sidebar, deleted components, moved components
-          const widgets = dashboardItems
-            .map((item) => {
-              // Find the corresponding widget in the current tab (for existing widgets)
-              const existingWidget = tab.widgets.find((w) => w.id === item.id);
-
-              if (existingWidget) {
-                // This is an existing widget - use its metadata but update position
-                return {
-                  id: existingWidget.id,
-                  title: existingWidget.title,
-                  position: {
-                    x: item.x,
-                    y: item.y,
-                    w: item.w,
-                    h: item.h,
-                    min_w: item.minW,
-                    min_h: item.minH,
-                  },
-                  refId: existingWidget.refId,
-                  refVersion: existingWidget.refVersion,
-                  refType: existingWidget.refType,
-                  outputType: existingWidget.outputType,
-                };
-              } else {
-                // This is a new widget from sidebar - create new widget data
-                // Find the block to get metadata from viewBlocks OR apiComponents (sidebar components)
-                const block =
-                  viewBlocks.find((b) => b.id === item.blockId) ||
-                  apiComponents.find((b) => b.id === item.blockId);
-                if (!block) {
-                  console.warn(
-                    `Block not found for item ${item.id} with blockId ${item.blockId}`
-                  );
-                  console.log("Available blocks:", {
-                    viewBlocks: viewBlocks.map((b) => ({
-                      id: b.id,
-                      title: b.title,
-                    })),
-                    apiComponents: apiComponents.map((b) => ({
-                      id: b.id,
-                      title: b.title,
-                    })),
-                  });
-                  return null;
-                }
-
-                return {
-                  id: item.id, // Use the dashboard item ID
-                  title: block.title,
-                  position: {
-                    x: item.x,
-                    y: item.y,
-                    w: item.w,
-                    h: item.h,
-                    min_w: item.minW,
-                    min_h: item.minH,
-                  },
-                  refId: block.id, // Use the block ID as refId
-                  refVersion: "1.0.0", // Default version for new components
-                  refType: "COMPONENT", // Default type for new components
-                  outputType: block.type, // Use the block type
-                };
-              }
-            })
-            .filter(
-              (widget): widget is NonNullable<typeof widget> => widget !== null
-            ); // Remove any null entries
-
-          return {
-            id: tab.id,
-            title: tab.title,
-            position: tab.position,
-            startDate: tab.startDate,
-            endDate: tab.endDate,
-            widgets: widgets,
-          };
-        } else {
-          // For other tabs, use the original widget data
-          const widgets = tab.widgets.map((widget) => ({
-            id: widget.id,
-            title: widget.title,
-            position: {
-              x: widget.position.x,
-              y: widget.position.y,
-              w: widget.position.w,
-              h: widget.position.h,
-              min_w: widget.position.minW,
-              min_h: widget.position.minH,
-            },
-            refId: widget.refId,
-            refVersion: widget.refVersion,
-            refType: widget.refType,
-            outputType: widget.outputType,
-          }));
-
-          return {
-            id: tab.id,
-            title: tab.title,
-            position: tab.position,
-            startDate: tab.startDate,
-            endDate: tab.endDate,
-            widgets: widgets,
-          };
-        }
+      console.log("Save details:", {
+        dashboardItemsCount: dashboardItems.length,
+        viewBlocksCount: viewBlocks.length,
+        apiComponentsCount: apiComponents.length,
+        currentTabId,
+        currentTabWidgetsCount: currentTabWidgets?.length || 0,
       });
-
-      // Prepare the save request
-      const saveRequest = {
-        id: structure.draftVersion?.id || structure.uid, // Use draftVersion.id as specified
-        dashboardId: dashboardId, // Add the dashboard ID
-        tabs: tabs,
-      };
-
-      console.log("Saving dashboard with data:", saveRequest);
 
       // Call the save API
       await saveDashboard(saveRequest);
@@ -486,6 +396,11 @@ export default function DashboardPage() {
       toast.error("You do not have permission to edit this dashboard.");
       return;
     }
+    // Only allow editing in draft mode
+    if (currentVersion !== "draft") {
+      toast.error("You can only edit in draft mode.");
+      return;
+    }
     setIsEditing(editing);
   };
 
@@ -501,6 +416,83 @@ export default function DashboardPage() {
     }
   };
 
+  const handleTabReorder = (newTabs: { id: string; label: string }[]) => {
+    // This would need to be implemented to update the backend
+    console.log("Tab reorder:", newTabs);
+  };
+
+  const handleAddNewTab = async (tabData: {
+    title: string;
+    startDate: string;
+    endDate: string;
+    position: number;
+  }) => {
+    if (!structure || currentVersion !== "draft") {
+      toast.error("Can only add tabs in draft mode");
+      return;
+    }
+
+    try {
+      // Create new tab with the provided data
+      const newTab: Tab = {
+        id: `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: tabData.title,
+        startDate: tabData.startDate,
+        endDate: tabData.endDate,
+        position: tabData.position,
+        lastRefreshedAt: null,
+        widgets: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add the new tab to the current structure
+      const updatedTabs = [...structure.tabs, newTab];
+
+      // Save the updated structure to the backend
+      const saveRequest = {
+        id: structure.draftVersion?.id || structure.uid,
+        dashboardId: dashboardId,
+        tabs: updatedTabs.map((tab) => ({
+          id: tab.id,
+          title: tab.title,
+          position: tab.position,
+          startDate: tab.startDate,
+          endDate: tab.endDate,
+          widgets:
+            tab.id === newTab.id
+              ? []
+              : tab.widgets.map((widget) => ({
+                  id: widget.id,
+                  title: widget.title,
+                  position: {
+                    x: widget.position.x,
+                    y: widget.position.y,
+                    w: widget.position.w,
+                    h: widget.position.h,
+                    min_w: widget.position.minW,
+                    min_h: widget.position.minH,
+                  },
+                  refId: widget.refId,
+                  refVersion: widget.refVersion,
+                  refType: widget.refType,
+                  outputType: widget.outputType,
+                })),
+        })),
+      };
+
+      await saveDashboard(saveRequest);
+
+      // Switch to the new tab
+      await switchTab(newTab.id);
+
+      toast.success("New tab added successfully");
+    } catch (error) {
+      console.error("Error adding new tab:", error);
+      toast.error("Failed to add new tab");
+    }
+  };
+
   const handleLoadDashboard = (newDashboardId: string) => {
     router.push(`/dashboard/${newDashboardId}`);
   };
@@ -511,91 +503,178 @@ export default function DashboardPage() {
     router.push("/dashboard/XERO_DASH_001");
   };
 
-  // Show loading state for dashboard structure
-  if (loading.structure) {
+  // Show loading state for dashboard structure and metrics
+  console.log("Loading states:", {
+    structureLoading: loading.structure,
+    metricsLoading,
+    metricsLoaded,
+    hasStructure: !!structure,
+    hasError: !!error,
+    shouldShowLoading:
+      loading.structure ||
+      (metricsLoading && !metricsLoaded) ||
+      (!structure && !error),
+  });
+
+  if (
+    loading.structure ||
+    (metricsLoading && !metricsLoaded) ||
+    (!structure && !error)
+  ) {
     return <GlobalLoading message="Loading Dashboard..." />;
   }
 
   // Show error state
   if (error) {
     return (
-      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-        <DashboardError error={error} />
+      <div className="flex h-screen">
+        <Sidebar isCollapsed={isSidebarCollapsed} />
+        <div className="flex-1 flex flex-col">
+          <DashboardSpecificHeader
+            isEditing={effectiveIsEditing}
+            setIsEditing={handleSetIsEditing}
+            onSaveDashboard={handleSaveDashboard}
+            currentDashboardName={structure?.title}
+            isViewOnly={isViewOnlyMode}
+            tabs={
+              structure?.tabs.map((tab) => ({
+                id: tab.id,
+                label: tab.title,
+              })) || []
+            }
+            activeTab={currentTabId}
+            onTabChange={handleTabChange}
+            onTabReorder={handleTabReorder}
+            loadedTabs={loadedTabs}
+            currentTabLoading={loading.widgetData}
+            currentVersion={currentVersion}
+            canEdit={canEdit}
+            canPublish={canPublish}
+            onSaveDraft={handleSaveDashboard}
+            onPublishDraft={handlePublishDraft}
+            onSwitchToDraft={handleSwitchToDraft}
+            onSwitchToPublished={handleSwitchToPublished}
+            onAddNewTab={handleAddNewTab}
+            publishedVersion={structure?.publishedVersion}
+            draftVersion={structure?.draftVersion}
+          />
+          <DashboardError error={error} />
+        </div>
+        <CompanyModal />
       </div>
     );
   }
 
-  // Show loading state if no structure is available
-  if (!structure) {
+  // Show loading state for widget data
+  if (loading.widgetData && !currentTabWidgets?.length) {
     return (
-      <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-        <DashboardLoading
-          type="structure"
-          message="Initializing dashboard..."
-        />
+      <div className="flex h-screen">
+        <Sidebar isCollapsed={isSidebarCollapsed} />
+        <div className="flex-1 flex flex-col">
+          <DashboardSpecificHeader
+            isEditing={effectiveIsEditing}
+            setIsEditing={handleSetIsEditing}
+            onSaveDashboard={handleSaveDashboard}
+            currentDashboardName={structure?.title}
+            isViewOnly={isViewOnlyMode}
+            tabs={
+              structure?.tabs.map((tab) => ({
+                id: tab.id,
+                label: tab.title,
+              })) || []
+            }
+            activeTab={currentTabId}
+            onTabChange={handleTabChange}
+            onTabReorder={handleTabReorder}
+            loadedTabs={loadedTabs}
+            currentTabLoading={loading.widgetData}
+            currentVersion={currentVersion}
+            canEdit={canEdit}
+            canPublish={canPublish}
+            onSaveDraft={handleSaveDashboard}
+            onPublishDraft={handlePublishDraft}
+            onSwitchToDraft={handleSwitchToDraft}
+            onSwitchToPublished={handleSwitchToPublished}
+            onAddNewTab={handleAddNewTab}
+            publishedVersion={structure?.publishedVersion}
+            draftVersion={structure?.draftVersion}
+          />
+          <DashboardLoading type="widgetData" />
+        </div>
+        <CompanyModal />
       </div>
     );
   }
-
-  console.log(structure);
 
   return (
-    <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
-      {!structure.view_only && (
-        <Sidebar
-          onClickSettings={() => router.push("/dashboard/settings")}
-          isCollapsed={isSidebarCollapsed}
-        />
-      )}
-      <div className="flex-1 flex flex-col overflow-x-hidden ml-0">
+    <div className="flex h-screen">
+      <Sidebar isCollapsed={isSidebarCollapsed} />
+      <div className="flex-1 flex flex-col">
         <DashboardSpecificHeader
-          isEditing={isEditing}
+          isEditing={effectiveIsEditing}
           setIsEditing={handleSetIsEditing}
           onSaveDashboard={handleSaveDashboard}
-          currentDashboardName={structure.title}
-          isViewOnly={structure.view_only}
-          tabs={structure.tabs.map((t) => ({ id: t.id, label: t.title }))}
+          currentDashboardName={structure?.title}
+          isViewOnly={isViewOnlyMode}
+          tabs={
+            structure?.tabs.map((tab) => ({
+              id: tab.id,
+              label: tab.title,
+            })) || []
+          }
           activeTab={currentTabId}
           onTabChange={handleTabChange}
+          onTabReorder={handleTabReorder}
           loadedTabs={loadedTabs}
           currentTabLoading={loading.widgetData}
           currentVersion={currentVersion}
           canEdit={canEdit}
           canPublish={canPublish}
-          onSaveDraft={handleSaveDraft}
+          onSaveDraft={handleSaveDashboard}
           onPublishDraft={handlePublishDraft}
           onSwitchToDraft={handleSwitchToDraft}
           onSwitchToPublished={handleSwitchToPublished}
+          onAddNewTab={handleAddNewTab}
+          publishedVersion={structure?.publishedVersion}
+          draftVersion={structure?.draftVersion}
         />
 
-        {/* Show loading state for widget data */}
-        {loading.widgetData && (
-          <div className="flex-1 flex items-center justify-center">
-            <DashboardLoading type="widgetData" />
-          </div>
-        )}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Dashboard Controls */}
+          {effectiveIsEditing && (
+            <div className="">
+              <DashboardControls
+                blocks={[]} // Empty array since we're using API-loaded components
+                setBlocks={() => {}} // Required prop but not used in this implementation
+                onDragStart={(block) => {
+                  setDraggingBlock({
+                    id: block.id,
+                    type: block.type,
+                    width: block.type === "TABLE" ? 48 : 24,
+                    height: block.type === "TABLE" ? 26 : 12,
+                    htmlTable: block.htmlTable,
+                  });
+                }}
+                onApiComponentsLoaded={setApiComponents}
+                onMetricsLoadingChange={setMetricsLoading}
+                onMetricsLoaded={() => setMetricsLoaded(true)}
+                onMetricsError={() => setMetricsLoaded(true)} // Mark as loaded even on error to avoid infinite loading
+              />
+            </div>
+          )}
 
-        {/* Show main dashboard content */}
-        {!loading.widgetData && (
-          <main className="flex-1 flex flex-row overflow-hidden relative bg-slate-100">
+          {/* Main Content Area */}
+          <div className="flex-1 bg-gray-50 overflow-hidden">
             <DashboardView
               className="flex-grow h-full"
               dashboardItems={dashboardItems}
               setDashboardItems={setDashboardItems}
-              blocks={[...viewBlocks, ...apiComponents]}
+              blocks={[...viewBlocks, ...apiComponents]} // Include both view blocks and API components
               draggingBlock={draggingBlock}
-              isEditing={isEditing}
+              isEditing={effectiveIsEditing}
             />
-            {isEditing && (
-              <DashboardControls
-                blocks={viewBlocks}
-                setBlocks={() => {}}
-                onDragStart={setDraggingBlock}
-                onApiComponentsLoaded={setApiComponents}
-              />
-            )}
-          </main>
-        )}
+          </div>
+        </div>
       </div>
       <CompanyModal />
     </div>

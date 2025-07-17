@@ -181,12 +181,18 @@ interface DashboardControlsProps {
   setBlocks: (blocksUpdater: (prevBlocks: Block[]) => Block[]) => void;
   onDragStart: (draggingBlock: DraggingBlock) => void;
   onApiComponentsLoaded?: (components: Block[]) => void;
+  onMetricsLoadingChange?: (loading: boolean) => void;
+  onMetricsLoaded?: () => void;
+  onMetricsError?: () => void;
 }
 
 export default function DashboardControls({
   blocks,
   onDragStart,
   onApiComponentsLoaded,
+  onMetricsLoadingChange,
+  onMetricsLoaded,
+  onMetricsError,
 }: DashboardControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -222,6 +228,7 @@ export default function DashboardControls({
     }
 
     setLoadingGlobalComponents(true);
+    onMetricsLoadingChange?.(true);
     try {
       console.log("Making API call to getComponentMetrics...");
       const response = await getComponentMetrics({
@@ -243,37 +250,27 @@ export default function DashboardControls({
 
         response.data.forEach((metric: any) => {
           console.log("Processing metric:", {
-            id: metric.id,
+            refId: metric.refId,
             title: metric.title,
-            scope_level: metric.scope_level,
-            type: metric.type,
-            hasHtmlTable: !!metric.published_version?.html_table,
+            scopeLevel: metric.scopeLevel,
+            refType: metric.refType,
+            hasOutput: !!metric.output,
           });
 
           const block: Block = {
-            id: metric.id || `metric-${Date.now()}-${Math.random()}`,
+            id: metric.refId || `metric-${Date.now()}-${Math.random()}`,
             title: metric.title || "Untitled Metric",
-            subtitle: metric.subtitle || "",
+            subtitle: metric.description || "",
             type: getComponentType(metric), // Use smart type detection
-            filter: metric.filter || {},
+            filter: {}, // No filter in new structure
             // Map the content properly based on type
-            content:
-              getComponentType(metric) === "TABLE"
-                ? metric.published_version?.html_table || ""
-                : getComponentType(metric) === "GRAPH"
-                ? metric.published_version?.table_data || {}
-                : {
-                    // For KPIs, create a simple metric structure
-                    value:
-                      metric.published_version?.table_data?.rows?.[0]
-                        ?.values?.[0] || 0,
-                    change: 0,
-                    changeLabel: "vs last period",
-                  },
-            previewImage: metric.previewImage,
+            content: metric.output || "",
+            previewImage: undefined, // No preview image in new structure
             // Add the html_table for table rendering
-            htmlTable: metric.published_version?.html_table,
-            scopeLevel: metric.scope_level,
+            htmlTable: metric.output,
+            scopeLevel: metric.scopeLevel?.toLowerCase() || "company",
+            refVersion: metric.refVersion, // Include refVersion from API
+            refType: metric.refType, // Include refType from API
           };
 
           console.log("Created block:", {
@@ -289,7 +286,7 @@ export default function DashboardControls({
           });
 
           // Separate by scope level
-          if (metric.scope_level === "global") {
+          if (metric.scopeLevel?.toLowerCase() === "global") {
             console.log("Adding to global blocks:", block.title);
             globalBlocks.push(block);
           } else {
@@ -312,6 +309,9 @@ export default function DashboardControls({
         if (onApiComponentsLoaded) {
           onApiComponentsLoaded(allApiComponents);
         }
+
+        // Notify parent that metrics are loaded
+        onMetricsLoaded?.();
       }
     } catch (error: any) {
       console.error("Error fetching components:", error);
@@ -322,8 +322,10 @@ export default function DashboardControls({
         data: error?.response?.data,
       });
       toast.error("Failed to fetch components from API");
+      onMetricsError?.();
     } finally {
       setLoadingGlobalComponents(false);
+      onMetricsLoadingChange?.(false);
     }
   }, [selectedOrganization?.id, selectedCompany?.id]);
 
@@ -365,23 +367,14 @@ export default function DashboardControls({
 
   // Helper function to determine component type
   const getComponentType = (metric: any): "KPI" | "GRAPH" | "TABLE" => {
-    // If it has html_table, it's a table
-    if (metric.published_version?.html_table) {
+    // If it has output with table HTML, it's a table
+    if (metric.output && metric.output.includes("<table")) {
       return "TABLE";
     }
 
-    // If it has python_code that creates charts/graphs, it's a graph
-    if (metric.published_version?.python_code) {
-      const pythonCode = metric.published_version.python_code
-        .join(" ")
-        .toLowerCase();
-      if (
-        pythonCode.includes("chart") ||
-        pythonCode.includes("plot") ||
-        pythonCode.includes("graph")
-      ) {
-        return "GRAPH";
-      }
+    // If it has refType that indicates graph, it's a graph
+    if (metric.refType && metric.refType.toLowerCase().includes("graph")) {
+      return "GRAPH";
     }
 
     // Default to KPI
@@ -425,8 +418,8 @@ export default function DashboardControls({
     return filtered;
   };
 
-  // Combine API my components with prop blocks for the my-components tab
-  const allMyComponents = [...blocks, ...myComponents];
+  // Use only API-loaded components for the my-components tab
+  const allMyComponents = [...myComponents];
   const displayComponents = filterAndSearchBlocks(allMyComponents);
   const displayGlobalComponents = filterAndSearchBlocks(globalComponents);
 

@@ -22,6 +22,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeftRight,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -29,6 +49,8 @@ import {
   selectIsComponentOpen,
 } from "@/lib/store/slices/uiSlice";
 import Navbar from "@/components/ui/common/navbar";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface DashboardSpecificHeaderProps {
   isEditing: boolean;
@@ -50,7 +72,35 @@ interface DashboardSpecificHeaderProps {
   onPublishDraft?: () => void;
   onSwitchToDraft?: () => void;
   onSwitchToPublished?: () => void;
+  onAddNewTab?: (tabData: {
+    title: string;
+    startDate: string;
+    endDate: string;
+    position: number;
+  }) => void;
+  publishedVersion?: any;
+  draftVersion?: any;
 }
+
+interface DateRange {
+  start?: Date;
+  end?: Date;
+}
+
+const months = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 export default function DashboardSpecificHeader({
   isEditing,
@@ -72,6 +122,9 @@ export default function DashboardSpecificHeader({
   onPublishDraft,
   onSwitchToDraft,
   onSwitchToPublished,
+  onAddNewTab,
+  publishedVersion,
+  draftVersion,
 }: DashboardSpecificHeaderProps) {
   const dispatch = useAppDispatch();
 
@@ -90,10 +143,28 @@ export default function DashboardSpecificHeader({
   const [autoScrollInterval, setAutoScrollInterval] =
     useState<NodeJS.Timeout | null>(null);
 
+  // New tab modal state
+  const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false);
+  const [newTabTitle, setNewTabTitle] = useState("");
+  const [newTabDateRange, setNewTabDateRange] = useState<DateRange>({});
+  const [newTabDatePickerOpen, setNewTabDatePickerOpen] = useState(false);
+  const [newTabViewYear, setNewTabViewYear] = useState(
+    new Date().getFullYear()
+  );
+
   // Update local tabs when props change
   useEffect(() => {
     setLocalTabs(tabs);
   }, [tabs]);
+
+  // Determine if we should show edit/view mode based on versioning logic
+  const shouldShowEditMode = currentVersion === "draft";
+  const shouldShowViewMode = currentVersion === "published";
+  const canSwitchToDraft =
+    canEdit && currentVersion === "published" && draftVersion;
+  const canSwitchToPublished =
+    canEdit && currentVersion === "draft" && publishedVersion;
+  const isViewOnlyMode = shouldShowViewMode || !canEdit;
 
   const updateScrollButtons = () => {
     if (!scrollContainerRef.current) return;
@@ -263,6 +334,150 @@ export default function DashboardSpecificHeader({
     dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
 
+  // New tab modal functions
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatRange = () => {
+    if (newTabDateRange.start && newTabDateRange.end) {
+      return (
+        <div className="flex items-center gap-2">
+          <span>{formatMonthYear(newTabDateRange.start)}</span>
+          <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+          <span>{formatMonthYear(newTabDateRange.end)}</span>
+        </div>
+      );
+    } else if (newTabDateRange.start) {
+      return `From ${formatMonthYear(newTabDateRange.start)}`;
+    } else if (newTabDateRange.end) {
+      return `Until ${formatMonthYear(newTabDateRange.end)}`;
+    }
+    return "Select date range";
+  };
+
+  const getLastDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const formatToYYYYMMDD = (date: Date, isEndDate: boolean = false) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    let day = "01";
+
+    if (isEndDate) {
+      const lastDay = getLastDayOfMonth(date.getFullYear(), date.getMonth());
+      day = String(lastDay).padStart(2, "0");
+    }
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleMonthSelect = (monthIndex: number) => {
+    const selectedDate = new Date(newTabViewYear, monthIndex);
+
+    if (
+      !newTabDateRange.start ||
+      (newTabDateRange.start && newTabDateRange.end)
+    ) {
+      // Start new selection
+      setNewTabDateRange({ start: selectedDate, end: undefined });
+    } else if (newTabDateRange.start && !newTabDateRange.end) {
+      // Complete the range
+      if (selectedDate >= newTabDateRange.start) {
+        setNewTabDateRange({ ...newTabDateRange, end: selectedDate });
+        setNewTabDatePickerOpen(false);
+      } else {
+        // If selected date is before start, make it the new start
+        setNewTabDateRange({ start: selectedDate, end: newTabDateRange.start });
+        setNewTabDatePickerOpen(false);
+      }
+    }
+  };
+
+  const getMonthStatus = (monthIndex: number) => {
+    const currentDate = new Date(newTabViewYear, monthIndex);
+
+    if (!newTabDateRange.start) return "default";
+
+    const startTime = newTabDateRange.start.getTime();
+    const currentTime = currentDate.getTime();
+
+    if (newTabDateRange.start && !newTabDateRange.end) {
+      if (currentTime === startTime) return "start";
+      return "default";
+    }
+
+    if (newTabDateRange.start && newTabDateRange.end) {
+      const endTime = newTabDateRange.end.getTime();
+
+      if (currentTime === startTime) return "start";
+      if (currentTime === endTime) return "end";
+      if (currentTime > startTime && currentTime < endTime) return "in-range";
+    }
+
+    return "default";
+  };
+
+  const getMonthButtonClass = (status: string) => {
+    switch (status) {
+      case "start":
+        return "bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md";
+      case "end":
+        return "bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md";
+      case "in-range":
+        return "bg-white text-primary hover:bg-primary/20 hover:text-white border-primary/20";
+      default:
+        return "!bg-white text-gray-900 hover:bg-gray-100 border-gray-200";
+    }
+  };
+
+  const clearNewTabDateRange = () => {
+    setNewTabDateRange({});
+  };
+
+  const handleAddNewTab = () => {
+    if (!newTabTitle.trim()) {
+      toast.error("Please enter a tab title");
+      return;
+    }
+
+    if (!newTabDateRange.start || !newTabDateRange.end) {
+      toast.error("Please select both start and end dates");
+      return;
+    }
+
+    if (newTabDateRange.end <= newTabDateRange.start) {
+      toast.error("End date must be after start date");
+      return;
+    }
+
+    const startDate = formatToYYYYMMDD(newTabDateRange.start, false);
+    const endDate = formatToYYYYMMDD(newTabDateRange.end, true);
+    const position = localTabs.length; // Add to end of tabs
+
+    onAddNewTab?.({
+      title: newTabTitle.trim(),
+      startDate,
+      endDate,
+      position,
+    });
+
+    // Reset form and close modal
+    setNewTabTitle("");
+    setNewTabDateRange({});
+    setIsNewTabModalOpen(false);
+  };
+
+  const handleCloseNewTabModal = () => {
+    setNewTabTitle("");
+    setNewTabDateRange({});
+    setIsNewTabModalOpen(false);
+  };
+
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
       <Navbar
@@ -272,38 +487,54 @@ export default function DashboardSpecificHeader({
         collpaseSidebar={handleSidebarToggle}
       >
         <div className="flex items-center gap-2 sm:gap-3">
-          {!isViewOnly && (
+          {!isViewOnlyMode && (
             <>
-              {/* {isEditing && (
+              {/* Edit/View Mode Button - Only show in draft mode */}
+              {shouldShowEditMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white hover:bg-slate-50 text-primary px-3 h-9 rounded-md border-slate-300 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium hover:shadow-md transition-all duration-200"
+                  onClick={() => setIsEditing(!isEditing)}
+                  title={
+                    isEditing ? "Switch to View Mode" : "Switch to Edit Mode"
+                  }
+                >
+                  {isEditing ? (
+                    <EyeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  ) : (
+                    <EditIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isEditing ? "View Mode" : "Edit Mode"}
+                  </span>
+                </Button>
+              )}
+
+              {/* Save Draft Button - Only show in draft mode */}
+              {shouldShowEditMode && onSaveDraft && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSaveDraft}
+                  className="h-8 px-3 text-xs border-gray-200 hover:bg-gray-50"
+                >
+                  <SaveIcon className="w-3 h-3 mr-1" />
+                  Save
+                </Button>
+              )}
+
+              {/* Publish Button - Only show in draft mode when can publish */}
+              {shouldShowEditMode && canPublish && onPublishDraft && (
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white h-9 px-3 sm:px-4 text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all duration-200"
-                  onClick={onSaveDashboard}
+                  onClick={onPublishDraft}
+                  className="h-8 px-3 text-xs bg-primary text-white hover:bg-primary/90"
                 >
-                  <SaveIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                  Save
+                  Publish
                 </Button>
-              )} */}
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white hover:bg-slate-50 text-primary px-3 h-9 rounded-md border-slate-300 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium hover:shadow-md transition-all duration-200"
-                onClick={() => setIsEditing(!isEditing)}
-                title={
-                  isEditing ? "Switch to View Mode" : "Switch to Edit Mode"
-                }
-              >
-                {isEditing ? (
-                  <EyeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                ) : (
-                  <EditIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {isEditing ? "View Mode" : "Edit Mode"}
-                </span>
-              </Button>
+              )}
             </>
           )}
         </div>
@@ -351,7 +582,7 @@ export default function DashboardSpecificHeader({
                       return (
                         <div
                           key={tab.id}
-                          draggable={!isViewOnly}
+                          draggable={!isViewOnlyMode && shouldShowEditMode}
                           onDragStart={(e) => handleDragStart(e, tab.id)}
                           onDragEnd={handleDragEnd}
                           onDragOver={(e) => handleDragOver(e, tab.id)}
@@ -371,11 +602,15 @@ export default function DashboardSpecificHeader({
                               ? "bg-blue-50 border-2 border-dashed border-blue-300"
                               : ""
                           }
-                          ${!isViewOnly ? "hover:shadow-sm" : ""}
+                          ${
+                            !isViewOnlyMode && shouldShowEditMode
+                              ? "hover:shadow-sm"
+                              : ""
+                          }
                         `}
                           onClick={() => !isLoading && onTabChange(tab.id)}
                         >
-                          {!isViewOnly && (
+                          {!isViewOnlyMode && shouldShowEditMode && (
                             <GripVerticalIcon className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing" />
                           )}
 
@@ -399,10 +634,11 @@ export default function DashboardSpecificHeader({
                       );
                     })}
 
-                    {!isViewOnly && (
+                    {/* Add New Tab Button - Only show in draft mode */}
+                    {!isViewOnlyMode && shouldShowEditMode && (
                       <button
                         className="flex items-center justify-center px-2 py-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-white/60 transition-all duration-200 min-w-[40px] group"
-                        disabled // Disabled for now as functionality is not defined
+                        onClick={() => setIsNewTabModalOpen(true)}
                       >
                         <PlusIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform duration-200" />
                       </button>
@@ -436,7 +672,7 @@ export default function DashboardSpecificHeader({
               <span className="text-xs text-gray-600 font-medium">
                 {currentVersion === "draft" ? "Draft" : "Published"}
               </span>
-              {canEdit && currentVersion === "published" && onSwitchToDraft && (
+              {canSwitchToDraft && onSwitchToDraft && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -446,7 +682,7 @@ export default function DashboardSpecificHeader({
                   Edit
                 </Button>
               )}
-              {canEdit && currentVersion === "draft" && onSwitchToPublished && (
+              {canSwitchToPublished && onSwitchToPublished && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -458,35 +694,8 @@ export default function DashboardSpecificHeader({
               )}
             </div>
 
-            {/* Save and Publish buttons for draft mode */}
-            {currentVersion === "draft" && (
-              <>
-                {onSaveDraft && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onSaveDraft}
-                    className="h-8 px-3 text-xs border-gray-200 hover:bg-gray-50"
-                  >
-                    <SaveIcon className="w-3 h-3 mr-1" />
-                    Save
-                  </Button>
-                )}
-                {canPublish && onPublishDraft && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onPublishDraft}
-                    className="h-8 px-3 text-xs bg-primary text-white hover:bg-primary/90"
-                  >
-                    Publish
-                  </Button>
-                )}
-              </>
-            )}
-
             {/* Share button */}
-            {!isViewOnly && (
+            {!isViewOnlyMode && (
               <Button
                 variant="default"
                 size="sm"
@@ -564,6 +773,156 @@ export default function DashboardSpecificHeader({
           </div>
         </div>
       </div>
+
+      {/* New Tab Modal */}
+      <Dialog open={isNewTabModalOpen} onOpenChange={handleCloseNewTabModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex text-2xl items-center gap-2">
+              Add New Tab
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-6">
+            {/* Tab Title */}
+            <div className="space-y-2">
+              <Label htmlFor="tabTitle">Tab Title</Label>
+              <Input
+                id="tabTitle"
+                placeholder="Enter tab title..."
+                value={newTabTitle}
+                onChange={(e) => setNewTabTitle(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {/* Month-Year Range Picker */}
+            <div className="space-y-2">
+              <Label>Date Range</Label>
+              <Popover
+                open={newTabDatePickerOpen}
+                onOpenChange={setNewTabDatePickerOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-12 !bg-white transition-all duration-200",
+                      !newTabDateRange.start &&
+                        !newTabDateRange.end &&
+                        "text-gray-500 border-input",
+                      (newTabDateRange.start || newTabDateRange.end) &&
+                        "border-primary/30 bg-primary/5"
+                    )}
+                  >
+                    <Calendar className="mr-3 h-5 w-5 text-primary" />
+                    <span className="text-base">{formatRange()}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 shadow-xl border-2 border-gray-200"
+                  align="start"
+                >
+                  <div className="p-4 bg-white rounded-lg">
+                    <div className="flex items-center justify-between mb-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewTabViewYear(newTabViewYear - 1)}
+                        className="hover:bg-gray-100"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="font-bold text-lg text-gray-900">
+                        {newTabViewYear}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewTabViewYear(newTabViewYear + 1)}
+                        className="hover:bg-gray-100"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      {months.map((month, index) => {
+                        const status = getMonthStatus(index);
+
+                        return (
+                          <Button
+                            key={month}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleMonthSelect(index)}
+                            className={cn(
+                              "h-12 text-sm font-medium border transition-all duration-200 hover:shadow-md",
+                              getMonthButtonClass(status)
+                            )}
+                          >
+                            {month.slice(0, 3)}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    {(newTabDateRange.start || newTabDateRange.end) && (
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                        <div className="text-sm text-gray-600">
+                          {newTabDateRange.start && newTabDateRange.end
+                            ? "Range selected"
+                            : "Select end date"}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearNewTabDateRange}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Date range preview */}
+              {newTabDateRange.start && newTabDateRange.end && (
+                <div className="text-sm text-muted-foreground">
+                  Duration:{" "}
+                  {Math.ceil(
+                    (newTabDateRange.end.getTime() -
+                      newTabDateRange.start.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  )}{" "}
+                  days
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseNewTabModal}
+                className="flex-1 bg-transparent"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAddNewTab}
+                className="flex-1 text-white"
+              >
+                Add Tab
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {

@@ -80,11 +80,20 @@ export class DashboardService {
     
     const { publishedVersion, draftVersion } = apiResponse;
     
-    // Determine which version to use
-    const currentVersion = publishedVersion ? 'published' : 'draft';
-    const activeVersion = publishedVersion || draftVersion;
+    // Determine which version to use based on availability
+    let currentVersion: 'draft' | 'published';
+    let activeVersion: DashboardVersion;
     
-    if (!activeVersion) {
+    if (publishedVersion) {
+      // If published version exists, use it
+      currentVersion = 'published';
+      activeVersion = publishedVersion;
+    } else if (draftVersion) {
+      // If no published version but draft exists, use draft
+      currentVersion = 'draft';
+      activeVersion = draftVersion;
+    } else {
+      // No versions available (shouldn't happen in normal flow)
       console.error('No active version found in API response');
       throw new Error('No dashboard version data available');
     }
