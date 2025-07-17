@@ -3,7 +3,7 @@ import { ChevronUpIcon, ChevronDownIcon, Settings } from "lucide-react";
 import { store } from "@/lib/store/store";
 import { useUrlParams } from "@/lib/utils/urlParams";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import UserIconLogo from "@/../public/images/icons/sidebarIcons/user.svg";
 import DashboardIconLogo from "@/../public/images/icons/sidebarIcons/dashboard.svg";
 import ConsolidationIconLogo from "@/../public/images/icons/sidebarIcons/consolidation.svg";
@@ -70,6 +70,7 @@ interface NavButtonProps {
   onClick?: (e: React.MouseEvent) => void;
   children?: React.ReactNode;
   isCollapsed?: boolean;
+  isActive?: boolean;
 }
 
 const buttonBase =
@@ -92,18 +93,23 @@ const NavButton: React.FC<NavButtonProps> = ({
   onClick,
   children,
   isCollapsed = false,
+  isActive = false,
 }) => {
   return (
     <button
       type="button"
-      className={`${buttonBase} ${
-        isCollapsed ? "justify-center" : ""
+      className={`${buttonBase} ${isCollapsed ? "justify-center" : ""} ${
+        isActive ? "bg-gray-100 text-primary font-medium" : ""
       } ${className}`}
       onClick={onClick}
       title={isCollapsed ? item.label : undefined}
     >
       {item.icon && (
-        <span className="text-primary w-4 h-4 flex items-center justify-center">
+        <span
+          className={`w-4 h-4 flex items-center justify-center ${
+            isActive ? "text-primary" : "text-primary"
+          }`}
+        >
           {item.icon}
         </span>
       )}
@@ -126,7 +132,29 @@ export function Sidebar({
   const companyModalId = "company-selection";
   const selectedCompany = store.getState().user.selectedCompany;
   const router = useRouter();
+  const pathname = usePathname();
   const { toggleComponentState } = useUrlParams();
+
+  // Function to check if a navigation item is active
+  const isActiveItem = (href: string) => {
+    if (href === "/dashboard") {
+      return pathname.startsWith("/dashboard");
+    }
+    if (href === "/chat") {
+      return pathname.startsWith("/chat");
+    }
+    if (href === "/components") {
+      return pathname.startsWith("/components");
+    }
+    if (href === "/reports") {
+      return pathname.startsWith("/reports");
+    }
+    if (href === "/consolidation") {
+      return pathname.startsWith("/consolidation");
+    }
+    return pathname === href;
+  };
+
   return (
     <aside
       className={`${
@@ -181,6 +209,7 @@ export function Sidebar({
               key={item.id}
               variant="link"
               isCollapsed={isCollapsed}
+              isActive={isActiveItem(item.href || "")}
             >
               {item.label}
             </NavButton>
@@ -197,6 +226,7 @@ export function Sidebar({
             variant="link"
             isCollapsed={isCollapsed}
             onClick={() => onClickSettings?.()}
+            isActive={pathname.includes("/settings")}
           >
             {item.label}
           </NavButton>

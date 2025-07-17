@@ -394,6 +394,7 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({
 
       // Close the modal after successful company selection
       handleClose();
+      window.location.reload();
 
       if (onCompanyChange) onCompanyChange();
     } catch (err: any) {

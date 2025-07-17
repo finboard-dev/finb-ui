@@ -46,7 +46,6 @@ import {
 interface CreateAccountsProps {
   onNext: () => void;
   selectedCompanyId: string;
-  onAutoSaveStateChange?: (isAutoSaving: boolean) => void;
 }
 
 export interface CreateAccountsRef {
@@ -360,7 +359,7 @@ function DroppableColumn({
 export const CreateAccounts = forwardRef<
   CreateAccountsRef,
   CreateAccountsProps
->(({ onNext, selectedCompanyId, onAutoSaveStateChange }, ref) => {
+>(({ onNext, selectedCompanyId }, ref) => {
   const saveMapping = useSaveMappings();
   const [selectedTab, setSelectedTab] = useState<string>(REPORT_TYPES[0].value);
   const [mappingData, setMappingData] = useState<Mapping>({});
@@ -369,11 +368,6 @@ export const CreateAccounts = forwardRef<
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedAccount, setDraggedAccount] = useState<Account | null>(null);
   const scrollToRef = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const isInitialLoad = useRef(true);
-  const hasUserChanges = useRef(false);
-  const prevLocalMapping = useRef<Mapping>({});
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const preDragState = useRef<Mapping>({});
 
   const sensors = useSensors(
@@ -394,76 +388,13 @@ export const CreateAccounts = forwardRef<
     if (data?.data?.mapping) {
       setMappingData(data.data.mapping);
       setLocalMapping(data.data.mapping);
-      isInitialLoad.current = true;
-      hasUserChanges.current = false;
     }
   }, [data]);
 
-  // Handle report type change with silent save
+  // Handle report type change
   const handleReportTypeChange = (newReportType: string) => {
-    // Change report type immediately
     setSelectedTab(newReportType);
   };
-
-  // Auto-save whenever localMapping changes (but not on initial load)
-  useEffect(() => {
-    // Skip if initial load
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false;
-      prevLocalMapping.current = JSON.parse(JSON.stringify(localMapping));
-      return;
-    }
-
-    // Skip if no user changes
-    if (!hasUserChanges.current) {
-      return;
-    }
-
-    // Check if there are actual changes
-    const localMappingChanged =
-      JSON.stringify(localMapping) !== JSON.stringify(prevLocalMapping.current);
-    if (!localMappingChanged) {
-      return;
-    }
-
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Debounce the save to prevent rapid API calls
-    saveTimeoutRef.current = setTimeout(() => {
-      if (Object.keys(localMapping).length > 0) {
-        setIsAutoSaving(true);
-        onAutoSaveStateChange?.(true);
-        const payload = {
-          realm_id: selectedCompanyId,
-          report_type: selectedTab,
-          mapping: localMapping,
-        };
-        saveMapping.mutate(payload, {
-          onSuccess: () => {
-            console.log("Mapping auto-saved successfully");
-            // Update previous values after successful save
-            prevLocalMapping.current = JSON.parse(JSON.stringify(localMapping));
-            hasUserChanges.current = false;
-            setIsAutoSaving(false);
-            onAutoSaveStateChange?.(false);
-          },
-          onError: (error) => {
-            console.error("Error auto-saving mapping:", error);
-            setIsAutoSaving(false);
-            onAutoSaveStateChange?.(false);
-          },
-        });
-      }
-    }, 500); // 500ms debounce
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [localMapping, selectedCompanyId, selectedTab, onAutoSaveStateChange]);
 
   // Expose save functionality and loading state to parent component
   useImperativeHandle(
@@ -667,7 +598,6 @@ export const CreateAccounts = forwardRef<
 
       // For invalid drops, restore the pre-drag state
       setLocalMapping(preDragState.current);
-      hasUserChanges.current = true;
       return; // Stop processing further as the drop is invalid
     }
     // --- End of fix ---
@@ -699,7 +629,6 @@ export const CreateAccounts = forwardRef<
         console.log("Cannot drop: would create circular reference");
         // Revert if circular reference is detected - restore pre-drag state
         setLocalMapping(preDragState.current);
-        hasUserChanges.current = true;
         return;
       }
 
@@ -714,7 +643,6 @@ export const CreateAccounts = forwardRef<
         console.log("Cannot drop: would exceed maximum nesting level");
         // Revert if nesting limit is exceeded - restore pre-drag state
         setLocalMapping(preDragState.current);
-        hasUserChanges.current = true;
         return;
       }
 
@@ -731,7 +659,6 @@ export const CreateAccounts = forwardRef<
         newMapping[targetColKey] = finalTargetAccounts; // targetColKey is string here
         return newMapping;
       });
-      hasUserChanges.current = true;
       return;
     }
 
@@ -755,7 +682,6 @@ export const CreateAccounts = forwardRef<
       newMapping[targetColKey] = targetAccounts; // targetColKey is string here
       return newMapping;
     });
-    hasUserChanges.current = true;
   };
 
   // Add new root account
@@ -775,7 +701,6 @@ export const CreateAccounts = forwardRef<
       };
     });
     setEditingId(newAccountId);
-    hasUserChanges.current = true;
     // Scroll to the new account after a short delay to ensure DOM is updated
     setTimeout(() => {
       const element = scrollToRef.current[newAccountId];
@@ -812,7 +737,6 @@ export const CreateAccounts = forwardRef<
           if (newAccountId) {
             setLocalMapping((prev) => ({ ...prev })); // Trigger re-render with updated nested structure
             setEditingId(newAccountId);
-            hasUserChanges.current = true;
             // Scroll to the new account after a short delay
             setTimeout(() => {
               const element = scrollToRef.current[newAccountId];
@@ -835,7 +759,6 @@ export const CreateAccounts = forwardRef<
       setLocalMapping((prev) => ({ ...prev, [colKey]: updated }));
       if (newAccountId) {
         setEditingId(newAccountId);
-        hasUserChanges.current = true;
         // Scroll to the new account after a short delay
         setTimeout(() => {
           const element = scrollToRef.current[newAccountId];
@@ -893,7 +816,6 @@ export const CreateAccounts = forwardRef<
       }
       return updated;
     });
-    hasUserChanges.current = true;
   };
 
   // Delete account (and its children)
@@ -911,7 +833,6 @@ export const CreateAccounts = forwardRef<
       }
       return updated;
     });
-    hasUserChanges.current = true;
   };
 
   return (

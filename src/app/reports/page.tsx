@@ -8,7 +8,6 @@ import {
 } from "@/lib/store/slices/uiSlice";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
-import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 import Navbar from "@/components/ui/common/navbar";
 
 export default function ReportsPage() {

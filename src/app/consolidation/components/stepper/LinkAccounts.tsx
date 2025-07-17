@@ -5,6 +5,8 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  forwardRef,
+  useImperativeHandle,
 } from "react";
 import {
   Select,
@@ -52,7 +54,6 @@ export type ChartOfAccountsResponse = {
 interface LinkAccountsProps {
   onNext: () => void;
   selectedCompanyId: string;
-  onAutoSaveStateChange?: (isAutoSaving: boolean) => void;
 }
 
 // Helper to render account path with correct styles
@@ -228,15 +229,18 @@ function flattenMappingTree(
   return rows;
 }
 
-export function LinkAccounts({
-  onNext,
-  selectedCompanyId,
-  onAutoSaveStateChange,
-}: LinkAccountsProps) {
+// Helper to get the last child name from a nested path
+function getLastChildName(path: string): string {
+  if (!path || typeof path !== "string") return "";
+  const segments = path.split(" > ");
+  return segments[segments.length - 1] || path;
+}
+
+export const LinkAccounts = forwardRef(function LinkAccounts(
+  { onNext, selectedCompanyId }: LinkAccountsProps,
+  ref
+) {
   const [reportType, setReportType] = useState(REPORT_TYPES[0].value);
-  const [company, setCompany] = useState("");
-  const [searchName, setSearchName] = useState("");
-  const [accountType, setAccountType] = useState("none");
   const [mappedSelections, setMappedSelections] = useState<{
     [rowId: string]: string;
   }>({});
@@ -244,12 +248,14 @@ export function LinkAccounts({
     [rowId: string]: boolean;
   }>({});
   const [showOnlyUnmapped, setShowOnlyUnmapped] = useState(false);
-  const isInitialLoad = useRef(true);
-  const hasUserChanges = useRef(false);
-  const prevMappedSelections = useRef<{ [rowId: string]: string }>({});
-  const prevEliminationStates = useRef<{ [rowId: string]: boolean }>({});
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
+  const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
+  const [selectedCompanyFilter, setSelectedCompanyFilter] =
+    useState<string>("all");
+  const [nameFilterValue, setNameFilterValue] = useState<string>("");
+  const typeFilterRef = useRef<HTMLDivElement>(null);
+  const companyFilterRef = useRef<HTMLDivElement>(null);
 
   const companiesData = store?.getState()?.user?.companies;
   const { data: accountsData, isLoading: accountsLoading } =
@@ -263,9 +269,6 @@ export function LinkAccounts({
     (c: any) => c.id === selectedCompanyIdToUse
   );
 
-  // Compute account type options based on selected report type
-  const accountTypeOptions = REPORT_TYPE_COLUMNS[reportType] || [];
-
   // Memoized function to process accounts for a company
   const processCompanyAccounts = useCallback(
     (companyId: string, companyName: string) => {
@@ -276,8 +279,6 @@ export function LinkAccounts({
       const allRows: any[] = [];
 
       for (const typeOpt of typeOptions) {
-        if (accountType !== "none" && typeOpt.key !== accountType) continue;
-
         const rootNode = companyData[reportType][typeOpt.key];
         if (!rootNode) continue;
 
@@ -307,6 +308,7 @@ export function LinkAccounts({
             return {
               id: rowId,
               name: renderAccountPath(namePath),
+              originalName: namePath, // Store the original string name for filtering
               type: typeOpt.label,
               company: companyName,
               companyId: companyId,
@@ -321,7 +323,7 @@ export function LinkAccounts({
 
       return allRows;
     },
-    [accountsData, reportType, accountType, mappingData, selectedCompanyId]
+    [accountsData, reportType, mappingData, selectedCompanyId]
   );
 
   // Memoized rows computation
@@ -338,7 +340,6 @@ export function LinkAccounts({
   }, [
     accountsData,
     selectedCompanyId,
-    accountType,
     companiesData,
     processCompanyAccounts,
     eliminationStates,
@@ -347,9 +348,6 @@ export function LinkAccounts({
   // Apply mappings from API data
   useEffect(() => {
     if (!mappingData?.data?.mapping || rows.length === 0) return;
-
-    // Only sync from API if there are no unsaved user changes
-    if (hasUserChanges.current) return;
 
     const currentMappedSelections = { ...mappedSelections };
     let hasChanges = false;
@@ -382,15 +380,34 @@ export function LinkAccounts({
 
     if (hasChanges) {
       setMappedSelections(currentMappedSelections);
-      isInitialLoad.current = true;
-      hasUserChanges.current = false;
     }
   }, [mappingData, rows, selectedCompanyId, mappedSelections]);
 
-  // Reset account type when report type changes
+  // Close type filter dropdown when clicking outside
   useEffect(() => {
-    setAccountType("none");
-  }, [reportType]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        typeFilterRef.current &&
+        !typeFilterRef.current.contains(event.target as Node)
+      ) {
+        setTypeFilterOpen(false);
+      }
+      if (
+        companyFilterRef.current &&
+        !companyFilterRef.current.contains(event.target as Node)
+      ) {
+        setCompanyFilterOpen(false);
+      }
+    };
+
+    if (typeFilterOpen || companyFilterOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [typeFilterOpen, companyFilterOpen]);
 
   // Handlers
   const handleEliminateChange = useCallback((id: string, value: boolean) => {
@@ -398,7 +415,6 @@ export function LinkAccounts({
       const newState = { ...prev, [id]: value };
       return newState;
     });
-    hasUserChanges.current = true;
   }, []);
 
   const handleCheckboxChange = useCallback((id: string, value: boolean) => {
@@ -425,7 +441,6 @@ export function LinkAccounts({
       } else {
         setMappedSelections((prev) => ({ ...prev, [rowId]: mappedId }));
       }
-      hasUserChanges.current = true;
     },
     []
   );
@@ -525,83 +540,9 @@ export function LinkAccounts({
     accountsData,
   ]);
 
-  // Auto-save whenever payload changes (but not on initial load)
-  useEffect(() => {
-    // Skip if initial load
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false;
-      prevMappedSelections.current = { ...mappedSelections };
-      prevEliminationStates.current = { ...eliminationStates };
-      return;
-    }
-
-    // Skip if no user changes
-    if (!hasUserChanges.current) {
-      return;
-    }
-
-    // Check if there are actual changes
-    const mappedSelectionsChanged =
-      JSON.stringify(mappedSelections) !==
-      JSON.stringify(prevMappedSelections.current);
-    const eliminationStatesChanged =
-      JSON.stringify(eliminationStates) !==
-      JSON.stringify(prevEliminationStates.current);
-
-    if (!mappedSelectionsChanged && !eliminationStatesChanged) {
-      return;
-    }
-
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Debounce the save to prevent rapid API calls
-    saveTimeoutRef.current = setTimeout(() => {
-      if (
-        Object.keys(mappedSelections).length > 0 ||
-        Object.keys(eliminationStates).length > 0
-      ) {
-        setIsAutoSaving(true);
-        onAutoSaveStateChange?.(true);
-
-        const payload = createSavePayload();
-        saveMapping.mutate(payload, {
-          onSuccess: () => {
-            prevMappedSelections.current = { ...mappedSelections };
-            prevEliminationStates.current = { ...eliminationStates };
-            hasUserChanges.current = false;
-            setIsAutoSaving(false);
-            onAutoSaveStateChange?.(false);
-          },
-          onError: (error) => {
-            console.error("Error auto-saving link accounts:", error);
-            setIsAutoSaving(false);
-            onAutoSaveStateChange?.(false);
-          },
-        });
-      }
-    }, 500); // 500ms debounce
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [mappedSelections, eliminationStates, onAutoSaveStateChange]);
-
   // Handlers without silent save
   const handleReportTypeChange = useCallback((newReportType: string) => {
     setReportType(newReportType);
-  }, []);
-
-  const handleAccountTypeChange = useCallback((newAccountType: string) => {
-    setAccountType(newAccountType);
-  }, []);
-
-  const handleCompanyChange = useCallback((newCompany: string) => {
-    setCompany(newCompany);
   }, []);
 
   // Filtered rows
@@ -609,16 +550,24 @@ export function LinkAccounts({
     return rows.filter((row) => {
       if (showOnlyUnmapped && mappedSelections[row.id]) return false;
 
-      if (company && company !== "all" && selectedCompanyInfo?.isMultiEntity) {
+      if (selectedCompanyFilter !== "all") {
         const rowCompanyId = (row as any).companyId;
-        if (rowCompanyId !== company) return false;
+        if (rowCompanyId !== selectedCompanyFilter) return false;
       }
 
-      if (searchName) {
-        const rowName = typeof row.name === "string" ? row.name : "";
-        if (!rowName.toLowerCase().includes(searchName.toLowerCase())) {
+      if (nameFilterValue) {
+        // For nested names, search in the last child name
+        const originalName = (row as any).originalName || "";
+        const lastChildName = getLastChildName(originalName);
+        if (
+          !lastChildName.toLowerCase().includes(nameFilterValue.toLowerCase())
+        ) {
           return false;
         }
+      }
+
+      if (selectedTypeFilter !== "all" && row.type !== selectedTypeFilter) {
+        return false;
       }
 
       return true;
@@ -627,9 +576,9 @@ export function LinkAccounts({
     rows,
     showOnlyUnmapped,
     mappedSelections,
-    company,
-    selectedCompanyInfo,
-    searchName,
+    selectedTypeFilter,
+    selectedCompanyFilter,
+    nameFilterValue,
   ]);
 
   // Unique companies for dropdown
@@ -645,6 +594,24 @@ export function LinkAccounts({
     return Array.from(companies.entries());
   }, [rows]);
 
+  // Unique types for dropdown
+  const uniqueTypes = useMemo(() => {
+    const types = new Set<string>();
+    rows.forEach((row) => {
+      if (row.type) {
+        types.add(row.type);
+      }
+    });
+    return Array.from(types).sort();
+  }, [rows]);
+
+  useImperativeHandle(ref, () => ({
+    async handleSave() {
+      const payload = createSavePayload();
+      return saveMapping.mutateAsync(payload);
+    },
+  }));
+
   return (
     <>
       <div className="px-10 pt-8 bg-white shrink-0">
@@ -653,7 +620,6 @@ export function LinkAccounts({
             const filters = [
               {
                 label: "REPORT TYPE",
-                type: "select" as const,
                 value: reportType,
                 onChange: handleReportTypeChange,
                 options: REPORT_TYPES.map((rt) => ({
@@ -662,46 +628,6 @@ export function LinkAccounts({
                 })),
                 placeholder: "Select report type",
               },
-              ...(selectedCompanyInfo?.isMultiEntity
-                ? [
-                    {
-                      label: "CONNECTED COMPANY",
-                      type: "select" as const,
-                      value: company,
-                      onChange: handleCompanyChange,
-                      options: [
-                        { value: "all", label: "All Companies" },
-                        ...uniqueCompanies.map(([companyId, companyName]) => ({
-                          value: companyId,
-                          label: companyName,
-                        })),
-                      ],
-                      placeholder: "Filter by company",
-                    },
-                  ]
-                : []),
-              {
-                label: "SEARCH NAME",
-                type: "input" as const,
-                value: searchName,
-                onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-                  setSearchName(e.target.value),
-                placeholder: "Filter by account name",
-              },
-              {
-                label: "ACCOUNT TYPE",
-                type: "select" as const,
-                value: accountType,
-                onChange: handleAccountTypeChange,
-                options: [
-                  { value: "none", label: "Not Selected" },
-                  ...accountTypeOptions.map((opt) => ({
-                    value: opt.key,
-                    label: opt.label,
-                  })),
-                ],
-                placeholder: "Select account type",
-              },
             ];
 
             return filters.map((filter, index) => (
@@ -709,28 +635,18 @@ export function LinkAccounts({
                 <Label className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide">
                   {filter.label}
                 </Label>
-                {filter.type === "select" ? (
-                  <Select value={filter.value} onValueChange={filter.onChange}>
-                    <SelectTrigger className="text-sm min-w-full bg-white">
-                      <SelectValue placeholder={filter.placeholder} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filter.options?.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    type="text"
-                    placeholder={filter.placeholder}
-                    className="text-sm text-gray-700 placeholder-gray-400 bg-white"
-                    value={filter.value}
-                    onChange={filter.onChange}
-                  />
-                )}
+                <Select value={filter.value} onValueChange={filter.onChange}>
+                  <SelectTrigger className="text-sm min-w-full bg-white">
+                    <SelectValue placeholder={filter.placeholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filter.options?.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ));
           })()}
@@ -773,23 +689,157 @@ export function LinkAccounts({
                   {
                     label: "Search by Name",
                     className:
-                      "text-left border-l px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
+                      "text-left border-l px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm relative",
                     showSort: true,
                     icon: <SearchIcon className="w-4 h-4 text-sec" />,
+                    content: (
+                      <div className="flex items-center gap-2 w-full">
+                        <Input
+                          type="text"
+                          placeholder="Search by name..."
+                          value={nameFilterValue}
+                          onChange={(e) => setNameFilterValue(e.target.value)}
+                          className="text-sm h-8 bg-transparent border-none shadow-none focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-none p-0 flex-1 focus:bg-transparent focus:shadow-none"
+                        />
+                        <SearchIcon className="w-4 h-4 text-sec flex-shrink-0" />
+                        {nameFilterValue && (
+                          <button
+                            onClick={() => setNameFilterValue("")}
+                            className="text-gray-400 hover:text-gray-600 text-sm"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     label: "Type",
                     className:
-                      "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
+                      "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm relative cursor-pointer",
                     showSort: true,
                     icon: <ChevronDown className="w-4 h-4 text-sec" />,
+                    content: (
+                      <div
+                        className="flex items-center justify-between gap-2 w-full"
+                        onClick={() => setTypeFilterOpen(!typeFilterOpen)}
+                        ref={typeFilterRef}
+                      >
+                        <span>Type</span>
+                        <div className="flex items-center gap-1">
+                          <ChevronDown
+                            className={`w-4 h-4 ${
+                              selectedTypeFilter !== "all"
+                                ? "text-blue-600"
+                                : "text-sec"
+                            }`}
+                          />
+                        </div>
+                        {typeFilterOpen && typeFilterRef.current && (
+                          <div
+                            className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[9999] min-w-48 py-1"
+                            style={{
+                              top:
+                                typeFilterRef.current.getBoundingClientRect()
+                                  .bottom + 4,
+                              left:
+                                typeFilterRef.current.getBoundingClientRect()
+                                  .left +
+                                typeFilterRef.current.getBoundingClientRect()
+                                  .width /
+                                  2 -
+                                96, // Center the dropdown (96px = min-w-48 / 2)
+                            }}
+                          >
+                            <div
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                              onClick={() => {
+                                setSelectedTypeFilter("all");
+                                setTypeFilterOpen(false);
+                              }}
+                            >
+                              All Types
+                            </div>
+                            {uniqueTypes.map((type) => (
+                              <div
+                                key={type}
+                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                onClick={() => {
+                                  setSelectedTypeFilter(type);
+                                  setTypeFilterOpen(false);
+                                }}
+                              >
+                                {type}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     label: "Company",
                     className:
-                      "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm",
+                      "text-left px-4 py-3 border-b border-r border-[#EFF1F5] font-normal text-sec text-sm relative cursor-pointer",
                     showSort: true,
                     icon: <ChevronDown className="w-4 h-4 text-sec" />,
+                    content: (
+                      <div
+                        className="flex items-center justify-between gap-2 w-full"
+                        onClick={() => setCompanyFilterOpen(!companyFilterOpen)}
+                        ref={companyFilterRef}
+                      >
+                        <span>Company</span>
+                        <div className="flex items-center gap-1">
+                          <ChevronDown
+                            className={`w-4 h-4 ${
+                              selectedCompanyFilter !== "all"
+                                ? "text-blue-600"
+                                : "text-sec"
+                            }`}
+                          />
+                        </div>
+                        {companyFilterOpen && companyFilterRef.current && (
+                          <div
+                            className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[9999] min-w-48 py-1"
+                            style={{
+                              top:
+                                companyFilterRef.current.getBoundingClientRect()
+                                  .bottom + 4,
+                              left:
+                                companyFilterRef.current.getBoundingClientRect()
+                                  .left +
+                                companyFilterRef.current.getBoundingClientRect()
+                                  .width /
+                                  2 -
+                                96, // Center the dropdown (96px = min-w-48 / 2)
+                            }}
+                          >
+                            <div
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                              onClick={() => {
+                                setSelectedCompanyFilter("all");
+                                setCompanyFilterOpen(false);
+                              }}
+                            >
+                              All Companies
+                            </div>
+                            {uniqueCompanies.map(([companyId, companyName]) => (
+                              <div
+                                key={companyId}
+                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                onClick={() => {
+                                  setSelectedCompanyFilter(companyId);
+                                  setCompanyFilterOpen(false);
+                                }}
+                              >
+                                {companyName}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     label: "Mapped To",
@@ -1005,4 +1055,4 @@ export function LinkAccounts({
       </div>
     </>
   );
-}
+});

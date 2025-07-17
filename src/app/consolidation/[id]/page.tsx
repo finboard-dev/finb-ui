@@ -35,8 +35,8 @@ export default function ConsolidationPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const createAccountsRef = useRef<CreateAccountsRef>(null);
+  const linkAccountsRef = useRef<any>(null);
 
   const selectedCompanyId = useSelector(
     (state: any) => state.user.selectedCompany?.id
@@ -81,6 +81,11 @@ export default function ConsolidationPage() {
         if (createAccountsRef.current) {
           await createAccountsRef.current.handleSave();
         }
+      } else if (currentStep === 1) {
+        // For step 2, use the LinkAccounts component's save functionality
+        if (linkAccountsRef.current) {
+          await linkAccountsRef.current.handleSave();
+        }
       } else {
         // For other steps, simulate save operation
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -108,15 +113,14 @@ export default function ConsolidationPage() {
             ref={createAccountsRef}
             onNext={() => setCurrentStep(1)}
             selectedCompanyId={selectedCompanyId}
-            onAutoSaveStateChange={setIsAutoSaving}
           />
         );
       case 1:
         return (
           <LinkAccounts
+            ref={linkAccountsRef}
             onNext={() => setCurrentStep(2)}
             selectedCompanyId={selectedCompanyId}
-            onAutoSaveStateChange={setIsAutoSaving}
           />
         );
       case 2:
@@ -148,7 +152,6 @@ export default function ConsolidationPage() {
             onSave={handleSave}
             isSaving={isSaving}
             isSaved={isSaved}
-            isAutoSaving={isAutoSaving}
           />
           {renderCurrentStep()}
         </ConsolidationMain>
