@@ -87,6 +87,27 @@ const footerItems = [
   },
 ];
 
+// Tooltip Component
+interface TooltipProps {
+  children: React.ReactNode;
+  content: string;
+  isVisible: boolean;
+}
+
+const Tooltip: React.FC<TooltipProps> = ({ children, content, isVisible }) => {
+  return (
+    <div className="relative group">
+      {children}
+      {isVisible && (
+        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none top-1/2 -translate-y-1/2">
+          {content}
+          <div className="absolute top-1/2 right-full transform -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NavButton: React.FC<NavButtonProps> = ({
   item,
   className = "",
@@ -96,27 +117,29 @@ const NavButton: React.FC<NavButtonProps> = ({
   isActive = false,
 }) => {
   return (
-    <button
-      type="button"
-      className={`${buttonBase} ${isCollapsed ? "justify-center" : ""} ${
-        isActive ? "bg-gray-100 text-primary font-medium" : ""
-      } ${className}`}
-      onClick={onClick}
-      title={isCollapsed ? item.label : undefined}
-    >
-      {item.icon && (
-        <span
-          className={`w-4 h-4 flex items-center justify-center ${
-            isActive ? "text-primary" : "text-primary"
-          }`}
-        >
-          {item.icon}
-        </span>
-      )}
-      {!isCollapsed && (
-        <span className="truncate text-left">{children || item.label}</span>
-      )}
-    </button>
+    <Tooltip content={item.label} isVisible={isCollapsed}>
+      <button
+        type="button"
+        className={`${buttonBase} ${isCollapsed ? "justify-center" : ""} ${
+          isActive ? "bg-gray-100 text-primary font-medium" : ""
+        } ${className}`}
+        onClick={onClick}
+        title={isCollapsed ? item.label : undefined}
+      >
+        {item.icon && (
+          <span
+            className={`w-4 h-4 flex items-center justify-center ${
+              isActive ? "text-primary" : "text-primary"
+            }`}
+          >
+            {item.icon}
+          </span>
+        )}
+        {!isCollapsed && (
+          <span className="truncate text-left">{children || item.label}</span>
+        )}
+      </button>
+    </Tooltip>
   );
 };
 
