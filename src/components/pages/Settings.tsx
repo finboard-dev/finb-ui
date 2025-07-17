@@ -1208,7 +1208,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
       <div className="flex w-full h-full gap-5 px-6 justify-center">
         {/* Settings Sidebar */}
-        <div className="min-w-fit text-wrap flex justify-end pt-14">
+        <div className="min-w-fit text-wrap flex justify-end">
           <nav className="text-base items-start flex flex-col h-[calc(100vh-200px)] justify-between">
             <div className="space-y-3">
               <button
@@ -1267,7 +1267,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
 
         {/* Settings Content */}
         <div className="overflow-x-auto w-full">
-          <div className="pt-14 min-w-lg:max-w-2xl w-full">
+          <div className="min-w-lg:max-w-2xl w-full">
             {activeSection === "data-connections" && renderDataConnections()}
             {activeSection === "profile" && renderProfile()}
             {activeSection === "security" && renderSecurity()}
