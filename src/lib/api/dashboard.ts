@@ -84,7 +84,7 @@ interface WidgetDataFilter {
   [key: string]: any;
 }
 
-interface WidgetDataRequest {
+export interface WidgetDataRequest {
   dashboardId: string;
   componentId: string;
   tabId: string;
@@ -273,5 +273,41 @@ export const saveDashboard = async (dashboardData: SaveDashboardRequest): Promis
   } catch (error) {
     console.error('Error saving dashboard:', error);
     throw new Error('Failed to save dashboard');
+  }
+}
+
+// Component Execution API
+export interface ComponentExecuteRequest {
+  refId: string;
+  refVersion: string;
+  refType: string;
+  startDate: string;
+  endDate: string;
+  companyId: string;
+}
+
+export interface ComponentExecuteResponse {
+  executionId: string;
+  output: string;
+  outputType: string;
+  executionTimeMs: number;
+  executedAt: string;
+  error: string | null;
+}
+
+export const executeComponent = async (params: ComponentExecuteRequest): Promise<ComponentExecuteResponse> => {
+  if (!params.refId || !params.refVersion || !params.refType || !params.companyId) {
+    throw new Error('Missing required parameters for component execution');
+  }
+
+  try {
+    const response = await fetcher.post(
+      `${process.env.NEXT_PUBLIC_API_DEV}/component/execute`,
+      params
+    );
+    return response.data || response;
+  } catch (error) {
+    console.error('Error executing component:', error);
+    throw new Error('Failed to execute component');
   }
 }

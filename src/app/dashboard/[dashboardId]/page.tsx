@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
@@ -21,7 +21,10 @@ import { useDashboard } from "../hooks/useDashboard";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import GlobalLoading from "@/components/ui/common/GlobalLoading";
-import { saveDashboard } from "@/lib/api/dashboard";
+import {
+  useSaveDashboard,
+  usePublishDraft,
+} from "@/hooks/query-hooks/useDashboard";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -83,6 +86,10 @@ export default function DashboardPage() {
     saveDraft,
     publishDraft,
   } = useDashboard(dashboardId);
+
+  // React Query hooks for dashboard operations
+  const saveDashboardMutation = useSaveDashboard();
+  const publishDraftMutation = usePublishDraft();
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
   const [viewBlocks, setViewBlocks] = useState<Block[]>([]);
@@ -228,6 +235,12 @@ export default function DashboardPage() {
   // Override isEditing based on versioning logic
   const effectiveIsEditing = shouldShowEditMode ? isEditing : false;
 
+  // Get current tab for date range
+  const currentTab = useMemo(() => {
+    if (!structure || !currentTabId) return null;
+    return structure.tabs.find((tab) => tab.id === currentTabId) || null;
+  }, [structure, currentTabId]);
+
   // Load metrics when not in edit mode (DashboardControls not rendered)
   useEffect(() => {
     if (!effectiveIsEditing && !metricsLoaded && !metricsLoading) {
@@ -362,8 +375,8 @@ export default function DashboardPage() {
         currentTabWidgetsCount: currentTabWidgets?.length || 0,
       });
 
-      // Call the save API
-      await saveDashboard(saveRequest);
+      // Call the save API using React Query
+      await saveDashboardMutation.mutateAsync(saveRequest);
 
       toast.success("Draft saved successfully");
     } catch (error) {
@@ -374,7 +387,7 @@ export default function DashboardPage() {
 
   const handlePublishDraft = async () => {
     try {
-      await publishDraft();
+      await publishDraftMutation.mutateAsync(dashboardId);
       toast.success("Dashboard published successfully");
     } catch (error) {
       toast.error("Failed to publish dashboard");
@@ -481,7 +494,7 @@ export default function DashboardPage() {
         })),
       };
 
-      await saveDashboard(saveRequest);
+      await saveDashboardMutation.mutateAsync(saveRequest);
 
       // Switch to the new tab
       await switchTab(newTab.id);
@@ -672,6 +685,8 @@ export default function DashboardPage() {
               blocks={[...viewBlocks, ...apiComponents]} // Include both view blocks and API components
               draggingBlock={draggingBlock}
               isEditing={effectiveIsEditing}
+              currentTabStartDate={currentTab?.startDate}
+              currentTabEndDate={currentTab?.endDate}
             />
           </div>
         </div>
