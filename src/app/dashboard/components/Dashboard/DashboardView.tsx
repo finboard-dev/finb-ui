@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import MetricsCard from "../ui/MetricsCard";
 import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
 import RestrictedChart from "@/components/visualizationV2/VisualizationRenderer";
+import WidgetExecutionWrapper from "./WidgetExecutionWrapper";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -31,6 +32,8 @@ interface DashboardViewProps {
   blocks: Block[];
   draggingBlock: DraggingBlock | null;
   isEditing: boolean;
+  currentTabStartDate?: string;
+  currentTabEndDate?: string;
 }
 
 const MARGIN: [number, number] = [8, 8];
@@ -48,11 +51,11 @@ const ROW_HEIGHT = 20;
 function getMins(t: BlockType): { minW: number; minH: number } {
   const factor = GRID_GRANULARITY;
   switch (t) {
-    case "table":
+    case "TABLE":
       return { minW: 3 * factor, minH: 2 * factor };
-    case "graph":
+    case "GRAPH":
       return { minW: 3 * factor, minH: 2 * factor };
-    case "metric":
+    case "KPI":
       return { minW: 2 * factor, minH: 1 * factor };
     default:
       return { minW: 2 * factor, minH: 1 * factor };
@@ -62,11 +65,11 @@ function getMins(t: BlockType): { minW: number; minH: number } {
 function getDefaults(t: BlockType): { w: number; h: number } {
   const factor = GRID_GRANULARITY;
   switch (t) {
-    case "table":
+    case "TABLE":
       return { w: 4 * factor, h: 3 * factor };
-    case "graph":
+    case "GRAPH":
       return { w: 4 * factor, h: 3 * factor };
-    case "metric":
+    case "KPI":
       return { w: 2 * factor, h: 1 * factor };
     default:
       return { w: 3 * factor, h: 2 * factor };
@@ -111,6 +114,8 @@ export default function DashboardView({
   blocks,
   draggingBlock,
   isEditing,
+  currentTabStartDate,
+  currentTabEndDate,
 }: DashboardViewProps) {
   const [dragOverIndicator, setDragOverIndicator] = useState(false);
   const [currentGridWidth, setCurrentGridWidth] = useState(BREAKPOINTS.lg);
@@ -327,83 +332,100 @@ export default function DashboardView({
             key={itemLayout.i}
             className="react-grid-item group/item outline-none focus:outline-none relative"
           >
-            {blockTemplate.type === "graph" && (
-              <RestrictedChart
-                data={blockTemplate.content || {}}
-                title={blockTemplate.title}
-                subtitle={blockTemplate.subtitle}
-                showDragHandle={isEditing}
-                dragHandleProps={{ className: "drag-handle" }}
-                showMenu={isEditing}
-                onDelete={() => onDeleteItem(itemLayout.i)}
-                onEdit={() =>
-                  toast.info(
-                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
-                  )
-                }
-                onDuplicate={() =>
-                  toast.info(
-                    `Duplicate for "${
-                      blockTemplate?.title || "component"
-                    }" TBD.`
-                  )
-                }
-                className="h-full w-full"
-                style={{ borderRadius: isEditing ? "0px" : "6px" }}
-              />
-            )}
-            {blockTemplate.type === "table" && (
-              <DynamicTable
-                data={blockTemplate.content || ""}
-                title={blockTemplate.title}
-                showDragHandle={isEditing}
-                dragHandleProps={{ className: "drag-handle" }}
-                showMenu={isEditing}
-                onDelete={() => onDeleteItem(itemLayout.i)}
-                onEdit={() =>
-                  toast.info(
-                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
-                  )
-                }
-                onDuplicate={() =>
-                  toast.info(
-                    `Duplicate for "${
-                      blockTemplate?.title || "component"
-                    }" TBD.`
-                  )
-                }
-                className="h-full w-full"
-                style={{ borderRadius: isEditing ? "0px" : "6px" }}
-              />
-            )}
-            {blockTemplate.type === "metric" && (
-              <MetricsCard
-                title={blockTemplate.title}
-                value={blockTemplate.content?.value || 0}
-                change={blockTemplate.content?.change || 0}
-                changeLabel={blockTemplate.content?.changeLabel || ""}
-                showDragHandle={isEditing}
-                dragHandleProps={{ className: "drag-handle" }}
-                showMenu={isEditing}
-                onDelete={() => onDeleteItem(itemLayout.i)}
-                onEdit={() =>
-                  toast.info(
-                    `Edit for "${blockTemplate?.title || "component"}" TBD.`
-                  )
-                }
-                onDuplicate={() =>
-                  toast.info(
-                    `Duplicate for "${
-                      blockTemplate?.title || "component"
-                    }" TBD.`
-                  )
-                }
-                className="h-full w-full"
-                style={{
-                  borderRadius: isEditing ? "0px" : "6px",
-                }}
-              />
-            )}
+            <WidgetExecutionWrapper
+              block={blockTemplate}
+              currentTabStartDate={currentTabStartDate || "2024-01-01"}
+              currentTabEndDate={currentTabEndDate || "2024-12-31"}
+              className="h-full w-full"
+            >
+              {(executionData) => (
+                <>
+                  {blockTemplate.type === "GRAPH" && (
+                    <RestrictedChart
+                      data={executionData || {}}
+                      title={blockTemplate.title}
+                      subtitle={blockTemplate.subtitle}
+                      showDragHandle={isEditing}
+                      dragHandleProps={{ className: "drag-handle" }}
+                      showMenu={isEditing}
+                      onDelete={() => onDeleteItem(itemLayout.i)}
+                      onEdit={() =>
+                        toast.info(
+                          `Edit for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      onDuplicate={() =>
+                        toast.info(
+                          `Duplicate for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      className="h-full w-full"
+                      style={{ borderRadius: isEditing ? "0px" : "6px" }}
+                    />
+                  )}
+                  {blockTemplate.type === "TABLE" && (
+                    <DynamicTable
+                      data={executionData || ""}
+                      title={blockTemplate.title}
+                      showDragHandle={isEditing}
+                      dragHandleProps={{ className: "drag-handle" }}
+                      showMenu={isEditing}
+                      onDelete={() => onDeleteItem(itemLayout.i)}
+                      onEdit={() =>
+                        toast.info(
+                          `Edit for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      onDuplicate={() =>
+                        toast.info(
+                          `Duplicate for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      className="h-full w-full"
+                      style={{ borderRadius: isEditing ? "0px" : "6px" }}
+                    />
+                  )}
+                  {blockTemplate.type === "KPI" && (
+                    <MetricsCard
+                      title={blockTemplate.title}
+                      value={executionData?.value || 0}
+                      change={executionData?.change || 0}
+                      changeLabel={executionData?.changeLabel || ""}
+                      showDragHandle={isEditing}
+                      dragHandleProps={{ className: "drag-handle" }}
+                      showMenu={isEditing}
+                      onDelete={() => onDeleteItem(itemLayout.i)}
+                      onEdit={() =>
+                        toast.info(
+                          `Edit for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      onDuplicate={() =>
+                        toast.info(
+                          `Duplicate for "${
+                            blockTemplate?.title || "component"
+                          }" TBD.`
+                        )
+                      }
+                      className="h-full w-full"
+                      style={{
+                        borderRadius: isEditing ? "0px" : "6px",
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </WidgetExecutionWrapper>
           </div>
         );
       }),

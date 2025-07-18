@@ -23,7 +23,7 @@ import {
 } from "../../types/consolidationUiMapping";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { ChevronUp, ChevronDown, SearchIcon } from "lucide-react";
+import { ChevronUp, ChevronDown, SearchIcon, ListFilter } from "lucide-react";
 import {
   useChartOfAccounts,
   useMappingForAccountByType,
@@ -727,7 +727,7 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
                       >
                         <span>Type</span>
                         <div className="flex items-center gap-1">
-                          <ChevronDown
+                          <ListFilter
                             className={`w-4 h-4 ${
                               selectedTypeFilter !== "all"
                                 ? "text-blue-600"
@@ -791,7 +791,7 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
                       >
                         <span>Company</span>
                         <div className="flex items-center gap-1">
-                          <ChevronDown
+                          <ListFilter
                             className={`w-4 h-4 ${
                               selectedCompanyFilter !== "all"
                                 ? "text-blue-600"

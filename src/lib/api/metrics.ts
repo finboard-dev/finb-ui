@@ -19,112 +19,19 @@ interface GetComponentMetricsParams {
   publishedOnly?: boolean;
 }
 
-// Types for the detailed metric response structure
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface DatasourceRequest {
-  template: string;
-  accounting_method: string | null;
-  qzurl: string | null;
-  end_date: string | null;
-  start_date: string | null;
-  sort_order: string | null;
-  date_macro: string;
-  summarize_column_by: string;
-  showrows: string | null;
-  showcols: string | null;
-  customer: string | null;
-  vendor: string | null;
-  employee: string | null;
-  department: string | null;
-  class_: string | null;
-  item: string | null;
-  account: string | null;
-  account_type: string | null;
-  columns: string | null;
-  payment_method: string | null;
-  report_date: string | null;
-  aging_method: string | null;
-  arpaid: string | null;
-  appaid: string | null;
-  term: string | null;
-  end_duedate: string | null;
-  start_duedate: string | null;
-  duedate_macro: string | null;
-  aging_period: string | null;
-  num_periods: string | null;
-  past_due: string | null;
-  apply_mapping: boolean;
-  show_total: string | null;
-  show_currency_rate: string | null;
-  apply_elimination: boolean;
-  show_elimination: boolean;
-  split_by_company: boolean;
-  add_budget_variance: boolean;
-  report_period: string | null;
-  rows: string | null;
-  change: string | null;
-  group_by: string | null;
-  budget: string | null;
-  variance: string | null;
-  budget_id: string | null;
-  cleared: string | null;
-  comparison_columns: string | null;
-  add_estimate: string | null;
-  asof_date: string | null;
-  estimate_status: string | null;
-}
-
-interface Datasource {
-  name: string;
-  request: DatasourceRequest;
-}
-
-interface TableRow {
-  name: string;
-  fullname: string;
-  type: string;
-  values: string[];
-  group: string;
-}
-
-interface TableData {
-  columns: string[];
-  rows: TableRow[];
-}
-
-interface PublishedVersion {
-  id: string;
-  metric_id: string;
-  description: string | null;
-  datasource: Datasource[];
-  python_code: string[];
-  table_data: TableData;
-  version_number: number;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  html_table: string;
-}
-
+// New simplified types for the updated API response
 interface ComponentMetric {
-  id: string;
+  refId: string;
   title: string;
   description: string | null;
-  company_id: string | null;
-  org_id: string | null;
-  published_version: PublishedVersion | null;
-  draft_version: PublishedVersion | null;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  created_by: User;
-  last_updated_by: User | null;
-  scope_level: "global" | "organization" | "company";
+  companyId: string | null;
+  orgId: string | null;
+  refVersion: string;
+  refType: string;
+  output: string;
+  scopeLevel: "Global" | "Organization" | "Company";
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface GetComponentMetricsResponse {

@@ -58,29 +58,31 @@ export const Stepper: React.FC<StepperProps> = ({
           ))}
         </div>
       </div>
-      <div className="flex gap-5 justify-center items-center">
-        <Button
-          variant="default"
-          size={"default"}
-          className="bg-primary px-4 py-2 text-white text-sm relative"
-          onClick={onSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : isSaved ? (
-            <>
-              <Check className="w-4 h-4 mr-2" />
-              Saved
-            </>
-          ) : (
-            "Save"
-          )}
-        </Button>
-      </div>
+      {currentStep !== 2 && (
+        <div className="flex gap-5 justify-center items-center">
+          <Button
+            variant="default"
+            size={"default"}
+            className="bg-primary px-4 py-2 text-white text-sm relative"
+            onClick={onSave}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : isSaved ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Saved
+              </>
+            ) : (
+              "Save"
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,6 +32,7 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
     console.warn('API not available, using mock data:', error);
     return {
       id: dashboardId,
+      title: "Mock Dashboard", // Added title for mock data
       sharedUsers: [],
       createdAt: new Date().toISOString(),
       createdBy: {
@@ -46,27 +47,14 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
         tabs: [
           {
             id: 'tab-1',
-            title: 'Default Tab',
-            filter: {},
-            last_refreshed_at: null,
-            widgets: [
-              {
-                id: 'widget-1',
-                component_id: 'metric-1',
-                title: 'Total Revenue',
-                type: 'metric',
-                filter: {},
-                position: { x: 0, y: 0, w: 3, h: 2, minW: 2, minH: 1 }
-              },
-              {
-                id: 'widget-2',
-                component_id: 'chart-1',
-                title: 'Revenue Trend',
-                type: 'graph',
-                filter: {},
-                position: { x: 3, y: 0, w: 6, h: 4, minW: 4, minH: 2 }
-              }
-            ]
+            title: 'tab error',
+            startDate: '2024-01-01',
+            endDate: '2024-12-31',
+            position: 0,
+            lastRefreshedAt: null,
+            widgets: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           }
         ],
         createdAt: new Date().toISOString(),
@@ -96,7 +84,7 @@ interface WidgetDataFilter {
   [key: string]: any;
 }
 
-interface WidgetDataRequest {
+export interface WidgetDataRequest {
   dashboardId: string;
   componentId: string;
   tabId: string;
@@ -244,5 +232,82 @@ export const publishDraft = async (dashboardId: string): Promise<DashboardVersio
   } catch (error) {
     console.error('Error publishing draft:', error);
     throw new Error('Failed to publish draft');
+  }
+}
+
+export interface SaveDashboardRequest {
+  id: string;
+  dashboardId: string;
+  tabs: Array<{
+    id: string;
+    title: string;
+    position: number;
+    startDate: string;
+    endDate: string;
+    widgets: Array<{
+      id: string;
+      title: string;
+      position: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        min_w: number;
+        min_h: number;
+      };
+      refId: string;
+      refVersion: string;
+      refType: string;
+      outputType: string;
+    }>;
+  }>;
+}
+
+export const saveDashboard = async (dashboardData: SaveDashboardRequest): Promise<any> => {
+  try {
+    const response = await fetcher.post(
+      `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/save`,
+      dashboardData
+    );
+    return response.data || response;
+  } catch (error) {
+    console.error('Error saving dashboard:', error);
+    throw new Error('Failed to save dashboard');
+  }
+}
+
+// Component Execution API
+export interface ComponentExecuteRequest {
+  refId: string;
+  refVersion: string;
+  refType: string;
+  startDate: string;
+  endDate: string;
+  companyId: string;
+}
+
+export interface ComponentExecuteResponse {
+  executionId: string;
+  output: string;
+  outputType: string;
+  executionTimeMs: number;
+  executedAt: string;
+  error: string | null;
+}
+
+export const executeComponent = async (params: ComponentExecuteRequest): Promise<ComponentExecuteResponse> => {
+  if (!params.refId || !params.refVersion || !params.refType || !params.companyId) {
+    throw new Error('Missing required parameters for component execution');
+  }
+
+  try {
+    const response = await fetcher.post(
+      `${process.env.NEXT_PUBLIC_API_DEV}/component/execute`,
+      params
+    );
+    return response.data || response;
+  } catch (error) {
+    console.error('Error executing component:', error);
+    throw new Error('Failed to execute component');
   }
 }

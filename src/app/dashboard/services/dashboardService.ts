@@ -80,18 +80,27 @@ export class DashboardService {
     
     const { publishedVersion, draftVersion } = apiResponse;
     
-    // Determine which version to use
-    const currentVersion = publishedVersion ? 'published' : 'draft';
-    const activeVersion = publishedVersion || draftVersion;
+    // Determine which version to use based on availability
+    let currentVersion: 'draft' | 'published';
+    let activeVersion: DashboardVersion;
     
-    if (!activeVersion) {
+    if (publishedVersion) {
+      // If published version exists, use it
+      currentVersion = 'published';
+      activeVersion = publishedVersion;
+    } else if (draftVersion) {
+      // If no published version but draft exists, use draft
+      currentVersion = 'draft';
+      activeVersion = draftVersion;
+    } else {
+      // No versions available (shouldn't happen in normal flow)
       console.error('No active version found in API response');
       throw new Error('No dashboard version data available');
     }
     
     return {
       uid: apiResponse.id,
-      title: `Dashboard ${apiResponse.id}`, // You might want to add title to the API response
+      title: apiResponse.title, // Use the actual title from API response
       view_only: false, // This could be determined by user permissions
       links: [],
       tabs: activeVersion.tabs,
@@ -253,7 +262,7 @@ export class DashboardService {
   async fetchTabWidgetData(
     dashboardId: string, 
     tabId: string, 
-    widgets: Array<{ component_id: string; filter: Record<string, any> }>
+    widgets: Array<{ refId: string; outputType: string; output: string }>
   ): Promise<Record<string, WidgetData>> {
     const cacheKey = `tab_widgets_${dashboardId}_${tabId}`;
     
@@ -276,11 +285,12 @@ export class DashboardService {
       const requestPromise = Promise.allSettled(
         widgets.map(async (widget) => {
           try {
-            const data = await this.fetchWidgetData(dashboardId, widget.component_id, tabId, widget.filter);
-            return { componentId: widget.component_id, data, success: true };
+            // For the new structure, we use the output directly instead of fetching
+            const data = { output: widget.output, outputType: widget.outputType };
+            return { componentId: widget.refId, data, success: true };
           } catch (error) {
-            console.error(`Failed to fetch data for widget ${widget.component_id}:`, error);
-            return { componentId: widget.component_id, data: null, success: false, error };
+            console.error(`Failed to process data for widget ${widget.refId}:`, error);
+            return { componentId: widget.refId, data: null, success: false, error };
           }
         })
       );

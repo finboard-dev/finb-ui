@@ -7,6 +7,7 @@ import {
   Tab,
   Widget 
 } from '../types';
+import { toast } from 'sonner';
 
 const initialState: DashboardState = {
   structure: null,
@@ -167,7 +168,11 @@ export const useDashboard = (dashboardId?: string) => {
       const widgetData = await dashboardService.fetchTabWidgetData(
         currentDashboardId,
         tabId,
-        tab.widgets
+        tab.widgets.map(widget => ({
+          refId: widget.refId,
+          outputType: widget.outputType,
+          output: widget.output
+        }))
       );
 
       setState(prev => ({
@@ -193,10 +198,88 @@ export const useDashboard = (dashboardId?: string) => {
     }
   }, [setLoading, setError]);
 
+  // Initialize dashboard with proper memoization
+  const initializeDashboard = useCallback(async () => {
+    const currentDashboardId = currentDashboardIdRef.current;
+    
+    console.log('🔧 initializeDashboard called with:', currentDashboardId);
+    
+    if (!currentDashboardId) {
+      throw new Error('Dashboard ID is required');
+    }
+
+    if (isInitializingRef.current) {
+      console.log('Dashboard initialization already in progress');
+      return;
+    }
+
+    console.log('✅ Starting dashboard initialization process');
+    isInitializingRef.current = true;
+
+    try {
+      // Reset state for new dashboard
+      resetState();
+      
+      // First, fetch dashboard structure
+      const structure = await fetchDashboardStructure();
+      
+      // Set initial version and permissions based on API response
+      const hasPublishedVersion = !!structure?.publishedVersion;
+      const hasDraftVersion = !!structure?.draftVersion;
+      
+      // Determine which version to show initially
+      let initialVersion: 'draft' | 'published';
+      let initialIsEditing: boolean;
+      let initialCanEdit: boolean;
+      let initialCanPublish: boolean;
+      
+      if (hasPublishedVersion) {
+        // If published version exists, show it in view mode
+        initialVersion = 'published';
+        initialIsEditing = false; // Published version is always in view mode
+        initialCanEdit = hasDraftVersion; // Can edit if draft exists
+        initialCanPublish = false; // Can't publish when viewing published
+      } else if (hasDraftVersion) {
+        // If only draft exists, show it in edit mode
+        initialVersion = 'draft';
+        initialIsEditing = true; // Draft version is always in edit mode
+        initialCanEdit = true; // Can edit draft
+        initialCanPublish = true; // Can publish draft
+      } else {
+        // No versions exist (shouldn't happen in normal flow)
+        initialVersion = 'draft';
+        initialIsEditing = true;
+        initialCanEdit = false;
+        initialCanPublish = false;
+      }
+      
+      setState(prev => ({
+        ...prev,
+        currentVersion: initialVersion,
+        canEdit: initialCanEdit,
+        canPublish: initialCanPublish,
+        isEditing: initialIsEditing
+      }));
+      
+      if (structure && structure.tabs.length > 0) {
+        // Only fetch widget data for the first tab initially
+        const firstTabId = structure.tabs[0].id;
+        console.log(`Initializing dashboard with first tab: ${firstTabId}`);
+        await fetchTabWidgetData(firstTabId, structure);
+      }
+    } catch (error) {
+      console.error('Failed to initialize dashboard:', error);
+      throw error;
+    } finally {
+      isInitializingRef.current = false;
+    }
+  }, [fetchDashboardStructure, fetchTabWidgetData, resetState]);
+
   // Switch to draft version
   const switchToDraft = useCallback(() => {
     if (!state.structure?.draftVersion) {
       console.warn('No draft version available');
+      toast.error('No draft version available');
       return;
     }
 
@@ -208,9 +291,9 @@ export const useDashboard = (dashboardId?: string) => {
         currentVersion: 'draft'
       } : null,
       currentVersion: 'draft',
-      isEditing: true,
+      isEditing: true, // Draft is always in edit mode
       canEdit: true,
-      canPublish: true,
+      canPublish: !!prev.structure?.publishedVersion, // Can publish if published version exists
       // Reset loaded tabs when switching versions
       loadedTabs: new Set(),
       widgetData: {}
@@ -221,6 +304,7 @@ export const useDashboard = (dashboardId?: string) => {
   const switchToPublished = useCallback(() => {
     if (!state.structure?.publishedVersion) {
       console.warn('No published version available');
+      toast.error('No published version available');
       return;
     }
 
@@ -232,9 +316,9 @@ export const useDashboard = (dashboardId?: string) => {
         currentVersion: 'published'
       } : null,
       currentVersion: 'published',
-      isEditing: false,
-      canEdit: true,
-      canPublish: false,
+      isEditing: false, // Published is always in view mode
+      canEdit: !!prev.structure?.draftVersion, // Can edit if draft exists
+      canPublish: false, // Can't publish when viewing published
       // Reset loaded tabs when switching versions
       loadedTabs: new Set(),
       widgetData: {}
@@ -277,57 +361,6 @@ export const useDashboard = (dashboardId?: string) => {
       throw error;
     }
   }, [state.structure, state.currentVersion, switchToPublished]);
-
-  // Initialize dashboard with proper memoization
-  const initializeDashboard = useCallback(async () => {
-    const currentDashboardId = currentDashboardIdRef.current;
-    
-    console.log('🔧 initializeDashboard called with:', currentDashboardId);
-    
-    if (!currentDashboardId) {
-      throw new Error('Dashboard ID is required');
-    }
-
-    if (isInitializingRef.current) {
-      console.log('Dashboard initialization already in progress');
-      return;
-    }
-
-    console.log('✅ Starting dashboard initialization process');
-    isInitializingRef.current = true;
-
-    try {
-      // Reset state for new dashboard
-      resetState();
-      
-      // First, fetch dashboard structure
-      const structure = await fetchDashboardStructure();
-      
-      // Set initial version and permissions
-      const hasPublishedVersion = !!structure?.publishedVersion;
-      const hasDraftVersion = !!structure?.draftVersion;
-      
-      setState(prev => ({
-        ...prev,
-        currentVersion: hasPublishedVersion ? 'published' : 'draft',
-        canEdit: hasDraftVersion,
-        canPublish: hasDraftVersion && !hasPublishedVersion,
-        isEditing: !hasPublishedVersion // Start in edit mode if no published version
-      }));
-      
-      if (structure && structure.tabs.length > 0) {
-        // Only fetch widget data for the first tab initially
-        const firstTabId = structure.tabs[0].id;
-        console.log(`Initializing dashboard with first tab: ${firstTabId}`);
-        await fetchTabWidgetData(firstTabId, structure);
-      }
-    } catch (error) {
-      console.error('Failed to initialize dashboard:', error);
-      throw error;
-    } finally {
-      isInitializingRef.current = false;
-    }
-  }, [fetchDashboardStructure, fetchTabWidgetData, resetState]);
 
   // Switch tab with stable callback
   const switchTab = useCallback((tabId: string) => {
@@ -394,7 +427,7 @@ export const useDashboard = (dashboardId?: string) => {
 
     return currentTab.widgets.map((widget: Widget) => ({
       ...widget,
-      data: state.widgetData[widget.component_id] || null
+      data: state.widgetData[widget.refId] || null
     })) as (Widget & { data: WidgetData | null })[];
   }, [currentTab, state.widgetData]);
 
