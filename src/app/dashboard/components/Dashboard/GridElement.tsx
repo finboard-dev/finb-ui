@@ -99,7 +99,7 @@ export default function GridElement({
 
     try {
       switch (block.type) {
-        case "graph":
+        case "GRAPH":
           if (block.content?.error)
             return (
               <ErrorDisplay
@@ -115,7 +115,7 @@ export default function GridElement({
             </div>
           );
 
-        case "table":
+        case "TABLE":
           if (
             typeof block.content === "string" &&
             block.content.includes("<table")
@@ -134,7 +134,7 @@ export default function GridElement({
             <ErrorDisplay message="Table data must be an HTML <table> string." />
           );
 
-        case "metric":
+        case "KPI":
           const metricData = block.content;
           if (metricData && typeof metricData.value !== "undefined") {
             return (

@@ -1,10 +1,10 @@
 /**
  * Defines the available types for blocks that can be placed on the dashboard.
- * - "graph": For chart visualizations, rendered with a chart component.
- * - "table": For tabular data, rendered with a dynamic table component.
- * - "metric": For displaying key performance indicators, rendered with a metric card.
+ * - "GRAPH": For chart visualizations, rendered with a chart component.
+ * - "TABLE": For tabular data, rendered with a dynamic table component.
+ * - "KPI": For displaying key performance indicators, rendered with a metric card.
  */
-export type BlockType = "graph" | "table" | "metric";
+export type BlockType = "GRAPH" | "TABLE" | "KPI";
 
 /**
  * Represents an instance of a block placed on the dashboard grid.
@@ -25,15 +25,16 @@ export interface DashboardItem {
  */
 export interface Block {
     id: string;           // Unique ID for the block template.
-    component_id: string;
     title: string;
     subtitle?: string;
     type: BlockType;
     filter: Record<string, any>;
-    content: any;         // Data for the block: object for graph/metric, array/object for table.
+    content: any;         // Data for the block: object for graph/KPI, array/object for table.
     previewImage?: string; // Data URL for a preview image.
     htmlTable?: string;   // HTML table string for table rendering
     scopeLevel?: string;  // Scope level: "global", "organization", "company"
+    refVersion?: string;  // Reference version from API
+    refType?: string;     // Reference type from API
 }
 
 /**
@@ -73,19 +74,27 @@ export interface WidgetData {
 
 export interface Widget {
   id: string;
-  component_id: string;
   title: string;
-  type: 'metric' | 'graph' | 'table';
-  filter: WidgetFilter;
   position: WidgetPosition;
+  refId: string;
+  refVersion: string;
+  refType: string;
+  outputType: 'GRAPH' | 'TABLE' | 'KPI';
+  output: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Tab {
   id: string;
   title: string;
-  filter: WidgetFilter;
-  last_refreshed_at: string | null;
+  startDate: string;
+  endDate: string;
+  position: number;
+  lastRefreshedAt: string | null;
   widgets: Widget[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DashboardStructure {
@@ -123,7 +132,7 @@ export interface WidgetDataResponse extends ApiResponse<WidgetData> {}
 export interface DashboardState {
   structure: DashboardStructure | null;
   currentTabId: string | null;
-  widgetData: Record<string, WidgetData>; // key: component_id
+  widgetData: Record<string, WidgetData>; // key: refId
   loadedTabs: Set<string>; // track which tabs have been loaded
   loading: {
     structure: boolean;
@@ -164,6 +173,7 @@ export interface DashboardVersion {
 
 export interface DashboardApiResponse {
   id: string;
+  title: string;
   sharedUsers: any[];
   createdAt: string;
   createdBy: {

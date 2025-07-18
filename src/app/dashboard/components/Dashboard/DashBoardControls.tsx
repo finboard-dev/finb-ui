@@ -57,7 +57,7 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     console.log("b", block);
 
     // For tables, show a preview of the HTML table if available
-    if (b.type === "table" && b.htmlTable) {
+    if (b.type === "TABLE" && b.htmlTable) {
       return (
         <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md overflow-hidden relative border-b border-slate-200">
           <div
@@ -87,11 +87,11 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     }
 
     let icon = <ComponentIcon className="w-10 h-10 text-slate-400" />;
-    if (b.type === "graph")
+    if (b.type === "GRAPH")
       icon = <LayoutGridIcon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "table")
+    else if (b.type === "TABLE")
       icon = <Rows3Icon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "metric")
+    else if (b.type === "KPI")
       icon = <TrendingUpIcon className="w-10 h-10 text-slate-400" />;
 
     return (
@@ -181,12 +181,18 @@ interface DashboardControlsProps {
   setBlocks: (blocksUpdater: (prevBlocks: Block[]) => Block[]) => void;
   onDragStart: (draggingBlock: DraggingBlock) => void;
   onApiComponentsLoaded?: (components: Block[]) => void;
+  onMetricsLoadingChange?: (loading: boolean) => void;
+  onMetricsLoaded?: () => void;
+  onMetricsError?: () => void;
 }
 
 export default function DashboardControls({
   blocks,
   onDragStart,
   onApiComponentsLoaded,
+  onMetricsLoadingChange,
+  onMetricsLoaded,
+  onMetricsError,
 }: DashboardControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -222,6 +228,7 @@ export default function DashboardControls({
     }
 
     setLoadingGlobalComponents(true);
+    onMetricsLoadingChange?.(true);
     try {
       console.log("Making API call to getComponentMetrics...");
       const response = await getComponentMetrics({
@@ -243,38 +250,27 @@ export default function DashboardControls({
 
         response.data.forEach((metric: any) => {
           console.log("Processing metric:", {
-            id: metric.id,
+            refId: metric.refId,
             title: metric.title,
-            scope_level: metric.scope_level,
-            type: metric.type,
-            hasHtmlTable: !!metric.published_version?.html_table,
+            scopeLevel: metric.scopeLevel,
+            refType: metric.refType,
+            hasOutput: !!metric.output,
           });
 
           const block: Block = {
-            id: metric.id || `metric-${Date.now()}-${Math.random()}`,
-            component_id: metric.componentId || metric.id,
+            id: metric.refId || `metric-${Date.now()}-${Math.random()}`,
             title: metric.title || "Untitled Metric",
-            subtitle: metric.subtitle || "",
+            subtitle: metric.description || "",
             type: getComponentType(metric), // Use smart type detection
-            filter: metric.filter || {},
+            filter: {}, // No filter in new structure
             // Map the content properly based on type
-            content:
-              getComponentType(metric) === "table"
-                ? metric.published_version?.html_table || ""
-                : getComponentType(metric) === "graph"
-                ? metric.published_version?.table_data || {}
-                : {
-                    // For metrics, create a simple metric structure
-                    value:
-                      metric.published_version?.table_data?.rows?.[0]
-                        ?.values?.[0] || 0,
-                    change: 0,
-                    changeLabel: "vs last period",
-                  },
-            previewImage: metric.previewImage,
+            content: metric.output || "",
+            previewImage: undefined, // No preview image in new structure
             // Add the html_table for table rendering
-            htmlTable: metric.published_version?.html_table,
-            scopeLevel: metric.scope_level,
+            htmlTable: metric.output,
+            scopeLevel: metric.scopeLevel?.toLowerCase() || "company",
+            refVersion: metric.refVersion, // Include refVersion from API
+            refType: metric.refType, // Include refType from API
           };
 
           console.log("Created block:", {
@@ -290,7 +286,7 @@ export default function DashboardControls({
           });
 
           // Separate by scope level
-          if (metric.scope_level === "global") {
+          if (metric.scopeLevel?.toLowerCase() === "global") {
             console.log("Adding to global blocks:", block.title);
             globalBlocks.push(block);
           } else {
@@ -313,6 +309,9 @@ export default function DashboardControls({
         if (onApiComponentsLoaded) {
           onApiComponentsLoaded(allApiComponents);
         }
+
+        // Notify parent that metrics are loaded
+        onMetricsLoaded?.();
       }
     } catch (error: any) {
       console.error("Error fetching components:", error);
@@ -323,8 +322,10 @@ export default function DashboardControls({
         data: error?.response?.data,
       });
       toast.error("Failed to fetch components from API");
+      onMetricsError?.();
     } finally {
       setLoadingGlobalComponents(false);
+      onMetricsLoadingChange?.(false);
     }
   }, [selectedOrganization?.id, selectedCompany?.id]);
 
@@ -339,19 +340,18 @@ export default function DashboardControls({
     });
   }, [selectedOrganization, selectedCompany]);
 
-  // Fetch all components when tab changes or when org/company changes
+  // Fetch all components only when org/company changes, not on tab switches
   useEffect(() => {
-    console.log("Tab changed or dependencies updated:", {
-      activeTab,
+    console.log("Org/Company changed, fetching components:", {
       orgId: selectedOrganization?.id,
       companyId: selectedCompany?.id,
     });
 
-    if (activeTab === "global-components" || activeTab === "my-components") {
-      console.log("Fetching components for tab:", activeTab);
+    if (selectedOrganization?.id && selectedCompany?.id) {
+      console.log("Fetching components for new org/company");
       fetchAllComponents();
     }
-  }, [activeTab, fetchAllComponents]);
+  }, [selectedOrganization?.id, selectedCompany?.id, fetchAllComponents]);
 
   // Helper function to detect if content is a table
   const isTableContent = (content: any): boolean => {
@@ -366,28 +366,19 @@ export default function DashboardControls({
   };
 
   // Helper function to determine component type
-  const getComponentType = (metric: any): "metric" | "graph" | "table" => {
-    // If it has html_table, it's a table
-    if (metric.published_version?.html_table) {
-      return "table";
+  const getComponentType = (metric: any): "KPI" | "GRAPH" | "TABLE" => {
+    // If it has output with table HTML, it's a table
+    if (metric.output && metric.output.includes("<table")) {
+      return "TABLE";
     }
 
-    // If it has python_code that creates charts/graphs, it's a graph
-    if (metric.published_version?.python_code) {
-      const pythonCode = metric.published_version.python_code
-        .join(" ")
-        .toLowerCase();
-      if (
-        pythonCode.includes("chart") ||
-        pythonCode.includes("plot") ||
-        pythonCode.includes("graph")
-      ) {
-        return "graph";
-      }
+    // If it has refType that indicates graph, it's a graph
+    if (metric.refType && metric.refType.toLowerCase().includes("graph")) {
+      return "GRAPH";
     }
 
-    // Default to metric
-    return "metric";
+    // Default to KPI
+    return "KPI";
   };
 
   // Filtering logic based on search and type filters
@@ -402,11 +393,15 @@ export default function DashboardControls({
 
     if (activeViewFilter) {
       if (activeViewFilter === "metric") {
-        // Show both metric and table types under "Metric" filter
+        // Show both KPI and TABLE types under "Metric" filter
         filtered = filtered.filter(
-          (b) => b.type === "metric" || b.type === "table"
+          (b) => b.type === "KPI" || b.type === "TABLE"
         );
         console.log("After metric filter:", filtered.length);
+      } else if (activeViewFilter === "graph") {
+        // Show GRAPH types under "Graph" filter
+        filtered = filtered.filter((b) => b.type === "GRAPH");
+        console.log("After graph filter:", filtered.length);
       } else {
         filtered = filtered.filter((b) => b.type === activeViewFilter);
         console.log("After type filter:", filtered.length);
@@ -423,8 +418,8 @@ export default function DashboardControls({
     return filtered;
   };
 
-  // Combine API my components with prop blocks for the my-components tab
-  const allMyComponents = [...blocks, ...myComponents];
+  // Use only API-loaded components for the my-components tab
+  const allMyComponents = [...myComponents];
   const displayComponents = filterAndSearchBlocks(allMyComponents);
   const displayGlobalComponents = filterAndSearchBlocks(globalComponents);
 

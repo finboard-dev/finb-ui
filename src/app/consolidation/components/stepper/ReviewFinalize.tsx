@@ -313,10 +313,6 @@ export function ReviewFinalize({ selectedCompanyId }: ReviewFinalizeProps) {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span>{company.name}</span>
-                      <div className="flex flex-col">
-                        <ChevronUp className="w-3 h-3 text-sec -mb-1" />
-                        <ChevronDown className="w-3 h-3 text-sec" />
-                      </div>
                     </div>
                   </th>
                 ))}
