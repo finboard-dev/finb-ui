@@ -143,7 +143,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Reports Table Container */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white h-[calc(100vh-200px)] rounded-lg border border-gray-200 overflow-hidden">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -159,9 +159,9 @@ export default function ReportsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1000px]">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                <div className="overflow-auto h-full">
+                  <table className="w-full min-w-[1000px] relative">
+                    <thead className="bg-gray-50 border-b sticky top-0 border-gray-200 z-10">
                       <tr>
                         <th className="text-left py-3 px-6 text-sm font-medium text-gray-700 w-[25%]">
                           Reports

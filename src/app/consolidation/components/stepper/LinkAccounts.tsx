@@ -1207,7 +1207,7 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
           </table>
 
           {/* Scrollable Body */}
-          <div style={{ maxHeight: "calc(100vh - 380px)", overflowY: "auto" }}>
+          <div style={{ maxHeight: "calc(100vh - 400px)", overflowY: "auto" }}>
             {accountsLoading || mappingLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
