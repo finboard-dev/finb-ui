@@ -9,14 +9,12 @@ import Navbar from "@/components/ui/common/navbar";
 import { Input } from "@/components/ui/input";
 import {
   Search,
-  Filter,
   ChevronRight,
   ChevronDown,
   FileText,
   ExternalLink,
 } from "lucide-react";
 import { useReports } from "@/hooks/query-hooks/useReports";
-import { ReportPackage, ReportItem } from "@/lib/api/reports";
 import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 // Format date strings for display in the table
@@ -67,6 +65,11 @@ export default function ReportsPage() {
       pkg.reports.some(report => report.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [reportsData, searchTerm]);
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Reports" />;
+  }
 
   const renderLoadingState = () => (
     <div className="flex items-center justify-center py-12">
