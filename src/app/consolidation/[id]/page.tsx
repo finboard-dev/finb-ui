@@ -20,11 +20,15 @@ import {
   selectIsComponentOpen,
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 export default function ConsolidationPage() {
   const router = useRouter();
   const params = useParams();
   const dispatch = useAppDispatch();
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   // Use component-based sidebar state
   const isSidebarOpen = useAppSelector((state) =>
@@ -104,6 +108,11 @@ export default function ConsolidationPage() {
   const handleSidebarToggle = () => {
     dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Mapping" />;
+  }
 
   const renderCurrentStep = () => {
     switch (currentStep) {

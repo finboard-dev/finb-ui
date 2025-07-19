@@ -75,6 +75,10 @@ export default function MessageInput({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
 
+  // Use ref to track current mentions to avoid dependency loops
+  const mentionsRef = useRef<MentionType[]>([]);
+  mentionsRef.current = mentions;
+
   const selectedCompany = useAppSelector(selectSelectedCompany) as Company & {
     assistants?: any[];
     name?: string;
@@ -83,9 +87,11 @@ export default function MessageInput({
   console.log(selectedCompany);
 
   const availableAssistants: any[] = selectedCompany?.assistants || [];
+
   const allAvailableTools = availableAssistants.flatMap(
     (a: any) => a.tools || []
   );
+  console.log("allAvailableTools", allAvailableTools);
 
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const activeChat = useAppSelector((state) => {
@@ -377,19 +383,16 @@ export default function MessageInput({
       }
     });
 
-    if (JSON.stringify(updatedMentions) !== JSON.stringify(mentions)) {
+    if (
+      JSON.stringify(updatedMentions) !== JSON.stringify(mentionsRef.current)
+    ) {
       setMentions(updatedMentions);
     }
 
     if (!isComposing) {
       updateCursorPositionAndMentions();
     }
-  }, [
-    mentions,
-    isComposing,
-    allAvailableTools,
-    updateCursorPositionAndMentions,
-  ]);
+  }, [isComposing, allAvailableTools, updateCursorPositionAndMentions]);
 
   const handleSelectTool = (tool: Tool) => {
     if (!inputRef.current) return;
@@ -607,9 +610,7 @@ export default function MessageInput({
     }
   };
 
-  useEffect(() => {
-    handleInputChange();
-  }, [inputRef.current, mentions.length, handleInputChange]);
+  // Removed problematic useEffect that was causing infinite loop
 
   useEffect(() => {
     const handlePlaceholder = () => {

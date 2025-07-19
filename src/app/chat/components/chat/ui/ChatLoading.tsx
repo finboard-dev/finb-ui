@@ -269,40 +269,40 @@ export const NeuralNetworkLoader = () => {
 // Floating Particles Animation Component
 export const CompactParticlesLoader = () => {
   return (
-    <div className="relative w-10 h-10">
-      {/* Main pulsing circle in the middle */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-sm shadow-purple-500/30 flex items-center justify-center z-10">
+    <div className="relative w-10 h-10 flex items-center justify-center">
+      {/* Main pulsing circle in the center */}
+      <div className="absolute w-4 h-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-lg shadow-purple-500/30 flex items-center justify-center z-10">
         <div className="w-3 h-3 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full animate-pulse flex items-center justify-center">
-          <div className="w-1.5 h-1.5 bg-white rounded-full opacity-80"></div>
+          <div className="w-1 h-1 bg-white rounded-full opacity-80"></div>
         </div>
       </div>
 
-      {/* Orbiting particles - smaller and faster for compact design */}
+      {/* Orbiting particles - properly centered */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-indigo-200/60 animate-spin"
+        className="absolute w-7 h-7 rounded-full border border-indigo-200/60 animate-spin"
         style={{ animationDuration: "2s" }}
       >
-        <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></div>
+        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></div>
       </div>
 
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border border-purple-200/60 animate-spin"
+        className="absolute w-9 h-9 rounded-full border border-purple-200/60 animate-spin"
         style={{ animationDuration: "3s", animationDirection: "reverse" }}
       >
-        <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-purple-500 rounded-full shadow-sm shadow-purple-500/50"></div>
-        <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full shadow-sm shadow-indigo-500/50"></div>
+        <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-purple-500 rounded-full shadow-sm shadow-purple-500/50"></div>
+        <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full shadow-sm shadow-indigo-500/50"></div>
       </div>
 
-      {/* Light rays from the center - shorter for compact design */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full flex items-center justify-center">
-        <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent animate-pulse"></div>
+      {/* Light rays from the center - properly aligned */}
+      <div className="absolute w-full h-full flex items-center justify-center">
+        <div className="w-6 h-0.5 bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent animate-pulse"></div>
         <div
-          className="w-6 h-0.5 bg-gradient-to-r from-transparent via-blue-400/30 to-transparent rotate-45 absolute animate-pulse"
-          style={{ animationDelay: "0.5s" }}
+          className="w-5 h-0.5 bg-gradient-to-r from-transparent via-blue-400/40 to-transparent absolute animate-pulse"
+          style={{ transform: "rotate(45deg)", animationDelay: "0.5s" }}
         ></div>
         <div
-          className="w-6 h-0.5 bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent -rotate-45 absolute animate-pulse"
-          style={{ animationDelay: "1s" }}
+          className="w-5 h-0.5 bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent absolute animate-pulse"
+          style={{ transform: "rotate(-45deg)", animationDelay: "1s" }}
         ></div>
       </div>
     </div>

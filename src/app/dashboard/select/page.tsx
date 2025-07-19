@@ -22,12 +22,16 @@ import {
   selectIsComponentOpen,
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 export default function DashboardSelectPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   const { data: dashboards, isLoading, error } = useDashboards();
 
@@ -81,6 +85,11 @@ export default function DashboardSelectPage() {
     dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
 
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Select Dashboard" />;
+  }
+
   if (error) {
     return (
       <div className="flex h-screen">
@@ -101,7 +110,12 @@ export default function DashboardSelectPage() {
               <p className="text-gray-500 mb-4">
                 There was an error loading your dashboards. Please try again.
               </p>
-              <Button onClick={() => window.location.reload()}>Retry</Button>
+              <Button
+                className="bg-primary text-white"
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
             </div>
           </div>
         </div>

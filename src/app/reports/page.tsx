@@ -11,9 +11,17 @@ import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import Navbar from "@/components/ui/common/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, ChevronRight, ChevronDown, FileText, ExternalLink } from "lucide-react";
+import {
+  Search,
+  Filter,
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  ExternalLink,
+} from "lucide-react";
 import { useReports } from "@/hooks/query-hooks/useReports";
 import { ReportPackage, ReportItem } from "@/lib/api/reports";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 // UI-specific interface for transformed data
 interface UIReportPackage extends ReportPackage {
@@ -24,12 +32,12 @@ interface UIReportPackage extends ReportPackage {
 const formatDate = (dateString: string) => {
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch (error) {
     return dateString;
@@ -39,7 +47,12 @@ const formatDate = (dateString: string) => {
 export default function ReportsPage() {
   const dispatch = useAppDispatch();
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
+  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   // Fetch reports data
   const { data: reportsData, isLoading, error } = useReports();
@@ -66,7 +79,7 @@ export default function ReportsPage() {
   };
 
   const toggleExpanded = (packageId: string) => {
-    setExpandedPackages(prev => {
+    setExpandedPackages((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(packageId)) {
         newSet.delete(packageId);
@@ -80,16 +93,22 @@ export default function ReportsPage() {
   // Filter reports based on search term
   const filteredReports = useMemo(() => {
     if (!reportsData) return [];
-    
+
     if (!searchTerm) return reportsData;
-    
-    return reportsData.filter(reportPackage =>
-      reportPackage.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reportPackage.reports.some(report => 
-        report.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+
+    return reportsData.filter(
+      (reportPackage) =>
+        reportPackage.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        reportPackage.reports.some((report) =>
+          report.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
     );
   }, [reportsData, searchTerm]);
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Reports" />;
+  }
 
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
@@ -124,7 +143,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Reports Table Container */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white h-[calc(100vh-200px)] rounded-lg border border-gray-200 overflow-hidden">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -140,9 +159,9 @@ export default function ReportsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1000px]">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                <div className="overflow-auto h-full">
+                  <table className="w-full min-w-[1000px] relative">
+                    <thead className="bg-gray-50 border-b sticky top-0 border-gray-200 z-10">
                       <tr>
                         <th className="text-left py-3 px-6 text-sm font-medium text-gray-700 w-[25%]">
                           Reports
@@ -164,85 +183,93 @@ export default function ReportsPage() {
                         </th>
                       </tr>
                     </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredReports.map((reportPackage) => (
-                      <React.Fragment key={reportPackage.id}>
-                        {/* Parent Row - Report Package */}
-                        <tr className="hover:bg-gray-50">
-                          <td className="py-3 px-6">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => toggleExpanded(reportPackage.id)}
-                                className="p-1 hover:bg-gray-100 rounded"
-                              >
-                                {expandedPackages.has(reportPackage.id) ? (
-                                  <ChevronDown className="w-4 h-4 text-gray-600" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-gray-600" />
-                                )}
-                              </button>
-                              <span className="text-sm text-gray-900">
-                                {reportPackage.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-6 text-sm text-gray-400">
-                            -
-                          </td>
-                          <td className="py-3 px-6 text-sm text-gray-400">
-                            -
-                          </td>
-                          <td className="py-3 px-6 text-sm text-gray-600">
-                            {formatDate(reportPackage.createdDate)}
-                          </td>
-                          <td className="py-3 px-6 text-sm text-gray-600">
-                            {reportPackage.createdBy || '-'}
-                          </td>
-                          <td className="py-3 px-6">
-                            <a
-                              href={reportPackage.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
-                            >
-                              View <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </td>
-                        </tr>
-
-                        {/* Child Rows - Individual Reports */}
-                        {expandedPackages.has(reportPackage.id) && reportPackage.reports
-                          .filter(report => report.status === 'ACTIVE') // Only show active reports
-                          .map((report) => (
-                          <tr key={`${reportPackage.id}-${report.id}`} className="hover:bg-gray-50 bg-gray-25">
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredReports.map((reportPackage) => (
+                        <React.Fragment key={reportPackage.id}>
+                          {/* Parent Row - Report Package */}
+                          <tr className="hover:bg-gray-50">
                             <td className="py-3 px-6">
-                              <div className="flex items-center gap-2 ml-8">
-                                <FileText className="w-3 h-3 text-gray-500" />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    toggleExpanded(reportPackage.id)
+                                  }
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  {expandedPackages.has(reportPackage.id) ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-600" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                                  )}
+                                </button>
                                 <span className="text-sm text-gray-900">
-                                  {report.name}
+                                  {reportPackage.name}
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3 px-6 text-sm text-gray-600">
-                              {report.companyName || '-'}
-                            </td>
-                            <td className="py-3 px-6 text-sm text-gray-600">
-                              {report.lastSyncAt ? formatDate(report.lastSyncAt) : '-'}
-                            </td>
-                            <td className="py-3 px-6 text-sm text-gray-600">
-                              {formatDate(report.createdAt)}
-                            </td>
                             <td className="py-3 px-6 text-sm text-gray-400">
                               -
                             </td>
                             <td className="py-3 px-6 text-sm text-gray-400">
                               -
+                            </td>
+                            <td className="py-3 px-6 text-sm text-gray-600">
+                              {formatDate(reportPackage.createdDate)}
+                            </td>
+                            <td className="py-3 px-6 text-sm text-gray-600">
+                              {reportPackage.createdBy || "-"}
+                            </td>
+                            <td className="py-3 px-6">
+                              <a
+                                href={reportPackage.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                              >
+                                View <ExternalLink className="w-3 h-3" />
+                              </a>
                             </td>
                           </tr>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
+
+                          {/* Child Rows - Individual Reports */}
+                          {expandedPackages.has(reportPackage.id) &&
+                            reportPackage.reports
+                              .filter((report) => report.status === "ACTIVE") // Only show active reports
+                              .map((report) => (
+                                <tr
+                                  key={`${reportPackage.id}-${report.id}`}
+                                  className="hover:bg-gray-50 bg-gray-25"
+                                >
+                                  <td className="py-3 px-6">
+                                    <div className="flex items-center gap-2 ml-8">
+                                      <FileText className="w-3 h-3 text-gray-500" />
+                                      <span className="text-sm text-gray-900">
+                                        {report.name}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-6 text-sm text-gray-600">
+                                    {report.companyName || "-"}
+                                  </td>
+                                  <td className="py-3 px-6 text-sm text-gray-600">
+                                    {report.lastSyncAt
+                                      ? formatDate(report.lastSyncAt)
+                                      : "-"}
+                                  </td>
+                                  <td className="py-3 px-6 text-sm text-gray-600">
+                                    {formatDate(report.createdAt)}
+                                  </td>
+                                  <td className="py-3 px-6 text-sm text-gray-400">
+                                    -
+                                  </td>
+                                  <td className="py-3 px-6 text-sm text-gray-400">
+                                    -
+                                  </td>
+                                </tr>
+                              ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               )}

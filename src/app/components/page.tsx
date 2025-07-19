@@ -9,9 +9,13 @@ import {
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import Navbar from "@/components/ui/common/navbar";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 export default function ComponentsPage() {
   const dispatch = useAppDispatch();
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   // Use component-based sidebar state
   const isSidebarOpen = useAppSelector((state) =>
@@ -33,6 +37,11 @@ export default function ComponentsPage() {
   const handleSidebarCollapse = () => {
     dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Components" />;
+  }
 
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
