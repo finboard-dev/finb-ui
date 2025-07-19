@@ -7,12 +7,16 @@ import { setActiveChatId } from "@/lib/store/slices/chatSlice";
 import { setMainContent } from "@/lib/store/slices/uiSlice";
 import Home from "./components/chat/Home";
 import { syncUrlParamsToRedux } from "@/lib/utils/urlParams";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 const ChatPage = () => {
   const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const threadId = searchParams.get("id");
   const { chats, pendingChat } = useAppSelector((state) => state.chat);
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   // Sync URL parameters to Redux state (source of truth)
   useEffect(() => {
@@ -44,6 +48,11 @@ const ChatPage = () => {
       // If settingsSection exists, don't do anything - let the settings navigation handle it
     }
   }, [threadId, chats, pendingChat, dispatch, searchParams]);
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Fin Chat" />;
+  }
 
   return <Home />;
 };

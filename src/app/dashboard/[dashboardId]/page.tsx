@@ -25,6 +25,7 @@ import {
   useSaveDashboard,
   usePublishDraft,
 } from "@/hooks/query-hooks/useDashboard";
+import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -60,6 +61,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const dashboardId = params.dashboardId as string;
   const dispatch = useAppDispatch();
+
+  // Check if company is inactive
+  const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   // Use component-based sidebar state
   const isSidebarOpen = useAppSelector((state) =>
@@ -528,6 +532,11 @@ export default function DashboardPage() {
       (metricsLoading && !metricsLoaded) ||
       (!structure && !error),
   });
+
+  // If company is inactive, show the inactive company UI
+  if (isCompanyInactive) {
+    return <InactiveCompanyUI title="Dashboard" />;
+  }
 
   if (
     loading.structure ||

@@ -315,3 +315,12 @@ html, body {
 .bg-home {
   background: linear-gradient(to bottom, #F5F7FB, #FFFFFF);
 }
+
+.scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+}

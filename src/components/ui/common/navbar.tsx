@@ -38,6 +38,7 @@ interface NavbarProps {
   collpaseSidebar?: () => void;
   isCollapsed?: boolean;
   children?: React.ReactNode;
+  hideSidebarToggle?: boolean;
 }
 
 const Navbar: FC<NavbarProps> = ({
@@ -46,6 +47,7 @@ const Navbar: FC<NavbarProps> = ({
   collpaseSidebar,
   isCollapsed,
   children,
+  hideSidebarToggle = false,
 }) => {
   const clearReduxState = useClearReduxState();
   const { navigateToChatSettings, toggleComponentState } = useUrlParams();
@@ -75,18 +77,20 @@ const Navbar: FC<NavbarProps> = ({
       <div className="flex items-center gap-4 flex-1 min-w-0">
         {/* TODO: Add company selection */}
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-sec hover:text-gray-700"
-            onClick={collpaseSidebar}
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="w-5 h-5 text-sec" />
-            ) : (
-              <PanelLeftClose className="w-5 h-5 text-sec" />
-            )}
-          </Button>
+          {!hideSidebarToggle && collpaseSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-sec hover:text-gray-700"
+              onClick={collpaseSidebar}
+            >
+              {isCollapsed ? (
+                <PanelLeftOpen className="w-5 h-5 text-sec" />
+              ) : (
+                <PanelLeftClose className="w-5 h-5 text-sec" />
+              )}
+            </Button>
+          )}
           <h1 className="text-xl text-primary font-medium">{title}</h1>
         </div>
       </div>
