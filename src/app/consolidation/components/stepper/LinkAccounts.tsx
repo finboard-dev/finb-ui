@@ -254,8 +254,13 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
   const [selectedCompanyFilter, setSelectedCompanyFilter] =
     useState<string>("all");
   const [nameFilterValue, setNameFilterValue] = useState<string>("");
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [bulkMapDropdownOpen, setBulkMapDropdownOpen] = useState(false);
+  const [bulkMapTarget, setBulkMapTarget] = useState<string>("");
+  const [bulkMapSelection, setBulkMapSelection] = useState<string>("");
   const typeFilterRef = useRef<HTMLDivElement>(null);
   const companyFilterRef = useRef<HTMLDivElement>(null);
+  const bulkMapRef = useRef<HTMLDivElement>(null);
 
   const companiesData = store?.getState()?.user?.companies;
   const { data: accountsData, isLoading: accountsLoading } =
@@ -398,16 +403,22 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
       ) {
         setCompanyFilterOpen(false);
       }
+      if (
+        bulkMapRef.current &&
+        !bulkMapRef.current.contains(event.target as Node)
+      ) {
+        setBulkMapDropdownOpen(false);
+      }
     };
 
-    if (typeFilterOpen || companyFilterOpen) {
+    if (typeFilterOpen || companyFilterOpen || bulkMapDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [typeFilterOpen, companyFilterOpen]);
+  }, [typeFilterOpen, companyFilterOpen, bulkMapDropdownOpen]);
 
   // Handlers
   const handleEliminateChange = useCallback((id: string, value: boolean) => {
@@ -417,13 +428,30 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
     });
   }, []);
 
-  const handleCheckboxChange = useCallback((id: string, value: boolean) => {
-    // Checkbox state is not persisted, so we can just update the local state
-    // This would need to be handled differently if checkbox state needs to be saved
-  }, []);
+  const handleCheckboxChange = useCallback(
+    (id: string, value: boolean) => {
+      setSelectedRows((prev) => {
+        const newSet = new Set(prev);
+        if (value) {
+          newSet.add(id);
+        } else {
+          newSet.delete(id);
+        }
+        return newSet;
+      });
+
+      // Clear bulk mapping selection when selection changes
+      if (selectedRows.size === 0) {
+        setBulkMapSelection("");
+      }
+    },
+    [selectedRows.size]
+  );
 
   const handleMappedToChange = useCallback(
     (rowId: string, mappedId: string) => {
+      const currentMapping = mappedSelections[rowId];
+
       if (mappedId === "unmapped") {
         setMappedSelections((prev) => {
           const newSelections = { ...prev };
@@ -439,10 +467,42 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
           return newStates;
         });
       } else {
-        setMappedSelections((prev) => ({ ...prev, [rowId]: mappedId }));
+        // Remove this account from any previous mapping first
+        setMappedSelections((prev) => {
+          const newSelections = { ...prev };
+
+          // Remove this account from its previous mapping (if any)
+          if (currentMapping && currentMapping !== "unmapped") {
+            // The account is already being removed from the previous mapping
+            // when we update the mapping data structure
+          }
+
+          // Set the new mapping
+          newSelections[rowId] = mappedId;
+          return newSelections;
+        });
       }
     },
-    []
+    [mappedSelections]
+  );
+
+  const handleBulkMap = useCallback(
+    (targetAccountId: string) => {
+      if (!targetAccountId) return;
+
+      setMappedSelections((prev) => {
+        const newSelections = { ...prev };
+        selectedRows.forEach((rowId) => {
+          newSelections[rowId] = targetAccountId;
+        });
+        return newSelections;
+      });
+
+      setBulkMapSelection(targetAccountId);
+      setBulkMapTarget("");
+      setBulkMapDropdownOpen(false);
+    },
+    [selectedRows]
   );
 
   // Create payload for save mappings
@@ -519,15 +579,31 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
             : row.eliminate || false,
       };
 
-      const existingIndex = targetNode.mapped_account.findIndex(
-        (existing: any) => existing.account_id === sourceAccount.account_id
+      // First, remove this account from ALL nodes in this type to ensure it's not duplicated
+      const removeAccountFromAllNodesInType = (
+        nodes: any[],
+        accountId: string
+      ) => {
+        for (const node of nodes) {
+          if (node.mapped_account) {
+            node.mapped_account = node.mapped_account.filter(
+              (acc: any) => acc.account_id !== accountId
+            );
+          }
+          if (node.children && node.children.length > 0) {
+            removeAccountFromAllNodesInType(node.children, accountId);
+          }
+        }
+      };
+
+      // Remove the account from all nodes in this type first
+      removeAccountFromAllNodesInType(
+        payload.mapping[typeKey],
+        sourceAccount.account_id
       );
 
-      if (existingIndex !== -1) {
-        targetNode.mapped_account[existingIndex] = mappedAccountObject;
-      } else {
-        targetNode.mapped_account.push(mappedAccountObject);
-      }
+      // Now add it to the target node
+      targetNode.mapped_account.push(mappedAccountObject);
     }
 
     return payload;
@@ -580,6 +656,29 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
     selectedCompanyFilter,
     nameFilterValue,
   ]);
+
+  // Get accounts of the currently selected type for select all functionality
+  const getAccountsOfSelectedType = useCallback(() => {
+    if (selectedRows.size === 0) {
+      // If no accounts are selected, allow selecting all accounts
+      return filteredRows.map((row) => row.id);
+    }
+
+    // Get the type of currently selected accounts
+    const selectedAccountTypes = new Set();
+    selectedRows.forEach((rowId) => {
+      const row = filteredRows.find((r) => r.id === rowId);
+      if (row) {
+        selectedAccountTypes.add(row.type);
+      }
+    });
+
+    // If multiple types are selected, return only the first type's accounts
+    const firstSelectedType = Array.from(selectedAccountTypes)[0] as string;
+    return filteredRows
+      .filter((row) => row.type === firstSelectedType)
+      .map((row) => row.id);
+  }, [filteredRows, selectedRows]);
 
   // Unique companies for dropdown
   const uniqueCompanies = useMemo(() => {
@@ -654,8 +753,215 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
       </div>
 
       <div className="px-10 bg-white pt-4 pb-2">
-        <div className="flex-1 pb-4 pt-3 justify-between w-full items-center">
-          <div className="flex items-center text-sm text-sec font-medium justify-end gap-2">
+        <div className="flex pb-4 pt-3 justify-between w-full items-center">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-blue-600 font-medium">
+              {selectedRows.size} accounts selected
+            </span>
+            {(() => {
+              const selectedAccountTypes = new Set();
+              selectedRows.forEach((rowId) => {
+                const row = filteredRows.find((r) => r.id === rowId);
+                if (row) {
+                  selectedAccountTypes.add(row.type);
+                }
+              });
+
+              if (selectedAccountTypes.size > 1) {
+                return (
+                  <span className="text-sm text-orange-600 font-medium">
+                    (Multiple types selected - only first type mapping options
+                    shown)
+                  </span>
+                );
+              }
+              return null;
+            })()}
+            <div className="relative" ref={bulkMapRef}>
+              <div
+                className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-md shadow-sm ${
+                  selectedRows.size > 0
+                    ? "cursor-pointer hover:bg-gray-50"
+                    : "cursor-not-allowed opacity-50"
+                }`}
+                onClick={() =>
+                  selectedRows.size > 0 &&
+                  setBulkMapDropdownOpen(!bulkMapDropdownOpen)
+                }
+              >
+                <span className="text-sm text-gray-700">
+                  {(() => {
+                    if (selectedRows.size === 0) return "Map to account";
+
+                    // If there's a bulk mapping selection, show that
+                    if (bulkMapSelection) {
+                      if (bulkMapSelection === "unmapped") {
+                        return "Unmapped";
+                      }
+
+                      // Get the type of the first selected account to show correct mapping options
+                      const selectedAccountTypes = new Set();
+                      selectedRows.forEach((rowId) => {
+                        const row = filteredRows.find((r) => r.id === rowId);
+                        if (row) {
+                          selectedAccountTypes.add(row.type);
+                        }
+                      });
+
+                      const firstSelectedType = Array.from(
+                        selectedAccountTypes
+                      )[0] as string;
+                      const typeKey = getTypeKeyFromLabel(
+                        firstSelectedType || ""
+                      );
+                      const mappingOptions =
+                        mappingData?.data?.mapping && typeKey
+                          ? flattenMappingTree(
+                              mappingData.data.mapping[typeKey] || []
+                            )
+                          : [];
+
+                      const selectedOption = mappingOptions.find(
+                        (opt) => opt.id === bulkMapSelection
+                      );
+                      return selectedOption
+                        ? getLastChildName(selectedOption.name)
+                        : "Map to account";
+                    }
+
+                    // Check if all selected rows are mapped to the same account
+                    const selectedMappings = new Set();
+                    const unmappedCount = new Set();
+                    const mappedCount = new Set();
+
+                    selectedRows.forEach((rowId) => {
+                      const mapping = mappedSelections[rowId];
+                      if (mapping === "unmapped") {
+                        unmappedCount.add(rowId);
+                      } else if (mapping) {
+                        mappedCount.add(mapping);
+                      }
+                    });
+
+                    // Only show the mapping if ALL selected rows have the EXACT same mapping
+                    if (
+                      selectedMappings.size === 0 &&
+                      unmappedCount.size === 0
+                    ) {
+                      return "Map to account";
+                    } else if (
+                      unmappedCount.size > 0 &&
+                      mappedCount.size === 0
+                    ) {
+                      // All selected rows are unmapped
+                      return "Unmapped";
+                    } else if (
+                      mappedCount.size === 1 &&
+                      unmappedCount.size === 0
+                    ) {
+                      // All selected rows are mapped to the same account
+                      const mappingId = Array.from(mappedCount)[0] as string;
+
+                      // Get the type of the first selected account to show correct mapping options
+                      const selectedAccountTypes = new Set();
+                      selectedRows.forEach((rowId) => {
+                        const row = filteredRows.find((r) => r.id === rowId);
+                        if (row) {
+                          selectedAccountTypes.add(row.type);
+                        }
+                      });
+
+                      const firstSelectedType = Array.from(
+                        selectedAccountTypes
+                      )[0] as string;
+                      const typeKey = getTypeKeyFromLabel(
+                        firstSelectedType || ""
+                      );
+                      const mappingOptions =
+                        mappingData?.data?.mapping && typeKey
+                          ? flattenMappingTree(
+                              mappingData.data.mapping[typeKey] || []
+                            )
+                          : [];
+
+                      const selectedOption = mappingOptions.find(
+                        (opt) => opt.id === mappingId
+                      );
+                      return selectedOption
+                        ? getLastChildName(selectedOption.name)
+                        : "Map to account";
+                    } else {
+                      // If multiple different mappings, just show "Map to account"
+                      return "Map to account";
+                    }
+                  })()}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+              {bulkMapDropdownOpen && bulkMapRef.current && (
+                <div
+                  className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[9999] min-w-48 max-h-60 overflow-y-auto"
+                  style={{
+                    top: bulkMapRef.current.getBoundingClientRect().bottom + 4,
+                    left:
+                      bulkMapRef.current.getBoundingClientRect().left +
+                      bulkMapRef.current.getBoundingClientRect().width / 2 -
+                      96,
+                  }}
+                >
+                  <div
+                    className={`px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${
+                      bulkMapSelection === "unmapped"
+                        ? "bg-blue-50 text-blue-600 font-medium"
+                        : ""
+                    }`}
+                    onClick={() => handleBulkMap("unmapped")}
+                  >
+                    Unmapped
+                  </div>
+                  {(() => {
+                    // Get the type of the first selected account to show correct mapping options
+                    const selectedAccountTypes = new Set();
+                    selectedRows.forEach((rowId) => {
+                      const row = filteredRows.find((r) => r.id === rowId);
+                      if (row) {
+                        selectedAccountTypes.add(row.type);
+                      }
+                    });
+
+                    // If multiple types are selected, show options for the first type
+                    const firstSelectedType = Array.from(
+                      selectedAccountTypes
+                    )[0] as string;
+                    const typeKey = getTypeKeyFromLabel(
+                      firstSelectedType || ""
+                    );
+                    const mappingOptions =
+                      mappingData?.data?.mapping && typeKey
+                        ? flattenMappingTree(
+                            mappingData.data.mapping[typeKey] || []
+                          )
+                        : [];
+                    return mappingOptions.map((opt) => (
+                      <div
+                        key={opt.id}
+                        className={`px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${
+                          bulkMapSelection === opt.id
+                            ? "bg-blue-50 text-blue-600 font-medium"
+                            : ""
+                        }`}
+                        onClick={() => handleBulkMap(opt.id)}
+                      >
+                        {renderAccountPath(opt.name)}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center text-sm mt-3 text-sec h-full font-medium gap-2">
             SHOW ONLY UNMAPPED
             <Switch
               className="data-[state=unchecked]:bg-[#e5e7eb] data-[state=checked]:bg-[#007aff] h-5 w-9"
@@ -683,7 +989,24 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
                     label: "",
                     className: "px-4 py-3 border-b border-[#EFF1F5]",
                     content: (
-                      <div className="w-4 h-4 border border-[#d1d5db] rounded-sm bg-white"></div>
+                      <Checkbox
+                        checked={
+                          selectedRows.size > 0 &&
+                          selectedRows.size ===
+                            getAccountsOfSelectedType().length
+                        }
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedRows(
+                              new Set(getAccountsOfSelectedType())
+                            );
+                          } else {
+                            setSelectedRows(new Set());
+                          }
+                        }}
+                        disabled={selectedTypeFilter === "all"}
+                        className="w-4 h-4 data-[state=checked]:bg-white data-[state=checked]:text-[#007aff] data-[state=checked]:border-[#007aff] disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
                     ),
                   },
                   {
@@ -939,15 +1262,31 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
                         : "Unmapped";
                       const isMapped = !!selectedValue;
 
+                      // Check if this account should be disabled for selection
+                      // If any accounts are selected, disable accounts of different types
+                      const selectedAccountTypes = new Set();
+                      selectedRows.forEach((rowId) => {
+                        const row = filteredRows.find((r) => r.id === rowId);
+                        if (row) {
+                          selectedAccountTypes.add(row.type);
+                        }
+                      });
+
+                      const isDisabledForSelection =
+                        selectedRows.size > 0 &&
+                        selectedAccountTypes.size > 0 &&
+                        !selectedAccountTypes.has(row.type);
+
                       const cells = [
                         {
                           content: (
                             <Checkbox
-                              checked={row.checked}
+                              checked={selectedRows.has(row.id)}
                               onCheckedChange={(checked) =>
                                 handleCheckboxChange(row.id, checked as boolean)
                               }
-                              className="w-4 h-4 data-[state=checked]:bg-white data-[state=checked]:text-[#007aff] data-[state=checked]:border-[#007aff]"
+                              disabled={isDisabledForSelection}
+                              className="w-4 h-4 data-[state=checked]:bg-white data-[state=checked]:text-[#007aff] data-[state=checked]:border-[#007aff] disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           ),
                           className: "px-4 py-4",
