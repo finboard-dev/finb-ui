@@ -255,12 +255,8 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
     useState<string>("all");
   const [nameFilterValue, setNameFilterValue] = useState<string>("");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [bulkMapDropdownOpen, setBulkMapDropdownOpen] = useState(false);
-  const [bulkMapTarget, setBulkMapTarget] = useState<string>("");
-  const [bulkMapSelection, setBulkMapSelection] = useState<string>("");
   const typeFilterRef = useRef<HTMLDivElement>(null);
   const companyFilterRef = useRef<HTMLDivElement>(null);
-  const bulkMapRef = useRef<HTMLDivElement>(null);
 
   const companiesData = store?.getState()?.user?.companies;
   const { data: accountsData, isLoading: accountsLoading } =
@@ -403,22 +399,16 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
       ) {
         setCompanyFilterOpen(false);
       }
-      if (
-        bulkMapRef.current &&
-        !bulkMapRef.current.contains(event.target as Node)
-      ) {
-        setBulkMapDropdownOpen(false);
-      }
     };
 
-    if (typeFilterOpen || companyFilterOpen || bulkMapDropdownOpen) {
+    if (typeFilterOpen || companyFilterOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [typeFilterOpen, companyFilterOpen, bulkMapDropdownOpen]);
+  }, [typeFilterOpen, companyFilterOpen]);
 
   // Handlers
   const handleEliminateChange = useCallback((id: string, value: boolean) => {
@@ -428,81 +418,85 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
     });
   }, []);
 
-  const handleCheckboxChange = useCallback(
-    (id: string, value: boolean) => {
-      setSelectedRows((prev) => {
-        const newSet = new Set(prev);
-        if (value) {
-          newSet.add(id);
-        } else {
-          newSet.delete(id);
-        }
-        return newSet;
-      });
-
-      // Clear bulk mapping selection when selection changes
-      if (selectedRows.size === 0) {
-        setBulkMapSelection("");
+  const handleCheckboxChange = useCallback((id: string, value: boolean) => {
+    setSelectedRows((prev) => {
+      const newSet = new Set(prev);
+      if (value) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
       }
-    },
-    [selectedRows.size]
-  );
+      return newSet;
+    });
+  }, []);
 
   const handleMappedToChange = useCallback(
     (rowId: string, mappedId: string) => {
       const currentMapping = mappedSelections[rowId];
 
-      if (mappedId === "unmapped") {
+      // If there are selected rows and the changed row is among them, apply to all selected
+      if (selectedRows.size > 0 && selectedRows.has(rowId)) {
         setMappedSelections((prev) => {
           const newSelections = { ...prev };
-          delete newSelections[rowId];
+
+          selectedRows.forEach((selectedRowId) => {
+            if (mappedId === "unmapped") {
+              delete newSelections[selectedRowId];
+            } else {
+              newSelections[selectedRowId] = mappedId;
+            }
+          });
+
           return newSelections;
         });
-        // Reset elimination state when unmapping
+
+        // Reset elimination states for all selected rows
         setEliminationStates((prev) => {
           const newStates = { ...prev };
-          delete newStates[rowId];
-          // Also explicitly set eliminate to false for this row
-          newStates[rowId] = false;
+          selectedRows.forEach((selectedRowId) => {
+            if (mappedId === "unmapped") {
+              delete newStates[selectedRowId];
+              // Also explicitly set eliminate to false for this row
+              newStates[selectedRowId] = false;
+            }
+          });
           return newStates;
         });
       } else {
-        // Remove this account from any previous mapping first
-        setMappedSelections((prev) => {
-          const newSelections = { ...prev };
+        // Single row mapping (original behavior)
+        if (mappedId === "unmapped") {
+          setMappedSelections((prev) => {
+            const newSelections = { ...prev };
+            delete newSelections[rowId];
+            return newSelections;
+          });
+          // Reset elimination state when unmapping
+          setEliminationStates((prev) => {
+            const newStates = { ...prev };
+            delete newStates[rowId];
+            // Also explicitly set eliminate to false for this row
+            newStates[rowId] = false;
+            return newStates;
+          });
+        } else {
+          // Remove this account from any previous mapping first
+          setMappedSelections((prev) => {
+            const newSelections = { ...prev };
 
-          // Remove this account from its previous mapping (if any)
-          if (currentMapping && currentMapping !== "unmapped") {
-            // The account is already being removed from the previous mapping
-            // when we update the mapping data structure
-          }
+            // Remove this account from its previous mapping (if any)
+            if (currentMapping && currentMapping !== "unmapped") {
+              // The account is already being removed from the previous mapping
+              // when we update the mapping data structure
+            }
 
-          // Set the new mapping
-          newSelections[rowId] = mappedId;
-          return newSelections;
-        });
+            // Set the new mapping
+            newSelections[rowId] = mappedId;
+            return newSelections;
+          });
+        }
       }
     },
-    [mappedSelections]
-  );
-
-  const handleBulkMap = useCallback(
-    (targetAccountId: string) => {
-      if (!targetAccountId) return;
-
-      setMappedSelections((prev) => {
-        const newSelections = { ...prev };
-        selectedRows.forEach((rowId) => {
-          newSelections[rowId] = targetAccountId;
-        });
-        return newSelections;
-      });
-
-      setBulkMapSelection(targetAccountId);
-      setBulkMapTarget("");
-      setBulkMapDropdownOpen(false);
-    },
-    [selectedRows]
+    [mappedSelections, selectedRows]
   );
 
   // Create payload for save mappings
@@ -777,188 +771,11 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
               }
               return null;
             })()}
-            <div className="relative" ref={bulkMapRef}>
-              <div
-                className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-md shadow-sm ${
-                  selectedRows.size > 0
-                    ? "cursor-pointer hover:bg-gray-50"
-                    : "cursor-not-allowed opacity-50"
-                }`}
-                onClick={() =>
-                  selectedRows.size > 0 &&
-                  setBulkMapDropdownOpen(!bulkMapDropdownOpen)
-                }
-              >
-                <span className="text-sm text-gray-700">
-                  {(() => {
-                    if (selectedRows.size === 0) return "Map to account";
-
-                    // If there's a bulk mapping selection, show that
-                    if (bulkMapSelection) {
-                      if (bulkMapSelection === "unmapped") {
-                        return "Unmapped";
-                      }
-
-                      // Get the type of the first selected account to show correct mapping options
-                      const selectedAccountTypes = new Set();
-                      selectedRows.forEach((rowId) => {
-                        const row = filteredRows.find((r) => r.id === rowId);
-                        if (row) {
-                          selectedAccountTypes.add(row.type);
-                        }
-                      });
-
-                      const firstSelectedType = Array.from(
-                        selectedAccountTypes
-                      )[0] as string;
-                      const typeKey = getTypeKeyFromLabel(
-                        firstSelectedType || ""
-                      );
-                      const mappingOptions =
-                        mappingData?.data?.mapping && typeKey
-                          ? flattenMappingTree(
-                              mappingData.data.mapping[typeKey] || []
-                            )
-                          : [];
-
-                      const selectedOption = mappingOptions.find(
-                        (opt) => opt.id === bulkMapSelection
-                      );
-                      return selectedOption
-                        ? getLastChildName(selectedOption.name)
-                        : "Map to account";
-                    }
-
-                    // Check if all selected rows are mapped to the same account
-                    const selectedMappings = new Set();
-                    const unmappedCount = new Set();
-                    const mappedCount = new Set();
-
-                    selectedRows.forEach((rowId) => {
-                      const mapping = mappedSelections[rowId];
-                      if (mapping === "unmapped") {
-                        unmappedCount.add(rowId);
-                      } else if (mapping) {
-                        mappedCount.add(mapping);
-                      }
-                    });
-
-                    // Only show the mapping if ALL selected rows have the EXACT same mapping
-                    if (
-                      selectedMappings.size === 0 &&
-                      unmappedCount.size === 0
-                    ) {
-                      return "Map to account";
-                    } else if (
-                      unmappedCount.size > 0 &&
-                      mappedCount.size === 0
-                    ) {
-                      // All selected rows are unmapped
-                      return "Unmapped";
-                    } else if (
-                      mappedCount.size === 1 &&
-                      unmappedCount.size === 0
-                    ) {
-                      // All selected rows are mapped to the same account
-                      const mappingId = Array.from(mappedCount)[0] as string;
-
-                      // Get the type of the first selected account to show correct mapping options
-                      const selectedAccountTypes = new Set();
-                      selectedRows.forEach((rowId) => {
-                        const row = filteredRows.find((r) => r.id === rowId);
-                        if (row) {
-                          selectedAccountTypes.add(row.type);
-                        }
-                      });
-
-                      const firstSelectedType = Array.from(
-                        selectedAccountTypes
-                      )[0] as string;
-                      const typeKey = getTypeKeyFromLabel(
-                        firstSelectedType || ""
-                      );
-                      const mappingOptions =
-                        mappingData?.data?.mapping && typeKey
-                          ? flattenMappingTree(
-                              mappingData.data.mapping[typeKey] || []
-                            )
-                          : [];
-
-                      const selectedOption = mappingOptions.find(
-                        (opt) => opt.id === mappingId
-                      );
-                      return selectedOption
-                        ? getLastChildName(selectedOption.name)
-                        : "Map to account";
-                    } else {
-                      // If multiple different mappings, just show "Map to account"
-                      return "Map to account";
-                    }
-                  })()}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
-              {bulkMapDropdownOpen && bulkMapRef.current && (
-                <div
-                  className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[9999] min-w-48 max-h-60 overflow-y-auto"
-                  style={{
-                    top: bulkMapRef.current.getBoundingClientRect().bottom + 4,
-                    left:
-                      bulkMapRef.current.getBoundingClientRect().left +
-                      bulkMapRef.current.getBoundingClientRect().width / 2 -
-                      96,
-                  }}
-                >
-                  <div
-                    className={`px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${
-                      bulkMapSelection === "unmapped"
-                        ? "bg-blue-50 text-blue-600 font-medium"
-                        : ""
-                    }`}
-                    onClick={() => handleBulkMap("unmapped")}
-                  >
-                    Unmapped
-                  </div>
-                  {(() => {
-                    // Get the type of the first selected account to show correct mapping options
-                    const selectedAccountTypes = new Set();
-                    selectedRows.forEach((rowId) => {
-                      const row = filteredRows.find((r) => r.id === rowId);
-                      if (row) {
-                        selectedAccountTypes.add(row.type);
-                      }
-                    });
-
-                    // If multiple types are selected, show options for the first type
-                    const firstSelectedType = Array.from(
-                      selectedAccountTypes
-                    )[0] as string;
-                    const typeKey = getTypeKeyFromLabel(
-                      firstSelectedType || ""
-                    );
-                    const mappingOptions =
-                      mappingData?.data?.mapping && typeKey
-                        ? flattenMappingTree(
-                            mappingData.data.mapping[typeKey] || []
-                          )
-                        : [];
-                    return mappingOptions.map((opt) => (
-                      <div
-                        key={opt.id}
-                        className={`px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${
-                          bulkMapSelection === opt.id
-                            ? "bg-blue-50 text-blue-600 font-medium"
-                            : ""
-                        }`}
-                        onClick={() => handleBulkMap(opt.id)}
-                      >
-                        {renderAccountPath(opt.name)}
-                      </div>
-                    ));
-                  })()}
-                </div>
-              )}
-            </div>
+            {selectedRows.size > 0 && (
+              <span className="text-sm text-gray-600 font-medium">
+                (Change any "Mapped To" dropdown to apply to all selected)
+              </span>
+            )}
           </div>
 
           <div className="flex items-center text-sm mt-3 text-sec h-full font-medium gap-2">
