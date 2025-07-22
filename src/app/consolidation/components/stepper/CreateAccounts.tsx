@@ -545,13 +545,13 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
         {...props}
       >
         <div
-          className={`group relative flex items-center p-[var(--vertical-padding,10px)] pr-[10px] bg-white border border-[#dedede] text-[#222] box-border ${
+          className={`group relative flex items-center p-[var(--vertical-padding,6px)] pr-[8px] bg-white border border-[#dedede] text-[#222] box-border text-sm ${
             clone
-              ? "pr-[24px] rounded-[4px] shadow-[0px_15px_15px_0_rgba(34,33,81,0.1)]"
+              ? "pr-[20px] rounded-[4px] shadow-[0px_15px_15px_0_rgba(34,33,81,0.1)]"
               : ""
           } ${
             ghost && indicator
-              ? 'relative p-0 h-[8px] border-[#2389ff] bg-[#56a1f8] before:absolute before:left-[-8px] before:top-[-4px] before:block before:content-[""] before:w-[12px] before:h-[12px] before:rounded-full before:border before:border-[#2389ff] before:bg-white'
+              ? 'relative p-0 h-[6px] border-[#2389ff] bg-[#56a1f8] before:absolute before:left-[-6px] before:top-[-3px] before:block before:content-[""] before:w-[10px] before:h-[10px] before:rounded-full before:border before:border-[#2389ff] before:bg-white'
               : ""
           } ${!clone && onEdit ? "cursor-pointer hover:bg-gray-50" : ""}`}
           ref={ref}
@@ -655,7 +655,7 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
           )}
 
           {clone && childCount && childCount > 1 ? (
-            <span className="absolute top-[-10px] right-[-10px] flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[#2389ff] text-[0.8rem] font-semibold text-white">
+            <span className="absolute top-[-10px] right-[-10px] flex items-center justify-center w-[24px] h-[24px] rounded-full bg-black text-[0.8rem] font-semibold text-white">
               {childCount}
             </span>
           ) : null}
@@ -682,7 +682,7 @@ const Action = React.forwardRef<HTMLButtonElement, ActionProps>(
       <button
         ref={ref}
         {...props}
-        className={`flex w-[12px] p-[15px] items-center justify-center flex-none touch-none cursor-[var(--cursor,pointer)] rounded-[5px] border-none outline-none appearance-none bg-transparent [-webkit-tap-highlight-color:transparent] hover:bg-[var(--action-background,rgba(0,0,0,0.05))] hover:svg:fill-[#6f7b88] active:bg-[var(--background,rgba(0,0,0,0.05))] active:svg:fill-[var(--fill,#788491)] focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_rgba(255,255,255,0),0_0px_0px_2px_#4c9ffe] [&>svg]:flex-none [&>svg]:m-auto [&>svg]:h-full [&>svg]:overflow-visible [&>svg]:fill-[#919eab] ${className}`}
+        className={`flex w-[10px] p-[12px] items-center justify-center flex-none touch-none cursor-[var(--cursor,pointer)] rounded-[4px] border-none outline-none appearance-none bg-transparent [-webkit-tap-highlight-color:transparent] hover:bg-[var(--action-background,rgba(0,0,0,0.05))] hover:svg:fill-[#6f7b88] active:bg-[var(--background,rgba(0,0,0,0.05))] active:svg:fill-[var(--fill,#788491)] focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_rgba(255,255,255,0),0_0px_0px_2px_#4c9ffe] [&>svg]:flex-none [&>svg]:m-auto [&>svg]:h-full [&>svg]:overflow-visible [&>svg]:fill-[#919eab] ${className}`}
         tabIndex={0}
         style={
           {
@@ -713,8 +713,8 @@ const Handle = React.forwardRef<HTMLButtonElement, ActionProps>(
       >
         <svg
           viewBox="0 0 20 20"
-          width="12"
-          height="12"
+          width="10"
+          height="10"
           className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
         >
           <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
@@ -737,8 +737,8 @@ function Dustbin(props: ActionProps) {
       }}
     >
       <svg
-        width="12"
-        height="12"
+        width="10"
+        height="10"
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
         className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
@@ -760,8 +760,8 @@ function Edit(props: ActionProps) {
       }}
     >
       <svg
-        width="12"
-        height="12"
+        width="10"
+        height="10"
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
         className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
@@ -783,8 +783,8 @@ function Add(props: ActionProps) {
       }}
     >
       <svg
-        width="12"
-        height="12"
+        width="10"
+        height="10"
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
         className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
@@ -887,34 +887,34 @@ function ColumnContainer({
   onAddRootAccount: (colKey: string) => void;
 }) {
   return (
-    <div className="w-[380px] bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full">
+    <div className="w-[320px] bg-[#FAFBFC] rounded-xl border border-[#EFF1F5] flex flex-col h-full">
       {/* Fixed Header */}
-      <div className="px-4 pt-4 pb-2 shrink-0">
+      <div className="px-3 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between mb-1">
           <span className="font-medium text-sm text-primary">{col.label}</span>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onAddRootAccount(col.key)}
-            className="p-0 h-6 w-6 text-[#1E925A] hover:bg-transparent"
+            className="p-0 h-5 w-5 text-[#1E925A] hover:bg-transparent"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
           </Button>
         </div>
         <div className="border-b border-gray-200" />
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 min-h-0 px-4 overflow-y-auto">{children}</div>
+      <div className="flex-1 min-h-0 px-3 overflow-y-auto">{children}</div>
 
       {/* Fixed Footer */}
-      <div className="px-4 pb-4 shrink-0">
+      <div className="px-3 pb-3 shrink-0">
         <Button
           variant="ghost"
-          className="flex items-center text-sec w-full px-0 py-2 font-medium text-base hover:bg-transparent justify-start"
+          className="flex items-center text-sec w-full px-0 py-1.5 font-medium text-sm hover:bg-transparent justify-start"
           onClick={() => onAddRootAccount(col.key)}
         >
-          <Plus className="w-5 h-5 mr-1" /> New Account
+          <Plus className="w-4 h-4 mr-1" /> New Account
         </Button>
       </div>
     </div>
@@ -937,7 +937,7 @@ function SortableTree({
   collapsible,
   defaultItems = [],
   indicator = false,
-  indentationWidth = 60,
+  indentationWidth = 40,
   removable,
   onItemsChange,
   autoEditId,
@@ -1639,7 +1639,7 @@ export const CreateAccounts = forwardRef<
               <Loader2 className="animate-spin w-10 h-10 text-[#1E925A]" />
             </div>
           ) : (
-            <div className="flex gap-6 w-max h-full pb-8">
+            <div className="flex gap-4 w-max h-full pb-6">
               {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
                 <ColumnContainer
                   key={`${selectedTab}-${col.key}`}
