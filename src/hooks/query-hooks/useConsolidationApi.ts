@@ -29,20 +29,3 @@ export function useSaveMappings() {
     },
   });
 }
-
-export function useInitReconnectQuickBookAccount(id: string) {
-  return useQuery({
-    queryKey: ['reconnectQuickBook', id],
-    queryFn: () => consolidationApi.initReconnectQuickBookAccount(id),
-    enabled: !!id,
-  });
-}
-
-export function useAllSpreadsheets(id: string) {
-  return useQuery({
-    queryKey: ['allSpreadsheets', id],
-    queryFn: () => consolidationApi.getAllSpreadsheets(id),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-  });
-} 

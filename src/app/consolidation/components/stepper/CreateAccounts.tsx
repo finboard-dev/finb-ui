@@ -1594,7 +1594,7 @@ export const CreateAccounts = forwardRef<
     <>
       <div className="px-10 pt-8 bg-white shrink-0">
         <div className="flex-wrap bg-white border border-gray-200 rounded-2xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
-          <div className="flex flex-col flex-1 max-w-56">
+          {/* <div className="flex flex-col flex-1 max-w-56">
             <Label
               className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
               htmlFor="consolidation-name"
@@ -1607,7 +1607,7 @@ export const CreateAccounts = forwardRef<
               placeholder='e.g., "Q1 Global Consolidation"'
               className="text-sm text-gray-700 placeholder-gray-400 bg-white"
             />
-          </div>
+          </div> */}
           <div className="flex flex-col min-w-56">
             <Label
               className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"

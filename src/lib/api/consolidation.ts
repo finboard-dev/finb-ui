@@ -18,16 +18,4 @@ export const consolidationApi = {
         
         return response
     },
-
-    async initReconnectQuickBookAccount(id: string) {
-        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/qb/reconnect/${id}`);
-        
-        return response
-    },
-
-    async getAllSpreadsheets(id: string) {
-        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/template/qb/user/${id}`);
-        
-        return response
-    }
 };
