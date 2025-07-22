@@ -135,7 +135,8 @@ export const initAddQuickBookAccount = async () => {
 
 export const intuitSSOLogin = async (redirectType: string, realmId?: string) => {
     try {
-        const response = await fetcher.get(`/auth/sso?provider=INTUIT${realmId && `&realmId=${realmId}`}`)
+        const realmIdParam = realmId ? `&realmId=${realmId}` : '';
+        const response = await fetcher.get(`/auth/sso?provider=INTUIT${realmIdParam}`)
         if (!response) {
             console.error('Invalid response from SSO login endpoint:', response)
             throw new Error('Invalid response from server')
