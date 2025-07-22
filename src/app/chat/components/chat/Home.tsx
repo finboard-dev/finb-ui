@@ -20,13 +20,7 @@ import {
   initializeNewChat,
 } from "@/lib/store/slices/chatSlice";
 import { ChatConversationLoader } from "./chat-container/ChatConversationLoader";
-import {
-  selectSelectedCompany,
-  setSelectedCompany,
-  Company,
-  setCompanies,
-  setUserData,
-} from "@/lib/store/slices/userSlice";
+import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
 import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
 import { fetcher } from "@/lib/axios/config";
 import {
@@ -38,10 +32,7 @@ import { store } from "@/lib/store/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 import { useUrlParams } from "@/lib/utils/urlParams";
-import {
-  useAllCompanies,
-  useCurrentCompany,
-} from "@/hooks/query-hooks/useCompany";
+import { useCompanyData } from "@/hooks/query-hooks/useCompany";
 import { CompanyModal } from "../../../../components/ui/common/CompanyModal";
 import NewChatButton from "./ui/NewChatButton";
 import ChatSearchDropdown from "./ui/ChatSearchDropdown";
@@ -101,17 +92,13 @@ const Home: FC = () => {
     });
   }, [dispatch]);
 
-  // React Query hooks
+  // React Query hooks - using common hook
   const {
-    data: companiesData,
+    companiesData,
+    currentCompanyData,
     isLoading: isLoadingCompanies,
     error: companiesError,
-  } = useAllCompanies();
-  const {
-    data: currentCompanyData,
-    isLoading: isLoadingCurrentCompany,
-    error: currentCompanyError,
-  } = useCurrentCompany(selectedCompanyId || "");
+  } = useCompanyData(selectedCompanyId);
 
   const activeChat = useAppSelector((state) => {
     if (
@@ -172,51 +159,6 @@ const Home: FC = () => {
     }
   }, [dispatch, availableAssistants, activeChatId]);
 
-  // Handle companies data from React Query
-  useEffect(() => {
-    if (companiesData) {
-      const mappedCompanies = (companiesData?.data || companiesData || []).map(
-        (company: any) => ({
-          ...company,
-          name: company.companyName,
-          status: company.isActive ? "ACTIVE" : "INACTIVE",
-        })
-      );
-      dispatch(setCompanies(mappedCompanies));
-    }
-  }, [companiesData, dispatch]);
-
-  // Handle current company data from React Query
-  useEffect(() => {
-    if (currentCompanyData && selectedCompanyId) {
-      const response = currentCompanyData?.data || currentCompanyData;
-      if (
-        response?.id === selectedCompanyId ||
-        response?.data?.id === selectedCompanyId
-      ) {
-        const companyData = response?.data || response;
-        dispatch(setSelectedCompany(companyData));
-
-        // Also update the user object to keep it in sync
-        if (user) {
-          const updatedUser = {
-            ...user,
-            selectedCompany: companyData,
-          };
-
-          dispatch(
-            setUserData({
-              user: updatedUser,
-              selectedOrganization: selectedOrganization || undefined,
-              selectedCompany: companyData,
-            })
-          );
-        }
-      }
-      document.cookie = "has_selected_company=true; path=/";
-    }
-  }, [currentCompanyData, selectedCompanyId, dispatch]);
-
   useEffect(() => {
     if (!selectedCompany?.name) {
       console.log("home company");
@@ -264,7 +206,7 @@ const Home: FC = () => {
   };
 
   // Show loading animation for company operations
-  if (isCompanyLoading || isLoadingCompanies || isLoadingCurrentCompany) {
+  if (isCompanyLoading || isLoadingCompanies) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-transparent">
         <LoadingAnimation message={"Loading company data... Please wait!"} />

@@ -10,9 +10,19 @@ import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import Navbar from "@/components/ui/common/navbar";
 import { useInactiveCompany } from "@/hooks/useInactiveCompany";
+import { useCompanyData } from "@/hooks/query-hooks/useCompany";
+import { useSelector } from "react-redux";
+import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 
 export default function ComponentsPage() {
   const dispatch = useAppDispatch();
+
+  const selectedCompanyId = useSelector(
+    (state: any) => state.user.selectedCompany?.id
+  );
+
+  // Fetch company data
+  const { isLoading: isCompanyDataLoading } = useCompanyData(selectedCompanyId);
 
   // Check if company is inactive
   const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
@@ -37,6 +47,15 @@ export default function ComponentsPage() {
   const handleSidebarCollapse = () => {
     dispatch(toggleComponent({ id: "sidebar-chat" }));
   };
+
+  // Show loading while company data is being fetched
+  if (isCompanyDataLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <LoadingAnimation message="Loading company data..." />
+      </div>
+    );
+  }
 
   // If company is inactive, show the inactive company UI
   if (isCompanyInactive) {

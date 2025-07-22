@@ -8,13 +8,8 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
     throw new Error('Dashboard ID is required');
   }
   
-  console.log('Fetching dashboard structure for ID:', dashboardId);
-  console.log('API URL:', `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/?dashboard=${dashboardId}`);
-  
   try {
     const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/dashboard/${dashboardId}`)
-    console.log('Dashboard API response:', response);
-    console.log('Dashboard API response data:', response.data);
     
     // The API returns the data directly, not wrapped in a data property
     const data = response.data || response;
@@ -25,55 +20,71 @@ export const getDashboardStructure = async (dashboardId: string): Promise<Dashbo
     }
     
     return data;
-  } catch (error) {
-    console.error('Error fetching dashboard structure:', error);
+  } catch (error: any) {
+    // Check for specific "No value present" error (500 status)
+    if (error?.response?.status === 500 && 
+        error?.response?.data?.detail?.message === "No value present") {
+      console.log('Dashboard not found - "No value present" error detected');
+      throw new Error('Dashboard not found - No value present');
+    }
     
-    // Fallback to mock data for development
-    console.warn('API not available, using mock data:', error);
-    return {
-      id: dashboardId,
-      title: "Mock Dashboard", // Added title for mock data
-      sharedUsers: [],
-      createdAt: new Date().toISOString(),
-      createdBy: {
-        id: "mock-user-id",
-        name: "Mock User",
-        email: "mock@example.com"
-      },
-      publishedVersion: null,
-      draftVersion: {
-        id: "mock-draft-id",
-        dashboardId: dashboardId,
-        tabs: [
-          {
-            id: 'tab-1',
-            title: 'tab error',
-            startDate: '2024-01-01',
-            endDate: '2024-12-31',
-            position: 0,
-            lastRefreshedAt: null,
-            widgets: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-        ],
+    // Check for 404 errors
+    if (error?.response?.status === 404) {
+      console.log('Dashboard not found - 404 error detected');
+      throw new Error('Dashboard not found - 404');
+    }
+    
+    // Fallback to mock data for development (only for network errors, not for "not found" errors)
+    if (error?.message?.includes('Network Error') || error?.code === 'NETWORK_ERROR') {
+      console.warn('API not available, using mock data:', error);
+      return {
+        id: dashboardId,
+        title: "Mock Dashboard", // Added title for mock data
+        sharedUsers: [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         createdBy: {
           id: "mock-user-id",
           name: "Mock User",
           email: "mock@example.com"
         },
-        updatedBy: {
-          id: "mock-user-id",
-          name: "Mock User",
-          email: "mock@example.com"
-        }
-      },
-      orgId: "mock-org-id",
-      companyId: "mock-company-id",
-      updatedAt: new Date().toISOString()
-    };
+        publishedVersion: null,
+        draftVersion: {
+          id: "mock-draft-id",
+          dashboardId: dashboardId,
+          tabs: [
+            {
+              id: 'tab-1',
+              title: 'tab error',
+              startDate: '2024-01-01',
+              endDate: '2024-12-31',
+              position: 0,
+              lastRefreshedAt: null,
+              widgets: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: {
+            id: "mock-user-id",
+            name: "Mock User",
+            email: "mock@example.com"
+          },
+          updatedBy: {
+            id: "mock-user-id",
+            name: "Mock User",
+            email: "mock@example.com"
+          }
+        },
+        orgId: "mock-org-id",
+        companyId: "mock-company-id",
+        updatedAt: new Date().toISOString()
+      };
+    }
+    
+    // Re-throw other errors
+    throw error;
   }
 }
 
@@ -194,16 +205,10 @@ export const createDashboard = async (dashboardData: any): Promise<CreateDashboa
 }
 
 export const getDashboards = async (): Promise<Dashboard[]> => {
-  console.log('getDashboards - Starting API call');
-  console.log('getDashboards - Company ID:', getCompanyId());
-  console.log('getDashboards - Org ID:', getOrgId());
   
   const url = `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/all?companyId=${getCompanyId()}&orgId=${getOrgId()}`;
-  console.log('getDashboards - API URL:', url);
   
   const response = await fetcher.get(url);
-  console.log('getDashboards - API response:', response);
-  console.log('getDashboards - API response data:', response.data);
   
   // The API returns the data directly, not wrapped in a data property
   return response.data || response;
@@ -306,7 +311,13 @@ export const executeComponent = async (params: ComponentExecuteRequest): Promise
       params
     );
     return response.data || response;
-  } catch (error) {
+  } catch (error: any) {
+    // Check if it's a canceled request
+    if (error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
+      console.log('Component execution request was canceled - this is normal behavior');
+      throw error; // Re-throw the canceled error as-is
+    }
+    
     console.error('Error executing component:', error);
     throw new Error('Failed to execute component');
   }

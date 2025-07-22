@@ -72,12 +72,23 @@ export const useExecuteComponentMutation = () => {
       return executeComponent(params);
     },
     onSuccess: (data, variables) => {
-      // Invalidate and refetch the specific component execution query
+      // Immediately update the cache with the new data
       const queryKey = ['component-execution', variables.refId, variables.refVersion, variables.refType, variables.startDate, variables.endDate];
+      queryClient.setQueryData(queryKey, data);
+      
+      // Also invalidate to ensure any other related queries are updated
       queryClient.invalidateQueries({ queryKey });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Check if it's a canceled request
+      if (error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
+        console.log('Component execution request was canceled - this is normal behavior');
+        return; // Don't log this as an error since it's expected
+      }
       console.error('Component execution failed:', error);
     },
+    // Prevent multiple simultaneous mutations
+    retry: false,
+    retryDelay: 0,
   });
 }; 

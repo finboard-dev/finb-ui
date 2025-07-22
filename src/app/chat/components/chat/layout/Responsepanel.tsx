@@ -34,7 +34,7 @@ import {
   setActiveMessageId,
 } from "@/lib/store/slices/chatSlice";
 import EChartsRenderer from "@/components/visualizationV2/VisualizationRenderer";
-import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
+import DynamicTable from "@/components/TableRenderer/DynamicTableRenderer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";

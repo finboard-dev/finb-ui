@@ -16,6 +16,7 @@ export function useMappingForAccountByType(id: string, type: string) {
     queryFn: () => consolidationApi.getMappingForAccountByType(id, type),
     enabled: !!id && !!type,
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

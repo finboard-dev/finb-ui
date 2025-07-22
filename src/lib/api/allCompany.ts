@@ -3,7 +3,7 @@ import { store } from "../store/store";
 
   export const getAllCompany = async () => {
   const orgId = store.getState().user.selectedOrganization?.id;
-  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/company/all`);
+  const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV}/company/all?orgId=${orgId}`);
   return response;
 };
 

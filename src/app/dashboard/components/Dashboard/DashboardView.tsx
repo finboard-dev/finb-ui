@@ -17,7 +17,7 @@ import type {
 import { LayoutGridIcon, AlertTriangleIcon } from "lucide-react";
 import { toast } from "sonner";
 import MetricsCard from "../ui/MetricsCard";
-import DynamicTable from "@/app/tests/components/DynamicTableRenderer";
+import DynamicTable from "@/components/TableRenderer/DynamicTableRenderer";
 import RestrictedChart from "@/components/visualizationV2/VisualizationRenderer";
 import WidgetExecutionWrapper from "./WidgetExecutionWrapper";
 

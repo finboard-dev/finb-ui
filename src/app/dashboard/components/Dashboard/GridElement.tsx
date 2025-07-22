@@ -25,6 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import MetricsCard from "../ui/MetricsCard";
+import NoDataDisplay from "./NoDataDisplay";
+import { useExecuteComponentMutation } from "@/hooks/query-hooks/useComponentExecution";
+import { getCompanyId } from "@/lib/utils/helpers";
 
 const RestrictedChart = dynamic(
   () =>
@@ -35,9 +38,9 @@ const RestrictedChart = dynamic(
 );
 const DynamicTable = dynamic(
   () =>
-    import("@/app/tests/components/DynamicTableRenderer").catch(() => () => (
-      <ErrorDisplay message="Table renderer failed to load." />
-    )),
+    import("@/components/TableRenderer/DynamicTableRenderer").catch(
+      () => () => <ErrorDisplay message="Table renderer failed to load." />
+    ),
   { ssr: false, loading: () => <LoadingDisplay message="Loading table..." /> }
 );
 
@@ -79,6 +82,8 @@ export default function GridElement({
   onDelete: (id: string) => void;
   isEditingDashboard: boolean;
 }) {
+  const executeComponentMutation = useExecuteComponentMutation();
+
   const onDeleteHandler = useCallback(
     () => onDelete(item.i),
     [onDelete, item.i]
@@ -87,6 +92,43 @@ export default function GridElement({
     toast.info(`Edit for "${block?.title || "component"}" TBD.`);
   const onDuplicateHandler = () =>
     toast.info(`Duplicate for "${block?.title || "component"}" TBD.`);
+
+  const handleRefetch = useCallback(async () => {
+    if (!block) {
+      toast.error("Missing block data for refetch");
+      return;
+    }
+
+    const companyId = getCompanyId();
+    if (!companyId) {
+      toast.error("Company ID is required for component execution");
+      return;
+    }
+
+    try {
+      console.log(`🔄 Refetching component data for:`, {
+        refId: block.id,
+        refVersion: block.refVersion || "latest",
+        refType: block.refType || "METRIC",
+        startDate: "2024-01-01", // Default dates - could be made configurable
+        endDate: "2024-12-31",
+        companyId,
+      });
+
+      await executeComponentMutation.mutateAsync({
+        refId: block.id,
+        refVersion: block.refVersion || "latest",
+        refType: block.refType || "METRIC",
+        startDate: "2024-01-01", // Default dates - could be made configurable
+        endDate: "2024-12-31",
+        companyId,
+      });
+
+      toast.success(`Refreshed data for ${block.title}`);
+    } catch (error) {
+      toast.error(`Failed to refresh ${block.title}`);
+    }
+  }, [block, executeComponentMutation]);
 
   const renderBlockContent = () => {
     if (!block)
@@ -107,8 +149,19 @@ export default function GridElement({
                 details={block.content.error}
               />
             );
-          if (!block.content)
-            return <ErrorDisplay message="Missing chart data." />;
+          if (
+            !block.content ||
+            (typeof block.content === "object" &&
+              Object.keys(block.content).length === 0)
+          )
+            return (
+              <NoDataDisplay
+                title="No Chart Data"
+                message="This chart has no data to display."
+                onRefetch={handleRefetch}
+                isRefetching={executeComponentMutation.isPending}
+              />
+            );
           return (
             <div className="w-full h-full" style={{ minHeight: "150px" }}>
               <RestrictedChart data={block.content} />
@@ -130,6 +183,15 @@ export default function GridElement({
               </div>
             );
           }
+          if (!block.content || block.content === "")
+            return (
+              <NoDataDisplay
+                title="No Table Data"
+                message="This table has no data to display."
+                onRefetch={handleRefetch}
+                isRefetching={executeComponentMutation.isPending}
+              />
+            );
           return (
             <ErrorDisplay message="Table data must be an HTML <table> string." />
           );
@@ -149,6 +211,15 @@ export default function GridElement({
               </div>
             );
           }
+          if (!metricData || typeof metricData.value === "undefined")
+            return (
+              <NoDataDisplay
+                title="No KPI Data"
+                message="This metric has no data to display."
+                onRefetch={handleRefetch}
+                isRefetching={executeComponentMutation.isPending}
+              />
+            );
           return <ErrorDisplay message="Invalid metric data." />;
 
         default:

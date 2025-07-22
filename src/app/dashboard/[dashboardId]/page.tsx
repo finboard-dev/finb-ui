@@ -7,6 +7,7 @@ import {
   selectIsComponentOpen,
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
+import { v4 as uuidv4 } from "uuid";
 import DashboardSpecificHeader from "../components/ui/Header";
 import DashboardControls from "../components/Dashboard/DashBoardControls";
 import DashboardView from "../components/Dashboard/DashboardView";
@@ -16,16 +17,26 @@ import {
 } from "../components/ui/DashboardLoading";
 
 import { toast } from "sonner";
-import type { Block, DashboardItem, DraggingBlock, Tab } from "../types";
-import { useDashboard } from "../hooks/useDashboard";
+import type {
+  Block,
+  DashboardItem,
+  DraggingBlock,
+  Tab,
+  Widget,
+} from "../types";
 import { Sidebar } from "@/components/ui/common/sidebar";
 import { CompanyModal } from "@/components/ui/common/CompanyModal";
 import GlobalLoading from "@/components/ui/common/GlobalLoading";
+import DashboardNotFound from "../components/ui/DashboardNotFound";
 import {
+  useDashboard,
   useSaveDashboard,
   usePublishDraft,
 } from "@/hooks/query-hooks/useDashboard";
 import { useInactiveCompany } from "@/hooks/useInactiveCompany";
+import { useCompanyData } from "@/hooks/query-hooks/useCompany";
+import { useUrlSync } from "@/hooks/useUrlSync";
+import { useSelector } from "react-redux";
 
 /**
  * Parses the widget data from the API into the format expected by the GridElement component.
@@ -62,6 +73,24 @@ export default function DashboardPage() {
   const dashboardId = params.dashboardId as string;
   const dispatch = useAppDispatch();
 
+  const selectedCompanyId = useSelector(
+    (state: any) => state.user.selectedCompany?.id
+  );
+
+  // Use URL sync to ensure proper organization and company initialization
+  const { isAuthenticated, isSyncing } = useUrlSync({
+    syncFromUrl: true,
+    syncToUrl: false,
+    validateAccess: true,
+  });
+
+  // Fetch company data - always fetch companies list, and current company if available
+  const {
+    isLoading: isCompanyDataLoading,
+    error: companyDataError,
+    hasOrganization,
+  } = useCompanyData(selectedCompanyId);
+
   // Check if company is inactive
   const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
@@ -78,7 +107,6 @@ export default function DashboardPage() {
     loading,
     error,
     loadedTabs,
-    initializeDashboard,
     switchTab,
     isEditing,
     setIsEditing,
@@ -89,6 +117,7 @@ export default function DashboardPage() {
     switchToPublished,
     saveDraft,
     publishDraft,
+    refetchStructure,
   } = useDashboard(dashboardId);
 
   // React Query hooks for dashboard operations
@@ -124,46 +153,14 @@ export default function DashboardPage() {
 
   // Initialize dashboard on component mount or when dashboardId changes
   useEffect(() => {
-    console.log(
-      "🔄 Dashboard initialization effect triggered with dashboardId:",
-      dashboardId
-    );
-
     if (!dashboardId) {
-      toast.error("Dashboard ID is required");
-      router.push("/dashboard/select");
-      return;
+      return; // Let the component handle the missing dashboardId case
     }
 
     console.log("🚀 Starting dashboard initialization for:", dashboardId);
-    initializeDashboard().catch((error) => {
-      console.error("Failed to initialize dashboard:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-
-      // Check if it's a 404 or not found error
-      if (
-        errorMessage.includes("404") ||
-        errorMessage.includes("not found") ||
-        errorMessage.includes("Failed to fetch dashboard structure")
-      ) {
-        toast.error(
-          "Dashboard not found. Redirecting to dashboard selection..."
-        );
-        setTimeout(() => {
-          router.push("/dashboard/select");
-        }, 2000);
-      } else if (
-        errorMessage.includes("Network Error") ||
-        errorMessage.includes("fetch")
-      ) {
-        // Network errors are handled gracefully with mock data
-        console.log("Using fallback data due to network error");
-      } else {
-        toast.error(`Failed to load dashboard: ${errorMessage}`);
-      }
-    });
-  }, [dashboardId, initializeDashboard, router]);
+    // React Query will automatically handle the dashboard fetching
+    // No need to manually initialize as the hook handles it
+  }, [dashboardId]);
 
   // Transform widgets to blocks and dashboard items when currentTabWidgets change
   useEffect(() => {
@@ -198,10 +195,10 @@ export default function DashboardPage() {
       };
       newBlocks.push(block);
 
-      // Create a DashboardItem for the grid layout from the widget
-      const item: DashboardItem = {
-        id: widget.id,
-        blockId: widget.refId,
+      // Create a DashboardItem for the grid
+      const dashboardItem: DashboardItem = {
+        id: uuidv4(), // ✅ Generate unique ID for each dashboard item
+        blockId: widget.refId, // ✅ Use widget.refId as blockId to reference the component
         x: widget.position.x,
         y: widget.position.y,
         w: widget.position.w,
@@ -209,41 +206,45 @@ export default function DashboardPage() {
         minW: widget.position.minW,
         minH: widget.position.minH,
       };
-      newDashboardItems.push(item);
+      newDashboardItems.push(dashboardItem);
     });
 
-    // De-duplicate block definitions to have a single source of truth
-    const uniqueBlocks = [...new Map(newBlocks.map((b) => [b.id, b])).values()];
-
-    console.log("Transformed widgets to blocks:", {
-      originalWidgetsCount: currentTabWidgets.length,
-      uniqueBlocksCount: uniqueBlocks.length,
-      dashboardItemsCount: newDashboardItems.length,
-      blocks: uniqueBlocks.map((b) => ({
-        id: b.id,
-        title: b.title,
-        type: b.type,
-        hasContent: !!b.content,
-      })),
-    });
-
-    setViewBlocks(uniqueBlocks);
+    setViewBlocks(newBlocks);
     setDashboardItems(newDashboardItems);
   }, [currentTabWidgets]);
 
-  // Determine if we should show edit/view mode based on versioning logic
-  const shouldShowEditMode = currentVersion === "draft";
-  const shouldShowViewMode = currentVersion === "published";
-  const isViewOnlyMode = shouldShowViewMode || !canEdit;
-
-  // Override isEditing based on versioning logic
-  const effectiveIsEditing = shouldShowEditMode ? isEditing : false;
-
-  // Get current tab for date range
+  // Memoized values for better performance
   const currentTab = useMemo(() => {
     if (!structure || !currentTabId) return null;
-    return structure.tabs.find((tab) => tab.id === currentTabId) || null;
+    // Simple logic: if publishedVersion exists, use it; otherwise use draftVersion
+    const activeVersion = structure.publishedVersion || structure.draftVersion;
+    return (
+      activeVersion?.tabs.find((tab: any) => tab.id === currentTabId) || null
+    );
   }, [structure, currentTabId]);
+
+  const effectiveIsEditing = useMemo(() => {
+    return isEditing && currentVersion === "draft";
+  }, [isEditing, currentVersion]);
+
+  const isViewOnlyMode = useMemo(() => {
+    return !canEdit || currentVersion !== "draft";
+  }, [canEdit, currentVersion]);
+
+  // Helper function to get current tabs based on version
+  const getCurrentTabs = useMemo(() => {
+    if (!structure) return [];
+    // View mode: always show published version if it exists
+    // Edit mode: always show draft version
+    if (effectiveIsEditing) {
+      return structure.draftVersion?.tabs || [];
+    } else {
+      // View mode - show published version if it exists, otherwise draft
+      const activeVersion =
+        structure.publishedVersion || structure.draftVersion;
+      return activeVersion?.tabs || [];
+    }
+  }, [structure, effectiveIsEditing]);
 
   // Load metrics when not in edit mode (DashboardControls not rendered)
   useEffect(() => {
@@ -254,15 +255,66 @@ export default function DashboardPage() {
     }
   }, [effectiveIsEditing, metricsLoaded, metricsLoading]);
 
+  // Show loading while URL sync or company data is being fetched
+  if (isSyncing || isCompanyDataLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <GlobalLoading
+          message={isSyncing ? "Initializing..." : "Loading company data..."}
+        />
+      </div>
+    );
+  }
+
+  // If no organization is selected, show message
+  if (!hasOrganization) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <div className="text-center">
+          <h2 className="text-xl font-medium text-gray-900 mb-2">
+            No Organization Selected
+          </h2>
+          <p className="text-gray-600">
+            Please select an organization to continue.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no dashboard ID is provided, show not found component
+  if (!dashboardId) {
+    return <DashboardNotFound />;
+  }
+
+  // If dashboard is not found (error contains 404, not found, or "No value present"), show not found component
+  if (
+    error &&
+    error instanceof Error &&
+    (error.message.includes("404") ||
+      error.message.includes("not found") ||
+      error.message.includes("No value present") ||
+      error.message.includes("Failed to fetch dashboard structure"))
+  ) {
+    return <DashboardNotFound dashboardId={dashboardId} />;
+  }
+
   const handleSaveDashboard = async () => {
-    if (!structure || !currentVersion || currentVersion !== "draft") {
+    if (!structure || currentVersion !== "draft") {
       toast.error("Cannot save: not in draft mode or no structure available");
       return;
     }
 
     try {
+      // Get the draft version tabs
+      const draftVersion = structure.draftVersion;
+      if (!draftVersion) {
+        toast.error("No draft version available for saving");
+        return;
+      }
+
       // Map all tabs with their widgets
-      const tabs = structure.tabs.map((tab) => {
+      const tabs = draftVersion.tabs.map((tab: any) => {
         if (tab.id === currentTabId) {
           // For the current tab, use ALL dashboardItems (current state after drag/drop/resize)
           // This handles: new components from sidebar, deleted components, moved components
@@ -344,7 +396,7 @@ export default function DashboardPage() {
           position: tab.position,
           startDate: tab.startDate,
           endDate: tab.endDate,
-          widgets: tab.widgets.map((widget) => ({
+          widgets: tab.widgets.map((widget: any) => ({
             id: widget.id,
             title: widget.title,
             position: {
@@ -365,7 +417,7 @@ export default function DashboardPage() {
 
       // Prepare the save request
       const saveRequest = {
-        id: structure.draftVersion?.id || structure.uid, // Use draftVersion.id as specified
+        id: structure.draftVersion?.id || structure.id, // Use draftVersion.id or structure.id
         dashboardId: dashboardId, // Add the dashboard ID
         tabs: tabs,
       };
@@ -409,10 +461,7 @@ export default function DashboardPage() {
   };
 
   const handleSetIsEditing = (editing: boolean) => {
-    if (structure?.view_only) {
-      toast.error("You do not have permission to edit this dashboard.");
-      return;
-    }
+    // Remove view_only check since it doesn't exist in new API response
     // Only allow editing in draft mode
     if (currentVersion !== "draft") {
       toast.error("You can only edit in draft mode.");
@@ -464,13 +513,14 @@ export default function DashboardPage() {
       };
 
       // Add the new tab to the current structure
-      const updatedTabs = [...structure.tabs, newTab];
+      const currentTabs = getCurrentTabs;
+      const updatedTabs = [...currentTabs, newTab];
 
       // Save the updated structure to the backend
       const saveRequest = {
-        id: structure.draftVersion?.id || structure.uid,
+        id: structure.draftVersion?.id || structure.id,
         dashboardId: dashboardId,
-        tabs: updatedTabs.map((tab) => ({
+        tabs: updatedTabs.map((tab: any) => ({
           id: tab.id,
           title: tab.title,
           position: tab.position,
@@ -479,7 +529,7 @@ export default function DashboardPage() {
           widgets:
             tab.id === newTab.id
               ? []
-              : tab.widgets.map((widget) => ({
+              : tab.widgets.map((widget: any) => ({
                   id: widget.id,
                   title: widget.title,
                   position: {
@@ -559,7 +609,7 @@ export default function DashboardPage() {
             currentDashboardName={structure?.title}
             isViewOnly={isViewOnlyMode}
             tabs={
-              structure?.tabs.map((tab) => ({
+              getCurrentTabs.map((tab: any) => ({
                 id: tab.id,
                 label: tab.title,
               })) || []
@@ -580,7 +630,9 @@ export default function DashboardPage() {
             publishedVersion={structure?.publishedVersion}
             draftVersion={structure?.draftVersion}
           />
-          <DashboardError error={error} />
+          <DashboardError
+            error={error instanceof Error ? error.message : String(error)}
+          />
         </div>
         <CompanyModal />
       </div>
@@ -600,7 +652,7 @@ export default function DashboardPage() {
             currentDashboardName={structure?.title}
             isViewOnly={isViewOnlyMode}
             tabs={
-              structure?.tabs.map((tab) => ({
+              getCurrentTabs.map((tab: any) => ({
                 id: tab.id,
                 label: tab.title,
               })) || []
@@ -639,7 +691,7 @@ export default function DashboardPage() {
           currentDashboardName={structure?.title}
           isViewOnly={isViewOnlyMode}
           tabs={
-            structure?.tabs.map((tab) => ({
+            getCurrentTabs.map((tab: any) => ({
               id: tab.id,
               label: tab.title,
             })) || []

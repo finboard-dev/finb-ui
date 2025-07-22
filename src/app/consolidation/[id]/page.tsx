@@ -21,11 +21,33 @@ import {
   toggleComponent,
 } from "@/lib/store/slices/uiSlice";
 import { useInactiveCompany } from "@/hooks/useInactiveCompany";
+import { useCompanyData } from "@/hooks/query-hooks/useCompany";
+import { useUrlSync } from "@/hooks/useUrlSync";
+import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 
 export default function ConsolidationPage() {
   const router = useRouter();
   const params = useParams();
   const dispatch = useAppDispatch();
+
+  const selectedCompanyId = useSelector(
+    (state: any) => state.user.selectedCompany?.id
+  );
+  const consolidationId = params.id as string;
+
+  // Use URL sync to ensure proper organization and company initialization
+  const { isAuthenticated, isSyncing } = useUrlSync({
+    syncFromUrl: true,
+    syncToUrl: false,
+    validateAccess: true,
+  });
+
+  // Fetch company data - always fetch companies list, and current company if available
+  const {
+    isLoading: isCompanyDataLoading,
+    error: companyDataError,
+    hasOrganization,
+  } = useCompanyData(selectedCompanyId);
 
   // Check if company is inactive
   const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
@@ -42,10 +64,6 @@ export default function ConsolidationPage() {
   const createAccountsRef = useRef<CreateAccountsRef>(null);
   const linkAccountsRef = useRef<any>(null);
 
-  const selectedCompanyId = useSelector(
-    (state: any) => state.user.selectedCompany?.id
-  );
-  const consolidationId = params.id as string;
   const companies = store.getState().user.companies;
   const realmId = companies.find(
     (company: any) => company.id === selectedCompanyId
@@ -69,6 +87,33 @@ export default function ConsolidationPage() {
       router.replace(`/consolidation/${selectedCompanyId}`);
     }
   }, [selectedCompanyId, consolidationId, router]);
+
+  // Show loading while URL sync or company data is being fetched
+  if (isSyncing || isCompanyDataLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <LoadingAnimation
+          message={isSyncing ? "Initializing..." : "Loading company data..."}
+        />
+      </div>
+    );
+  }
+
+  // If no organization is selected, show message
+  if (!hasOrganization) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+        <div className="text-center">
+          <h2 className="text-xl font-medium text-gray-900 mb-2">
+            No Organization Selected
+          </h2>
+          <p className="text-gray-600">
+            Please select an organization to continue.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleStepChange = (step: number) => {
     setCurrentStep(step);

@@ -61,9 +61,9 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
     }
 
     if (config.headers) {
-      if (AUTH_CONFIG.organizationIdInHeaders.some((url) => config.url?.includes(url))) {
-        config.headers["x-org-id"] = organisation_id;
-      }
+
+      config.headers["ngrok-skip-browser-warning"] = "true"
+      config.headers["x-org-id"] = organisation_id;
 
       const isPublicEndpoint = AUTH_CONFIG.publicApiEndpoints.some(
           (url) => config.url?.includes(url)

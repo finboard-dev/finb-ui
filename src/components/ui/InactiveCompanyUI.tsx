@@ -207,6 +207,7 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
       <div className="flex-1 flex flex-col">
         {/* Navbar */}
         <Navbar
+          className="h-[3.8rem] !px-4 !shadow-none"
           title={title}
           collpaseSidebar={toggleSidebar}
           isCollapsed={isSidebarCollapsed}

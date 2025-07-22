@@ -1,76 +1,33 @@
-import { store } from "../store/store";
-
-
-const API_BASE_URL = 'https://dev.api.finboard.ai/api/v1';
-
-const getAuthHeaders = () => {
-    const token = store.getState().user.token?.accessToken;
-    return {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-    };
-};
+import { fetcher } from "../axios/config";
 
 export const consolidationApi = {
     async getChartOfAccounts(id: string) {
-        const response = await fetch(`${API_BASE_URL}/mapping/chart_of_accounts/${id}`, {
-            headers: getAuthHeaders(),
-        });
+        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/mapping/chart_of_accounts/${id}`);
         
-        if (!response.ok) {
-            throw new Error('Failed to fetch chart of accounts');
-        }
-        
-        return response.json();
+        return response
     },
 
     async getMappingForAccountByType(id: string, type: string) {
-        const response = await fetch(`${API_BASE_URL}/mapping/${id}/${type}`, {
-            headers: getAuthHeaders(),
-        });
+        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/mapping/${id}/${type}`);
         
-        if (!response.ok) {
-            throw new Error('Failed to fetch mapping data');
-        }
-        
-        return response.json();
+        return response
     },
 
     async saveMappings(data: any) {
-        const response = await fetch(`${API_BASE_URL}/mapping/save`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data),
-        });
+        const response = await fetcher.post(`${process.env.NEXT_PUBLIC_API_DEV_V1}/mapping/save`, data);
         
-        if (!response.ok) {
-            throw new Error('Failed to save mappings');
-        }
-        
-        return response.json();
+        return response
     },
 
     async initReconnectQuickBookAccount(id: string) {
-        const response = await fetch(`${API_BASE_URL}/qb/reconnect/${id}`, {
-            headers: getAuthHeaders(),
-        });
+        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/qb/reconnect/${id}`);
         
-        if (!response.ok) {
-            throw new Error('Failed to initiate reconnection');
-        }
-        
-        return response.json();
+        return response
     },
 
     async getAllSpreadsheets(id: string) {
-        const response = await fetch(`${API_BASE_URL}/template/qb/user/${id}`, {
-            headers: getAuthHeaders(),
-        });
+        const response = await fetcher.get(`${process.env.NEXT_PUBLIC_API_DEV_V1}/template/qb/user/${id}`);
         
-        if (!response.ok) {
-            throw new Error('Failed to fetch spreadsheets');
-        }
-        
-        return response.json();
+        return response
     }
 };
