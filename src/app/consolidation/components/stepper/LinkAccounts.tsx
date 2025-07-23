@@ -411,12 +411,27 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
   }, [typeFilterOpen, companyFilterOpen]);
 
   // Handlers
-  const handleEliminateChange = useCallback((id: string, value: boolean) => {
-    setEliminationStates((prev) => {
-      const newState = { ...prev, [id]: value };
-      return newState;
-    });
-  }, []);
+  const handleEliminateChange = useCallback(
+    (id: string, value: boolean) => {
+      // If there are selected rows and the changed row is among them, apply to all selected
+      if (selectedRows.size > 0 && selectedRows.has(id)) {
+        setEliminationStates((prev) => {
+          const newState = { ...prev };
+          selectedRows.forEach((selectedRowId) => {
+            newState[selectedRowId] = value;
+          });
+          return newState;
+        });
+      } else {
+        // Single row elimination (original behavior)
+        setEliminationStates((prev) => {
+          const newState = { ...prev, [id]: value };
+          return newState;
+        });
+      }
+    },
+    [selectedRows]
+  );
 
   const handleCheckboxChange = useCallback((id: string, value: boolean) => {
     setSelectedRows((prev) => {
@@ -773,7 +788,8 @@ export const LinkAccounts = forwardRef(function LinkAccounts(
             })()}
             {selectedRows.size > 0 && (
               <span className="text-sm text-gray-600 font-medium">
-                (Change any "Mapped To" dropdown to apply to all selected)
+                (Change any "Mapped To" dropdown or "Eliminate" switch to apply
+                to all selected)
               </span>
             )}
           </div>
