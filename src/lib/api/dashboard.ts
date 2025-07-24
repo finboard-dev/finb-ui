@@ -95,37 +95,6 @@ interface WidgetDataFilter {
   [key: string]: any;
 }
 
-export interface WidgetDataRequest {
-  dashboardId: string;
-  componentId: string;
-  tabId: string;
-  filter: WidgetDataFilter;
-}
-
-export const getWidgetData = async (params: WidgetDataRequest) => {
-  if (!params.dashboardId) {
-    throw new Error('Dashboard ID is required');
-  }
-
-  
-  try {
-    const response = await fetcher.post(
-      `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/widget-data`,
-      params
-    );
-    return response.data || response;
-  } catch (error) {
-    // Fallback to mock data for development
-    console.warn('Widget data API not available, using mock data:', error);
-    return {
-      value: '$125,000',
-      change: '+12%',
-      trend: 'up',
-      timestamp: new Date().toISOString()
-    };
-  }
-}
-
 export interface CreateDashboardRequest {
   title: string;
   startDate: string;

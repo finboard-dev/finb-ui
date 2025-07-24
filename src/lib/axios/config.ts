@@ -39,7 +39,19 @@ export const createAxiosInstance = (config?: AxiosRequestConfig): AxiosInstance 
       }
     }
 
-    if (pendingRequests.has(requestId)) {
+    // Only cancel duplicate requests for specific endpoints that are expensive
+    const expensiveEndpoints = [
+      '/component/metrics',
+      '/dashboard',
+      '/component/execute'
+    ];
+    
+    const isExpensiveEndpoint = expensiveEndpoints.some(endpoint => 
+      config.url?.includes(endpoint)
+    );
+    
+    if (isExpensiveEndpoint && pendingRequests.has(requestId)) {
+      console.log(`Canceling duplicate request for: ${requestId}`);
       const controller = new AbortController();
       config.signal = controller.signal;
       controller.abort('Duplicate request canceled');

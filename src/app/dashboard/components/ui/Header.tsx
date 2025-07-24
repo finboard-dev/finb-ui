@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import type React from "react";
+import type React from 'react';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Share2Icon,
   PlusIcon,
@@ -15,42 +15,25 @@ import {
   ChevronRightIcon,
   GripVerticalIcon,
   ChevronDownIcon,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  ArrowLeftRight,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useRef, useState, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  toggleComponent,
-  selectIsComponentOpen,
-} from "@/lib/store/slices/uiSlice";
-import Navbar from "@/components/ui/common/navbar";
-import { toast } from "sonner";
-import { format } from "date-fns";
+} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useRef, useState, useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { toggleComponent, selectIsComponentOpen } from '@/lib/store/slices/uiSlice';
+import Navbar from '@/components/ui/common/navbar';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 interface DashboardSpecificHeaderProps {
   isEditing: boolean;
@@ -65,21 +48,21 @@ interface DashboardSpecificHeaderProps {
   loadedTabs?: Set<string>;
   currentTabLoading?: boolean;
   // New props for versioning
-  currentVersion?: "draft" | "published";
+  currentVersion?: 'draft' | 'published';
   canEdit?: boolean;
   canPublish?: boolean;
   onSaveDraft?: () => void;
   onPublishDraft?: () => void;
   onSwitchToDraft?: () => void;
   onSwitchToPublished?: () => void;
-  onAddNewTab?: (tabData: {
-    title: string;
-    startDate: string;
-    endDate: string;
-    position: number;
-  }) => void;
+  onAddNewTab?: (tabData: { title: string; startDate: string; endDate: string; position: number }) => void;
+  onDeleteTab?: (tabId: string) => void;
+  onApplyTabReorder?: (newTabs: { id: string; label: string }[]) => void;
+  onRenameTab?: (tabId: string, newTitle: string) => void;
   publishedVersion?: any;
   draftVersion?: any;
+  // Loading state for apply reorder
+  isApplyingReorder?: boolean;
 }
 
 interface DateRange {
@@ -88,18 +71,18 @@ interface DateRange {
 }
 
 const months = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 export default function DashboardSpecificHeader({
@@ -115,7 +98,7 @@ export default function DashboardSpecificHeader({
   loadedTabs = new Set(),
   currentTabLoading = false,
   // New props for versioning
-  currentVersion = "published",
+  currentVersion = 'published',
   canEdit = false,
   canPublish = false,
   onSaveDraft,
@@ -123,15 +106,17 @@ export default function DashboardSpecificHeader({
   onSwitchToDraft,
   onSwitchToPublished,
   onAddNewTab,
+  onDeleteTab,
+  onApplyTabReorder,
+  onRenameTab,
   publishedVersion,
   draftVersion,
+  isApplyingReorder,
 }: DashboardSpecificHeaderProps) {
   const dispatch = useAppDispatch();
 
   // Use component-based sidebar state
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, "sidebar-chat")
-  );
+  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
   const isSidebarCollapsed = !isSidebarOpen;
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -140,47 +125,57 @@ export default function DashboardSpecificHeader({
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   const [dragOverTab, setDragOverTab] = useState<string | null>(null);
   const [localTabs, setLocalTabs] = useState(tabs);
-  const [autoScrollInterval, setAutoScrollInterval] =
-    useState<NodeJS.Timeout | null>(null);
+  const [autoScrollInterval, setAutoScrollInterval] = useState<NodeJS.Timeout | null>(null);
 
   // New tab modal state
   const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false);
-  const [newTabTitle, setNewTabTitle] = useState("");
+  const [newTabTitle, setNewTabTitle] = useState('');
   const [newTabDateRange, setNewTabDateRange] = useState<DateRange>({});
   const [newTabDatePickerOpen, setNewTabDatePickerOpen] = useState(false);
-  const [newTabViewYear, setNewTabViewYear] = useState(
-    new Date().getFullYear()
-  );
+  const [newTabViewYear, setNewTabViewYear] = useState(new Date().getFullYear());
+
+  // Tab reorder state
+  const [hasReorderChanges, setHasReorderChanges] = useState(false);
+  const [originalTabs, setOriginalTabs] = useState(tabs);
+
+  // Delete tab modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [tabToDelete, setTabToDelete] = useState<string | null>(null);
+
+  // Tab rename state
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [tabToRename, setTabToRename] = useState<string | null>(null);
+  const [renameTabTitle, setRenameTabTitle] = useState('');
 
   // Update local tabs when props change
   useEffect(() => {
-    setLocalTabs(tabs);
-  }, [tabs]);
+    // Only update local tabs if there are no unsaved reorder changes
+    if (!hasReorderChanges) {
+      setLocalTabs(tabs);
+      setOriginalTabs(tabs);
+    }
+  }, [tabs, hasReorderChanges]);
 
   // Determine if we should show edit/view mode based on versioning logic
-  const shouldShowEditMode = currentVersion === "draft";
-  const shouldShowViewMode = currentVersion === "published";
-  const canSwitchToDraft =
-    canEdit && currentVersion === "published" && draftVersion;
-  const canSwitchToPublished =
-    canEdit && currentVersion === "draft" && publishedVersion;
+  const shouldShowEditMode = currentVersion === 'draft';
+  const shouldShowViewMode = currentVersion === 'published';
+  const canSwitchToDraft = canEdit && currentVersion === 'published' && draftVersion;
+  const canSwitchToPublished = canEdit && currentVersion === 'draft' && publishedVersion;
   const isViewOnlyMode = shouldShowViewMode || !canEdit;
 
   const updateScrollButtons = () => {
     if (!scrollContainerRef.current) return;
     const container = scrollContainerRef.current;
     setCanScrollLeft(container.scrollLeft > 0);
-    setCanScrollRight(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 1
-    );
+    setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 1);
   };
 
   useEffect(() => {
     updateScrollButtons();
     const container = scrollContainerRef.current;
     if (container) {
-      container.addEventListener("scroll", updateScrollButtons);
-      return () => container.removeEventListener("scroll", updateScrollButtons);
+      container.addEventListener('scroll', updateScrollButtons);
+      return () => container.removeEventListener('scroll', updateScrollButtons);
     }
   }, [localTabs]);
 
@@ -195,25 +190,25 @@ export default function DashboardSpecificHeader({
 
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -200, behavior: "smooth" });
+      scrollContainerRef.current.scrollBy({ left: -200, behavior: 'smooth' });
     }
   };
 
   const scrollRight = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 200, behavior: "smooth" });
+      scrollContainerRef.current.scrollBy({ left: 200, behavior: 'smooth' });
     }
   };
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, tabId: string) => {
     setDraggedTab(tabId);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/html", tabId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', tabId);
 
     // Add some visual feedback
     if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = "0.5";
+      e.currentTarget.style.opacity = '0.5';
     }
   };
 
@@ -229,13 +224,13 @@ export default function DashboardSpecificHeader({
 
     // Reset visual feedback
     if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = "1";
+      e.currentTarget.style.opacity = '1';
     }
   };
 
   const handleDragOver = (e: React.DragEvent, tabId: string) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = 'move';
     setDragOverTab(tabId);
 
     // Auto-scroll logic
@@ -264,30 +259,24 @@ export default function DashboardSpecificHeader({
             return;
           }
 
-          scrollContainerRef.current.scrollBy({ left: -10, behavior: "auto" });
+          scrollContainerRef.current.scrollBy({ left: -10, behavior: 'auto' });
           // Update scroll buttons after scrolling
           updateScrollButtons();
         }
       }, 16); // ~60fps
       setAutoScrollInterval(interval);
-    } else if (
-      mouseX > containerRect.right - scrollThreshold &&
-      canScrollRight
-    ) {
+    } else if (mouseX > containerRect.right - scrollThreshold && canScrollRight) {
       const interval = setInterval(() => {
         if (scrollContainerRef.current) {
           const container = scrollContainerRef.current;
           // Check if we can still scroll right
-          if (
-            container.scrollLeft >=
-            container.scrollWidth - container.clientWidth - 1
-          ) {
+          if (container.scrollLeft >= container.scrollWidth - container.clientWidth - 1) {
             clearInterval(interval);
             setAutoScrollInterval(null);
             return;
           }
 
-          scrollContainerRef.current.scrollBy({ left: 10, behavior: "auto" });
+          scrollContainerRef.current.scrollBy({ left: 10, behavior: 'auto' });
           // Update scroll buttons after scrolling
           updateScrollButtons();
         }
@@ -324,6 +313,11 @@ export default function DashboardSpecificHeader({
     newTabs.splice(dropIndex, 0, draggedTabData);
 
     setLocalTabs(newTabs);
+
+    // Check if the order has changed from original
+    const hasChanged = newTabs.some((tab, index) => tab.id !== originalTabs[index]?.id);
+    setHasReorderChanges(hasChanged);
+
     onTabReorder?.(newTabs);
     setDragOverTab(null);
   };
@@ -331,14 +325,14 @@ export default function DashboardSpecificHeader({
   const needsScrolling = localTabs.length > 3;
 
   const handleSidebarToggle = () => {
-    dispatch(toggleComponent({ id: "sidebar-chat" }));
+    dispatch(toggleComponent({ id: 'sidebar-chat' }));
   };
 
   // New tab modal functions
   const formatMonthYear = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
     });
   };
 
@@ -356,7 +350,7 @@ export default function DashboardSpecificHeader({
     } else if (newTabDateRange.end) {
       return `Until ${formatMonthYear(newTabDateRange.end)}`;
     }
-    return "Select date range";
+    return 'Select date range';
   };
 
   const getLastDayOfMonth = (year: number, month: number) => {
@@ -365,12 +359,12 @@ export default function DashboardSpecificHeader({
 
   const formatToYYYYMMDD = (date: Date, isEndDate: boolean = false) => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    let day = "01";
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    let day = '01';
 
     if (isEndDate) {
       const lastDay = getLastDayOfMonth(date.getFullYear(), date.getMonth());
-      day = String(lastDay).padStart(2, "0");
+      day = String(lastDay).padStart(2, '0');
     }
 
     return `${year}-${month}-${day}`;
@@ -379,10 +373,7 @@ export default function DashboardSpecificHeader({
   const handleMonthSelect = (monthIndex: number) => {
     const selectedDate = new Date(newTabViewYear, monthIndex);
 
-    if (
-      !newTabDateRange.start ||
-      (newTabDateRange.start && newTabDateRange.end)
-    ) {
+    if (!newTabDateRange.start || (newTabDateRange.start && newTabDateRange.end)) {
       // Start new selection
       setNewTabDateRange({ start: selectedDate, end: undefined });
     } else if (newTabDateRange.start && !newTabDateRange.end) {
@@ -401,37 +392,37 @@ export default function DashboardSpecificHeader({
   const getMonthStatus = (monthIndex: number) => {
     const currentDate = new Date(newTabViewYear, monthIndex);
 
-    if (!newTabDateRange.start) return "default";
+    if (!newTabDateRange.start) return 'default';
 
     const startTime = newTabDateRange.start.getTime();
     const currentTime = currentDate.getTime();
 
     if (newTabDateRange.start && !newTabDateRange.end) {
-      if (currentTime === startTime) return "start";
-      return "default";
+      if (currentTime === startTime) return 'start';
+      return 'default';
     }
 
     if (newTabDateRange.start && newTabDateRange.end) {
       const endTime = newTabDateRange.end.getTime();
 
-      if (currentTime === startTime) return "start";
-      if (currentTime === endTime) return "end";
-      if (currentTime > startTime && currentTime < endTime) return "in-range";
+      if (currentTime === startTime) return 'start';
+      if (currentTime === endTime) return 'end';
+      if (currentTime > startTime && currentTime < endTime) return 'in-range';
     }
 
-    return "default";
+    return 'default';
   };
 
   const getMonthButtonClass = (status: string) => {
     switch (status) {
-      case "start":
-        return "bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md";
-      case "end":
-        return "bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md";
-      case "in-range":
-        return "bg-white text-primary hover:bg-primary/20 hover:text-white border-primary/20";
+      case 'start':
+        return 'bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md';
+      case 'end':
+        return 'bg-primary text-white hover:bg-primary/90 hover:text-white shadow-md';
+      case 'in-range':
+        return 'bg-white text-primary hover:bg-primary/20 hover:text-white border-primary/20';
       default:
-        return "!bg-white text-gray-900 hover:bg-gray-100 border-gray-200";
+        return '!bg-white text-gray-900 hover:bg-gray-100 border-gray-200';
     }
   };
 
@@ -441,17 +432,17 @@ export default function DashboardSpecificHeader({
 
   const handleAddNewTab = () => {
     if (!newTabTitle.trim()) {
-      toast.error("Please enter a tab title");
+      toast.error('Please enter a tab title');
       return;
     }
 
     if (!newTabDateRange.start || !newTabDateRange.end) {
-      toast.error("Please select both start and end dates");
+      toast.error('Please select both start and end dates');
       return;
     }
 
     if (newTabDateRange.end <= newTabDateRange.start) {
-      toast.error("End date must be after start date");
+      toast.error('End date must be after start date');
       return;
     }
 
@@ -467,22 +458,92 @@ export default function DashboardSpecificHeader({
     });
 
     // Reset form and close modal
-    setNewTabTitle("");
+    setNewTabTitle('');
+    setNewTabDateRange({});
+    setIsNewTabModalOpen(false);
+
+    // Reload page after successful addition
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000); // Small delay to ensure the API call completes
+  };
+
+  const handleCloseNewTabModal = () => {
+    setNewTabTitle('');
     setNewTabDateRange({});
     setIsNewTabModalOpen(false);
   };
 
-  const handleCloseNewTabModal = () => {
-    setNewTabTitle("");
-    setNewTabDateRange({});
-    setIsNewTabModalOpen(false);
+  const handleDeleteTab = (tabId: string) => {
+    setTabToDelete(tabId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteTab = async () => {
+    if (!tabToDelete) return;
+
+    try {
+      await onDeleteTab?.(tabToDelete);
+      setIsDeleteModalOpen(false);
+      setTabToDelete(null);
+      // Reload page after successful deletion
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting tab:', error);
+      toast.error('Failed to delete tab');
+    }
+  };
+
+  const handleApplyReorder = async () => {
+    console.log('Apply reorder clicked, loading state:', isApplyingReorder);
+    try {
+      await onApplyTabReorder?.(localTabs);
+      // Don't reset state here - let the page reload handle it
+      // setHasReorderChanges(false);
+      // setOriginalTabs(localTabs);
+      // Reload page after successful reorder
+      window.location.reload();
+    } catch (error) {
+      console.error('Error applying tab reorder:', error);
+      toast.error('Failed to apply tab reorder');
+    }
+  };
+
+  const handleCancelReorder = () => {
+    setLocalTabs(originalTabs);
+    setHasReorderChanges(false);
+  };
+
+  const handleRenameTab = (tabId: string) => {
+    const tab = localTabs.find((t) => t.id === tabId);
+    if (tab) {
+      setTabToRename(tabId);
+      setRenameTabTitle(tab.label);
+      setIsRenameModalOpen(true);
+    }
+  };
+
+  const confirmRenameTab = async () => {
+    if (!tabToRename || !renameTabTitle.trim()) return;
+
+    try {
+      await onRenameTab?.(tabToRename, renameTabTitle.trim());
+      setIsRenameModalOpen(false);
+      setTabToRename(null);
+      setRenameTabTitle('');
+      // Reload page after successful rename
+      window.location.reload();
+    } catch (error) {
+      console.error('Error renaming tab:', error);
+      toast.error('Failed to rename tab');
+    }
   };
 
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
       <Navbar
         className="h-[3.8rem] !px-4 !shadow-none"
-        title={currentDashboardName || "Dashboard"}
+        title={currentDashboardName || 'Dashboard'}
         isCollapsed={isSidebarCollapsed}
         collpaseSidebar={handleSidebarToggle}
       >
@@ -496,18 +557,14 @@ export default function DashboardSpecificHeader({
                   size="sm"
                   className="bg-white hover:bg-slate-50 text-primary px-3 h-9 rounded-md border-slate-300 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium hover:shadow-md transition-all duration-200"
                   onClick={() => setIsEditing(!isEditing)}
-                  title={
-                    isEditing ? "Switch to View Mode" : "Switch to Edit Mode"
-                  }
+                  title={isEditing ? 'Switch to View Mode' : 'Switch to Edit Mode'}
                 >
                   {isEditing ? (
                     <EyeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   ) : (
                     <EditIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   )}
-                  <span className="hidden sm:inline">
-                    {isEditing ? "View Mode" : "Edit Mode"}
-                  </span>
+                  <span className="hidden sm:inline">{isEditing ? 'View Mode' : 'Edit Mode'}</span>
                 </Button>
               )}
 
@@ -549,9 +606,7 @@ export default function DashboardSpecificHeader({
                 variant="ghost"
                 size="sm"
                 className={`p-1 h-8 w-8 rounded-full hover:bg-gray-100 transition-all duration-200 ${
-                  !canScrollLeft
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:shadow-md"
+                  !canScrollLeft ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'
                 }`}
                 onClick={scrollLeft}
                 disabled={!canScrollLeft}
@@ -566,15 +621,14 @@ export default function DashboardSpecificHeader({
                   ref={scrollContainerRef}
                   className="overflow-x-auto scrollbar-hide"
                   style={{
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
                   }}
                 >
                   <div className="inline-flex gap-1 p-0.5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg shadow-inner min-w-full">
                     {localTabs.map((tab, index) => {
                       const isLoaded = loadedTabs.has(tab.id);
-                      const isLoading =
-                        activeTab === tab.id && currentTabLoading;
+                      const isLoading = activeTab === tab.id && currentTabLoading;
                       const isActive = activeTab === tab.id;
                       const isDragging = draggedTab === tab.id;
                       const isDragOver = dragOverTab === tab.id;
@@ -593,38 +647,69 @@ export default function DashboardSpecificHeader({
                           transition-all duration-200 ease-in-out whitespace-nowrap
                           ${
                             isActive
-                              ? "bg-white shadow-md shadow-blue-100/30 text-blue-600 border border-blue-200/30"
-                              : "bg-transparent hover:bg-white/60 text-gray-600 hover:text-gray-800"
+                              ? 'bg-white shadow-md shadow-blue-100/30 text-blue-600 border border-blue-200/30'
+                              : 'bg-transparent hover:bg-white/60 text-gray-600 hover:text-gray-800'
                           }
-                          ${isDragging ? "opacity-50 scale-95" : ""}
-                          ${
-                            isDragOver
-                              ? "bg-blue-50 border-2 border-dashed border-blue-300"
-                              : ""
-                          }
-                          ${
-                            !isViewOnlyMode && shouldShowEditMode
-                              ? "hover:shadow-sm"
-                              : ""
-                          }
+                          ${isDragging ? 'opacity-50 scale-95' : ''}
+                          ${isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''}
+                          ${!isViewOnlyMode && shouldShowEditMode ? 'hover:shadow-sm' : ''}
                         `}
                           onClick={() => !isLoading && onTabChange(tab.id)}
                         >
                           {!isViewOnlyMode && shouldShowEditMode && (
-                            <GripVerticalIcon className="w-2.5 h-2.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing" />
+                            <GripVerticalIcon className="w-2.5 h-2.5 text-gray-400 cursor-grab active:cursor-grabbing" />
                           )}
 
-                          {isLoading && (
-                            <Loader2Icon className="w-3 h-3 animate-spin text-blue-500" />
-                          )}
+                          {isLoading && <Loader2Icon className="w-3 h-3 animate-spin text-blue-500" />}
 
-                          <span className="text-xs font-medium truncate flex-1">
-                            {tab.label}
-                          </span>
+                          <div className="relative flex-1 min-w-0">
+                            <span className="text-xs font-medium truncate block">{tab.label}</span>
 
-                          {isActive && (
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                          )}
+                            {/* Action buttons overlay - only show in edit mode */}
+                            {!isViewOnlyMode && shouldShowEditMode && (
+                              <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/80 backdrop-blur-sm rounded">
+                                {/* Rename button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRenameTab(tab.id);
+                                  }}
+                                  className="p-1 hover:bg-blue-100 rounded text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                                  title="Rename tab"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
+                                </button>
+
+                                {/* Delete button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTab(tab.id);
+                                  }}
+                                  className="p-1 hover:bg-red-100 rounded text-red-500 hover:text-red-700 transition-colors duration-200"
+                                  title="Delete tab"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {isActive && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
 
                           {/* Active tab indicator */}
                           {isActive && (
@@ -633,29 +718,59 @@ export default function DashboardSpecificHeader({
                         </div>
                       );
                     })}
-
-                    {/* Add New Tab Button - Only show in draft mode */}
-                    {!isViewOnlyMode && shouldShowEditMode && (
-                      <button
-                        className="flex items-center justify-center px-2 py-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-white/60 transition-all duration-200 min-w-[40px] group"
-                        onClick={() => setIsNewTabModalOpen(true)}
-                      >
-                        <PlusIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform duration-200" />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Add New Tab Button - Moved outside scroll area */}
+            {!isViewOnlyMode && shouldShowEditMode && (
+              <button
+                className="flex items-center justify-center px-3 py-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-white/60 transition-all duration-200 min-w-[40px] group border border-gray-200 hover:border-blue-300 ml-2"
+                onClick={() => setIsNewTabModalOpen(true)}
+                title="Add new tab"
+              >
+                <PlusIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+            )}
+
+            {/* Apply Reorder Button - Show when there are changes */}
+            {!isViewOnlyMode && shouldShowEditMode && hasReorderChanges && (
+              <div className="flex items-center gap-2 ml-2">
+                <button
+                  className="flex items-center justify-center px-3 py-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 transition-all duration-200 border border-green-300 hover:border-green-400 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleApplyReorder}
+                  disabled={isApplyingReorder}
+                  title="Apply tab reorder changes"
+                >
+                  {isApplyingReorder ? (
+                    <Loader2Icon className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {isApplyingReorder ? 'Applying...' : 'Apply'}
+                </button>
+                <button
+                  className="flex items-center justify-center px-2 py-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleCancelReorder}
+                  disabled={isApplyingReorder}
+                  title="Cancel tab reorder changes"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
 
             {needsScrolling && (
               <Button
                 variant="ghost"
                 size="sm"
                 className={`p-1 h-8 w-8 rounded-full hover:bg-gray-100 transition-all duration-200 ${
-                  !canScrollRight
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:shadow-md"
+                  !canScrollRight ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'
                 }`}
                 onClick={scrollRight}
                 disabled={!canScrollRight}
@@ -670,7 +785,7 @@ export default function DashboardSpecificHeader({
             {/* Version indicator and switch buttons */}
             <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-md">
               <span className="text-xs text-gray-600 font-medium">
-                {currentVersion === "draft" ? "Draft" : "Published"}
+                {currentVersion === 'draft' ? 'Draft' : 'Published'}
               </span>
               {canSwitchToDraft && onSwitchToDraft && (
                 <Button
@@ -710,25 +825,11 @@ export default function DashboardSpecificHeader({
                     xmlns="http://www.w3.org/2000/svg"
                     className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5"
                   >
-                    <mask
-                      id="mask0_630_651"
-                      maskUnits="userSpaceOnUse"
-                      x="0"
-                      y="0"
-                      width="16"
-                      height="16"
-                    >
+                    <mask id="mask0_630_651" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
                       <rect width="16" height="16" fill="white" />
                     </mask>
                     <g mask="url(#mask0_630_651)">
-                      <mask
-                        id="mask1_630_651"
-                        maskUnits="userSpaceOnUse"
-                        x="0"
-                        y="0"
-                        width="16"
-                        height="16"
-                      >
+                      <mask id="mask1_630_651" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
                         <rect width="16" height="16" fill="white" />
                       </mask>
                       <g mask="url(#mask1_630_651)">
@@ -758,10 +859,7 @@ export default function DashboardSpecificHeader({
                   <MoreHorizontalIcon className="w-4 h-4 text-gray-600" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="bg-white shadow-xl border-slate-200 z-50"
-              >
+              <DropdownMenuContent align="end" className="bg-white shadow-xl border-slate-200 z-50">
                 <DropdownMenuItem className="text-sm cursor-pointer text-slate-700 hover:!bg-slate-100 focus:!bg-slate-100">
                   Export Dashboard
                 </DropdownMenuItem>
@@ -778,9 +876,7 @@ export default function DashboardSpecificHeader({
       <Dialog open={isNewTabModalOpen} onOpenChange={handleCloseNewTabModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex text-2xl items-center gap-2">
-              Add New Tab
-            </DialogTitle>
+            <DialogTitle className="flex text-2xl items-center gap-2">Add New Tab</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 pt-6">
@@ -799,30 +895,21 @@ export default function DashboardSpecificHeader({
             {/* Month-Year Range Picker */}
             <div className="space-y-2">
               <Label>Date Range</Label>
-              <Popover
-                open={newTabDatePickerOpen}
-                onOpenChange={setNewTabDatePickerOpen}
-              >
+              <Popover open={newTabDatePickerOpen} onOpenChange={setNewTabDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal h-12 !bg-white transition-all duration-200",
-                      !newTabDateRange.start &&
-                        !newTabDateRange.end &&
-                        "text-gray-500 border-input",
-                      (newTabDateRange.start || newTabDateRange.end) &&
-                        "border-primary/30 bg-primary/5"
+                      'w-full justify-start text-left font-normal h-12 !bg-white transition-all duration-200',
+                      !newTabDateRange.start && !newTabDateRange.end && 'text-gray-500 border-input',
+                      (newTabDateRange.start || newTabDateRange.end) && 'border-primary/30 bg-primary/5'
                     )}
                   >
                     <Calendar className="mr-3 h-5 w-5 text-primary" />
                     <span className="text-base">{formatRange()}</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent
-                  className="w-auto p-0 shadow-xl border-2 border-gray-200"
-                  align="start"
-                >
+                <PopoverContent className="w-auto p-0 shadow-xl border-2 border-gray-200" align="start">
                   <div className="p-4 bg-white rounded-lg">
                     <div className="flex items-center justify-between mb-6">
                       <Button
@@ -833,9 +920,7 @@ export default function DashboardSpecificHeader({
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
-                      <div className="font-bold text-lg text-gray-900">
-                        {newTabViewYear}
-                      </div>
+                      <div className="font-bold text-lg text-gray-900">{newTabViewYear}</div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -857,7 +942,7 @@ export default function DashboardSpecificHeader({
                             size="sm"
                             onClick={() => handleMonthSelect(index)}
                             className={cn(
-                              "h-12 text-sm font-medium border transition-all duration-200 hover:shadow-md",
+                              'h-12 text-sm font-medium border transition-all duration-200 hover:shadow-md',
                               getMonthButtonClass(status)
                             )}
                           >
@@ -870,9 +955,7 @@ export default function DashboardSpecificHeader({
                     {(newTabDateRange.start || newTabDateRange.end) && (
                       <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                         <div className="text-sm text-gray-600">
-                          {newTabDateRange.start && newTabDateRange.end
-                            ? "Range selected"
-                            : "Select end date"}
+                          {newTabDateRange.start && newTabDateRange.end ? 'Range selected' : 'Select end date'}
                         </div>
                         <Button
                           variant="ghost"
@@ -891,12 +974,8 @@ export default function DashboardSpecificHeader({
               {/* Date range preview */}
               {newTabDateRange.start && newTabDateRange.end && (
                 <div className="text-sm text-muted-foreground">
-                  Duration:{" "}
-                  {Math.ceil(
-                    (newTabDateRange.end.getTime() -
-                      newTabDateRange.start.getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  )}{" "}
+                  Duration:{' '}
+                  {Math.ceil((newTabDateRange.end.getTime() - newTabDateRange.start.getTime()) / (1000 * 60 * 60 * 24))}{' '}
                   days
                 </div>
               )}
@@ -912,12 +991,76 @@ export default function DashboardSpecificHeader({
               >
                 Cancel
               </Button>
+              <Button type="button" onClick={handleAddNewTab} className="flex-1 text-white">
+                Add Tab
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Tab Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex text-2xl items-center gap-2">Confirm Deletion</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-6">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete the tab "
+              {localTabs.find((tab) => tab.id === tabToDelete)?.label || tabToDelete}"? This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3 pt-4">
               <Button
                 type="button"
-                onClick={handleAddNewTab}
-                className="flex-1 text-white"
+                variant="outline"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="flex-1 bg-transparent"
               >
-                Add Tab
+                Cancel
+              </Button>
+              <Button type="button" onClick={confirmDeleteTab} className="flex-1 text-white">
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Tab Modal */}
+      <Dialog open={isRenameModalOpen} onOpenChange={setIsRenameModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex text-2xl items-center gap-2">Rename Tab</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-6">
+            {/* Tab Title */}
+            <div className="space-y-2">
+              <Label htmlFor="renameTabTitle">New Tab Title</Label>
+              <Input
+                id="renameTabTitle"
+                placeholder="Enter new tab title..."
+                value={renameTabTitle}
+                onChange={(e) => setRenameTabTitle(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsRenameModalOpen(false)}
+                className="flex-1 bg-transparent"
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={confirmRenameTab} className="flex-1 text-white">
+                Rename Tab
               </Button>
             </div>
           </div>

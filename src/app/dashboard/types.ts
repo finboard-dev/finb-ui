@@ -119,13 +119,6 @@ export interface ApiResponse<T> {
 export interface DashboardStructureResponse extends ApiResponse<DashboardStructure> {}
 
 // Widget Data Types
-export interface WidgetDataRequest {
-  dashboardId: string;
-  componentId: string;
-  tabId: string;
-  filter: WidgetFilter;
-}
-
 export interface WidgetDataResponse extends ApiResponse<WidgetData> {}
 
 // Dashboard State Types

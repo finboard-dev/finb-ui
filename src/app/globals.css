@@ -146,6 +146,11 @@
   animation: shimmer 2s infinite;
 }
 
+body ::selection {
+  color: var(--primary) !important;
+  background: #b3d4fc !important;
+}
+
 /* Custom gradient animations */
 @keyframes gradient-shift {
   0%,
@@ -219,6 +224,67 @@ html, body {
   opacity: 0.7 !important;
   border-radius: 4px !important;
   transition: all 100ms ease !important;
+  z-index: 1000 !important;
+}
+
+/* Override any inline styles that might be set by react-grid-layout */
+.react-grid-item.react-grid-placeholder[style] {
+  background: rgba(0, 120, 240, 0.2) !important;
+  border: 2px dashed #0078f0 !important;
+  opacity: 0.7 !important;
+  border-radius: 4px !important;
+  transition: all 100ms ease !important;
+  z-index: 1000 !important;
+}
+
+/* Force override for any transform-based sizing */
+.dashboard-view-container .react-grid-item.react-grid-placeholder[style*="transform"] {
+  background: rgba(0, 120, 240, 0.2) !important;
+  border: 2px dashed #0078f0 !important;
+  opacity: 0.7 !important;
+  border-radius: 4px !important;
+  transition: all 100ms ease !important;
+  z-index: 1000 !important;
+}
+
+/* Ensure placeholder shows correct visual size based on grid units */
+.dashboard-view-container .react-grid-item.react-grid-placeholder {
+  /* Grid calculations: 
+     - Row height: 20px
+     - Margin: 8px
+     - Grid granularity: 4
+     - So each grid unit = 20px + 8px = 28px
+  */
+  box-sizing: border-box !important;
+  position: absolute !important;
+  display: block !important;
+  background: rgba(0, 120, 240, 0.2) !important;
+  border: 2px dashed #0078f0 !important;
+  opacity: 0.7 !important;
+  border-radius: 4px !important;
+  transition: all 100ms ease !important;
+  z-index: 1000 !important;
+}
+
+/* Override any width/height constraints */
+.dashboard-view-container .react-grid-item.react-grid-placeholder,
+.dashboard-view-container .react-grid-item.react-grid-placeholder[style] {
+  background: rgba(0, 120, 240, 0.2) !important;
+  border: 2px dashed #0078f0 !important;
+  opacity: 0.7 !important;
+  border-radius: 4px !important;
+  transition: all 100ms ease !important;
+  z-index: 1000 !important;
+}
+
+/* Custom grid layout placeholder styling */
+.custom-grid-layout .react-grid-item.react-grid-placeholder {
+  background: rgba(0, 120, 240, 0.2) !important;
+  border: 2px dashed #0078f0 !important;
+  opacity: 0.7 !important;
+  border-radius: 4px !important;
+  transition: all 100ms ease !important;
+  z-index: 1000 !important;
 }
 
 .react-resizable-handle {

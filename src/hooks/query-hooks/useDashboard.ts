@@ -4,7 +4,6 @@ import {
   getDashboardStructure, 
   getDashboards, 
   saveDashboard, 
-  getWidgetData, 
   saveDraft, 
   publishDraft,
   executeComponent
@@ -12,7 +11,6 @@ import {
 import type { 
   CreateDashboardRequest, 
   SaveDashboardRequest, 
-  WidgetDataRequest,
   ComponentExecuteRequest,
   ComponentExecuteResponse
 } from '@/lib/api/dashboard'
@@ -45,7 +43,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
  *   saveDraft,
  *   publishDraft,
  *   refreshTabData,
- *   getWidgetData,
  * } = useDashboard(dashboardId);
  * ```
  */
@@ -113,67 +110,6 @@ export function useSaveDashboard() {
   })
 }
 
-// Widget Data Hook with better caching
-export function useWidgetData(params: WidgetDataRequest) {
-  return useQuery({
-    queryKey: ['widget-data', params.dashboardId, params.componentId, params.tabId, params.filter],
-    queryFn: () => getWidgetData(params),
-    enabled: !!params.dashboardId && !!params.componentId && !!params.tabId,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 3 * 60 * 1000, // 3 minutes
-  })
-}
-
-// Batch widget data fetching for a tab
-export function useTabWidgetData(
-  dashboardId: string, 
-  tabId: string, 
-  widgets: Array<{ refId: string; outputType: string; output: string }>
-) {
-  return useQuery({
-    queryKey: ['tab-widget-data', dashboardId, tabId, widgets.map(w => w.refId).join(',')],
-    queryFn: async () => {
-      const widgetDataPromises = widgets.map(async (widget) => {
-        try {
-          // Fetch widget data using the getWidgetData API
-          const widgetData = await getWidgetData({
-            dashboardId,
-            componentId: widget.refId,
-            tabId,
-            filter: {} // Default filter, can be enhanced later
-          });
-          
-          return { componentId: widget.refId, data: widgetData, success: true };
-        } catch (error) {
-          console.error(`Failed to fetch data for widget ${widget.refId}:`, error);
-          return { componentId: widget.refId, data: null, success: false, error };
-        }
-      });
-
-      const results = await Promise.allSettled(widgetDataPromises);
-      
-      const widgetData: Record<string, any> = {};
-      let successCount = 0;
-      let errorCount = 0;
-
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value.success && result.value.data) {
-          widgetData[result.value.componentId] = result.value.data;
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      });
-
-      console.log(`Tab widget data loaded: ${successCount} success, ${errorCount} errors`);
-      return widgetData;
-    },
-    enabled: !!dashboardId && !!tabId && widgets.length > 0,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
-  })
-}
-
 // Save Draft Hook
 export function useSaveDraft() {
   const queryClient = useQueryClient()
@@ -228,86 +164,6 @@ export function useExecuteComponent() {
   })
 }
 
-// Refresh specific widget data
-export function useRefreshWidgetData() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({ dashboardId, componentId, tabId, filter }: WidgetDataRequest) => {
-      return getWidgetData({ dashboardId, componentId, tabId, filter })
-    },
-    onSuccess: (data, variables) => {
-      // Update the specific widget data in cache
-      queryClient.setQueryData(
-        ['widget-data', variables.dashboardId, variables.componentId, variables.tabId, variables.filter],
-        data
-      )
-      // Also invalidate the tab widget data to refresh the entire tab
-      queryClient.invalidateQueries({ 
-        queryKey: ['tab-widget-data', variables.dashboardId, variables.tabId] 
-      })
-    },
-    onError: (error) => {
-      console.error('Failed to refresh widget data:', error)
-    }
-  })
-}
-
-// Refresh tab widget data
-export function useRefreshTabWidgetData() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({ 
-      dashboardId, 
-      tabId, 
-      widgets 
-    }: { 
-      dashboardId: string; 
-      tabId: string; 
-      widgets: Array<{ refId: string; outputType: string; output: string }> 
-    }) => {
-      const widgetDataPromises = widgets.map(async (widget) => {
-        try {
-          // Fetch widget data using the getWidgetData API
-          const widgetData = await getWidgetData({
-            dashboardId,
-            componentId: widget.refId,
-            tabId,
-            filter: {} // Default filter, can be enhanced later
-          });
-          
-          return { componentId: widget.refId, data: widgetData, success: true };
-        } catch (error) {
-          console.error(`Failed to fetch data for widget ${widget.refId}:`, error);
-          return { componentId: widget.refId, data: null, success: false, error };
-        }
-      });
-
-      const results = await Promise.allSettled(widgetDataPromises);
-      
-      const widgetData: Record<string, any> = {};
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value.success && result.value.data) {
-          widgetData[result.value.componentId] = result.value.data;
-        }
-      });
-
-      return widgetData;
-    },
-    onSuccess: (data, variables) => {
-      // Update the tab widget data in cache
-      queryClient.setQueryData(
-        ['tab-widget-data', variables.dashboardId, variables.tabId, variables.widgets.map(w => w.refId).join(',')],
-        data
-      )
-    },
-    onError: (error) => {
-      console.error('Failed to refresh tab widget data:', error)
-    }
-  })
-}
-
 // Comprehensive Dashboard Hook using React Query
 export function useDashboard(dashboardId?: string) {
   const [currentTabId, setCurrentTabId] = useState<string | null>(null)
@@ -337,26 +193,9 @@ export function useDashboard(dashboardId?: string) {
     }
   }, [structure, currentTabId, isEditing])
 
-  // Fetch tab widget data
-  const {
-    data: tabWidgetData,
-    isLoading: widgetDataLoading,
-    error: widgetDataError,
-    refetch: refetchTabWidgetData
-  } = useTabWidgetData(
-    dashboardId || '',
-    currentTabId || '',
-    currentTab?.widgets?.map(widget => ({
-      refId: widget.refId,
-      outputType: widget.outputType,
-      output: widget.output || ''
-    })) || []
-  )
-
   // Mutations
   const saveDraftMutation = useSaveDraft()
   const publishDraftMutation = usePublishDraft()
-  const refreshTabWidgetDataMutation = useRefreshTabWidgetData()
 
   // Set initial tab when structure loads
   const initializeTab = useCallback(() => {
@@ -391,7 +230,7 @@ export function useDashboard(dashboardId?: string) {
     setLoadedTabs(prev => new Set([...prev, tabId]))
   }, [])
 
-  // Switch to draft version (edit mode)
+  // Switch to draft version
   const switchToDraft = useCallback(() => {
     if (!structure?.draftVersion) {
       console.warn('No draft version available')
@@ -405,7 +244,7 @@ export function useDashboard(dashboardId?: string) {
     }
   }, [structure])
 
-  // Switch to published version (view mode)
+  // Switch to published version
   const switchToPublished = useCallback(() => {
     if (!structure?.publishedVersion) {
       console.warn('No published version available')
@@ -416,25 +255,6 @@ export function useDashboard(dashboardId?: string) {
     // Reset current tab to first tab of published version
     if (structure.publishedVersion.tabs[0]) {
       setCurrentTabId(structure.publishedVersion.tabs[0].id)
-    }
-  }, [structure])
-
-  // Set editing mode
-  const setIsEditingMode = useCallback((editing: boolean) => {
-    setIsEditing(editing)
-    if (editing) {
-      // Switching to edit mode - show draft version
-      if (structure?.draftVersion?.tabs[0]) {
-        setCurrentTabId(structure.draftVersion.tabs[0].id)
-        setCurrentVersion('draft')
-      }
-    } else {
-      // Switching to view mode - show published version if it exists
-      const activeVersion = structure?.publishedVersion || structure?.draftVersion
-      if (activeVersion?.tabs[0]) {
-        setCurrentTabId(activeVersion.tabs[0].id)
-        setCurrentVersion(structure?.publishedVersion ? 'published' : 'draft')
-      }
     }
   }, [structure])
 
@@ -450,35 +270,15 @@ export function useDashboard(dashboardId?: string) {
     return publishDraftMutation.mutateAsync(dashboardId)
   }, [dashboardId, publishDraftMutation])
 
-  // Refresh tab data
-  const refreshTabData = useCallback(async (tabId: string) => {
-    if (!dashboardId || !currentTab) return
-    
-    return refreshTabWidgetDataMutation.mutateAsync({
-      dashboardId,
-      tabId,
-      widgets: currentTab.widgets.map(widget => ({
-        refId: widget.refId,
-        outputType: widget.outputType,
-        output: widget.output || ''
-      }))
-    })
-  }, [dashboardId, currentTab, refreshTabWidgetDataMutation])
-
-  // Get widget data by component ID
-  const getWidgetData = useCallback((componentId: string) => {
-    return tabWidgetData?.[componentId] || null
-  }, [tabWidgetData])
-
-  // Current tab widgets with data
+  // Current tab widgets
   const currentTabWidgets = useMemo(() => {
     if (!currentTab) return []
     
     return currentTab.widgets.map(widget => ({
       ...widget,
-      data: tabWidgetData?.[widget.refId] || null
+      data: null // Widget data is no longer fetched via API
     }))
-  }, [currentTab, tabWidgetData])
+  }, [currentTab])
 
   // Determine permissions based on structure
   const canEdit = useMemo(() => {
@@ -506,10 +306,9 @@ export function useDashboard(dashboardId?: string) {
     currentTabId,
     currentTabWidgets,
     loading: {
-      structure: structureLoading,
-      widgetData: widgetDataLoading
+      structure: structureLoading
     },
-    error: structureError || widgetDataError,
+    error: structureError,
     loadedTabs,
     isEditing,
     currentVersion,
@@ -518,19 +317,15 @@ export function useDashboard(dashboardId?: string) {
 
     // Actions
     switchTab,
-    setIsEditing: setIsEditingMode,
+    setIsEditing,
     switchToDraft,
     switchToPublished,
     saveDraft,
     publishDraft,
-    refreshTabData,
-    getWidgetData,
     refetchStructure,
-    refetchTabWidgetData,
 
     // Mutation states
     isSavingDraft: saveDraftMutation.isPending,
     isPublishing: publishDraftMutation.isPending,
-    isRefreshingTab: refreshTabWidgetDataMutation.isPending,
   }
 } 

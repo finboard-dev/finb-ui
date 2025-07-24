@@ -112,9 +112,37 @@ export const getComponentMetrics = async (
       message: 'Unexpected response format',
       data: []
     };
-  } catch (error) {
+  } catch (error: any) {
+    // Handle cancellation errors specifically
+    if (error?.code === 'ERR_CANCELED' || error?.message === 'canceled' || error?.message?.includes('canceled')) {
+      console.log('Component metrics request was canceled - this is normal behavior');
+      throw error; // Re-throw the canceled error as-is
+    }
+    
+    // Handle network errors
+    if (error?.message?.includes('Network Error') || error?.code === 'NETWORK_ERROR') {
+      console.error('Network error fetching component metrics:', error);
+      throw new Error('Network error: Unable to connect to the server');
+    }
+    
+    // Handle HTTP errors
+    if (error?.response?.status) {
+      const status = error.response.status;
+      if (status === 401) {
+        throw new Error('Unauthorized: Please log in again');
+      } else if (status === 403) {
+        throw new Error('Forbidden: You do not have permission to access this resource');
+      } else if (status === 404) {
+        throw new Error('Not found: The requested resource was not found');
+      } else if (status >= 500) {
+        throw new Error('Server error: Please try again later');
+      } else {
+        throw new Error(`HTTP error ${status}: ${error.response.data?.message || 'Unknown error'}`);
+      }
+    }
+    
     console.error('Error fetching component metrics:', error);
-    throw error;
+    throw new Error('Failed to fetch component metrics');
   }
 };
 
