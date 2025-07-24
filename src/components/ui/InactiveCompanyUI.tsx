@@ -1,54 +1,39 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AlertCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
-import Navbar from "@/components/ui/common/navbar";
-import { Sidebar } from "@/components/ui/common/sidebar";
-import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
-import {
-  selectIsComponentOpen,
-  toggleComponent,
-} from "@/lib/store/slices/uiSlice";
-import {
-  setCompanies,
-  setSelectedCompany,
-  setUserData,
-  selectCompanies,
-} from "@/lib/store/slices/userSlice";
-import connectToQuickbooksButton from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_default.svg";
-import connectToQuickBooksHover from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_hover.svg";
-import Image from "next/image";
-import { initAddQuickBookAccount } from "@/lib/api/intuitService";
-import { toast } from "sonner";
-import { CompanyModal } from "./common/CompanyModal";
-import { useAllCompanies } from "@/hooks/query-hooks/useCompany";
-import { Shimmer } from "@/app/chat/components/chat/ui/shimmer/Shimmer";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Navbar from '@/components/ui/common/navbar';
+import { Sidebar } from '@/components/ui/common/sidebar';
+import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
+import { selectIsComponentOpen, toggleComponent } from '@/lib/store/slices/uiSlice';
+import { setCompanies, setSelectedCompany, setUserData, selectCompanies } from '@/lib/store/slices/userSlice';
+import connectToQuickbooksButton from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_default.svg';
+import connectToQuickBooksHover from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_tall_hover.svg';
+import Image from 'next/image';
+import { initAddQuickBookAccount } from '@/lib/api/intuitService';
+import { toast } from 'sonner';
+import { CompanyModal } from './common/CompanyModal';
+import { useAllCompanies } from '@/hooks/query-hooks/useCompany';
+import { Shimmer } from '@/app/chat/components/chat/ui/shimmer/Shimmer';
 
 interface InactiveCompanyUIProps {
   className?: string;
   title?: string;
 }
 
-const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
-  className = "",
-  title = "Session Expired",
-}) => {
+const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', title = 'Session Expired' }) => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [isConnecting, setIsConnecting] = useState(false);
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, "sidebar-chat")
-  );
+  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
   const isSidebarCollapsed = !isSidebarOpen;
 
   // Get user data from Redux
   const user = useAppSelector((state) => state.user.user);
-  const selectedOrganization = useAppSelector(
-    (state) => state.user.selectedOrganization
-  );
+  const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const companies = useAppSelector(selectCompanies);
 
   // Fetch companies using React Query
@@ -62,13 +47,11 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
   // Update Redux state when companies data is fetched
   useEffect(() => {
     if (companiesData && !isLoadingCompanies) {
-      const mappedCompanies = (companiesData?.data || companiesData || []).map(
-        (company: any) => ({
-          ...company,
-          name: company.companyName,
-          status: company.isActive ? "ACTIVE" : "INACTIVE",
-        })
-      );
+      const mappedCompanies = (companiesData?.data || companiesData || []).map((company: any) => ({
+        ...company,
+        name: company.companyName,
+        status: company.isActive ? 'ACTIVE' : 'INACTIVE',
+      }));
       dispatch(setCompanies(mappedCompanies));
     }
   }, [companiesData, isLoadingCompanies, dispatch]);
@@ -85,9 +68,7 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
           {/* Navbar */}
           <Navbar
             title={title}
-            collpaseSidebar={() =>
-              dispatch(toggleComponent({ id: "sidebar-chat" }))
-            }
+            collpaseSidebar={() => dispatch(toggleComponent({ id: 'sidebar-chat' }))}
             isCollapsed={isSidebarCollapsed}
           />
 
@@ -138,29 +119,18 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
           {/* Navbar */}
           <Navbar
             title={title}
-            collpaseSidebar={() =>
-              dispatch(toggleComponent({ id: "sidebar-chat" }))
-            }
+            collpaseSidebar={() => dispatch(toggleComponent({ id: 'sidebar-chat' }))}
             isCollapsed={isSidebarCollapsed}
           />
 
           {/* Error Content */}
-          <div
-            className={`flex-1 flex items-center justify-center ${className}`}
-          >
+          <div className={`flex-1 flex items-center justify-center ${className}`}>
             <Card className="w-full max-w-md">
               <CardContent className="p-6 text-center">
                 <AlertCircle className="h-8 w-8 mx-auto mb-4 text-red-600" />
-                <h2 className="text-xl font-semibold mb-2 text-gray-900">
-                  Error Loading Companies
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Failed to load company data. Please try again.
-                </p>
-                <Button
-                  onClick={() => refetchCompanies()}
-                  className="bg-gray-900 hover:bg-gray-800"
-                >
+                <h2 className="text-xl font-semibold mb-2 text-gray-900">Error Loading Companies</h2>
+                <p className="text-gray-600 mb-4">Failed to load company data. Please try again.</p>
+                <Button onClick={() => refetchCompanies()} className="bg-gray-900 text-white hover:bg-gray-800">
                   Retry
                 </Button>
               </CardContent>
@@ -174,28 +144,28 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
   const handleConnectToCompany = async () => {
     try {
       setIsConnecting(true);
-      console.log("Starting QuickBooks connection...");
+      console.log('Starting QuickBooks connection...');
 
       const redirectUrl = await initAddQuickBookAccount();
-      console.log("QuickBooks connection result:", redirectUrl);
+      console.log('QuickBooks connection result:', redirectUrl);
 
       if (redirectUrl) {
-        console.log("Redirecting to:", redirectUrl);
+        console.log('Redirecting to:', redirectUrl);
         window.location.href = redirectUrl;
       } else {
-        console.error("No redirect URL provided");
-        toast.error("Failed to get QuickBooks connection URL");
+        console.error('No redirect URL provided');
+        toast.error('Failed to get QuickBooks connection URL');
       }
     } catch (error) {
-      console.error("Error connecting to QuickBooks:", error);
-      toast.error("Failed to connect to QuickBooks");
+      console.error('Error connecting to QuickBooks:', error);
+      toast.error('Failed to connect to QuickBooks');
     } finally {
       setIsConnecting(false);
     }
   };
 
   const toggleSidebar = () => {
-    dispatch(toggleComponent({ id: "sidebar-chat" }));
+    dispatch(toggleComponent({ id: 'sidebar-chat' }));
   };
 
   return (
@@ -218,12 +188,8 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
               <AlertCircle className="h-8 w-8 mx-auto mb-4 text-gray-600" />
-              <h2 className="text-xl font-semibold mb-2 text-gray-900">
-                Session Expired!
-              </h2>
-              <p className="text-gray-600 mb-4">
-                Please reconnect your company to resume.
-              </p>
+              <h2 className="text-xl font-semibold mb-2 text-gray-900">Session Expired!</h2>
+              <p className="text-gray-600 mb-4">Please reconnect your company to resume.</p>
               <div className="flex justify-center">
                 <button
                   onClick={handleConnectToCompany}

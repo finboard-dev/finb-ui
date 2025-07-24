@@ -243,7 +243,54 @@ const userSlice = createSlice({
     },
 
     setCompanies: (state, action: PayloadAction<Company[]>) => {
-      state.companies = action.payload;
+      // Prevent duplicates by using a Map with company ID as key
+      // This ensures that if the same company is added multiple times,
+      // only the latest version is kept in the array
+      const companiesMap = new Map();
+      
+      // First, add existing companies to the map
+      if (state.companies) {
+        state.companies.forEach(company => {
+          if (company.id) {
+            companiesMap.set(company.id, company);
+          }
+        });
+      }
+      
+      // Then add new companies, overwriting duplicates
+      action.payload.forEach(company => {
+        if (company.id) {
+          companiesMap.set(company.id, company);
+        }
+      });
+      
+      // Convert back to array
+      state.companies = Array.from(companiesMap.values());
+    },
+
+    /**
+     * Adds a single company to the companies array, preventing duplicates
+     * If the company already exists (based on ID), it will be updated
+     * If it's a new company, it will be added to the array
+     */
+    addCompany: (state, action: PayloadAction<Company>) => {
+      if (!action.payload || !action.payload.id) {
+        console.error("Invalid company provided to addCompany");
+        return;
+      }
+
+      // Check if company already exists
+      const existingCompanyIndex = state.companies.findIndex(
+        company => company.id === action.payload.id
+      );
+
+      if (existingCompanyIndex !== -1) {
+        // Update existing company
+        state.companies[existingCompanyIndex] = action.payload;
+      } else {
+        // Add new company
+        state.companies.push(action.payload);
+      }
     },
   },
 });
@@ -256,6 +303,7 @@ export const {
   setSelectedCompany,
   clearUserData,
   setCompanies,
+  addCompany,
 } = userSlice.actions;
 
 export const selectedCompanyId = (state: { user: UserState }) =>
@@ -290,6 +338,15 @@ export const selectUserPermissions = (state: { user: UserState }) =>
 
 export const selectCompanies = (state: { user: UserState }) =>
   state.user?.companies || [];
+
+/**
+ * Utility function to safely add a company to the Redux store
+ * This function can be used from anywhere in the application to add a company
+ * while preventing duplicates
+ */
+export const addCompanySafely = (company: Company) => {
+  return addCompany(company);
+};
 
 export type {
   User,

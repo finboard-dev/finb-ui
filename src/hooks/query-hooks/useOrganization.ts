@@ -1,99 +1,31 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  getOrganizationConnections, 
-  addConnection, 
-  disconnectConnection 
-} from '@/lib/api/settings'
-import { 
-  getOrganizationCompanies, 
-  getOrganizationUsers, 
-  addOrganizationUser, 
-  updateOrganizationUser, 
-  deleteOrganizationUser 
-} from '@/lib/api/roles&Permissions'
+import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
-// Settings/Connections hooks
-export function useOrganizationConnections() {
-  return useQuery({
-    queryKey: ['organization', 'connections'],
-    queryFn: getOrganizationConnections,
-    retry: 1,
-  })
+interface CreateOrganizationParams {
+  businessName: string;
 }
 
-export function useAddConnection() {
-  const queryClient = useQueryClient()
-  
+export const useCreateOrganization = () => {
+  const router = useRouter();
+
   return useMutation({
-    mutationFn: addConnection,
-    onSuccess: () => {
-      // Invalidate and refetch connections
-      queryClient.invalidateQueries({ queryKey: ['organization', 'connections'] })
+    mutationFn: async (params: CreateOrganizationParams) => {
+      // Log the business name as requested
+      console.log('Business Name (DBA):', params.businessName);
+      
+      // Here you would typically make an API call to create the organization
+      // For now, we'll just simulate the API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return { success: true, businessName: params.businessName };
     },
-  })
-}
-
-export function useDisconnectConnection() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: disconnectConnection,
     onSuccess: () => {
-      // Invalidate and refetch connections
-      queryClient.invalidateQueries({ queryKey: ['organization', 'connections'] })
+      // Redirect to company selection page
+      router.push('/company-selection');
     },
-  })
-}
-
-// Roles & Permissions hooks
-export function useOrganizationCompanies() {
-  return useQuery({
-    queryKey: ['organization', 'companies'],
-    queryFn: getOrganizationCompanies,
-    retry: 1,
-  })
-}
-
-export function useOrganizationUsers() {
-  return useQuery({
-    queryKey: ['organization', 'users'],
-    queryFn: getOrganizationUsers,
-    retry: 1,
-  })
-}
-
-export function useAddOrganizationUser() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: addOrganizationUser,
-    onSuccess: () => {
-      // Invalidate and refetch users
-      queryClient.invalidateQueries({ queryKey: ['organization', 'users'] })
+    onError: (error: any) => {
+      console.error('Failed to create organization:', error);
+      throw error;
     },
-  })
-}
-
-export function useUpdateOrganizationUser() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: updateOrganizationUser,
-    onSuccess: () => {
-      // Invalidate and refetch users
-      queryClient.invalidateQueries({ queryKey: ['organization', 'users'] })
-    },
-  })
-}
-
-export function useDeleteOrganizationUser() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: deleteOrganizationUser,
-    onSuccess: () => {
-      // Invalidate and refetch users
-      queryClient.invalidateQueries({ queryKey: ['organization', 'users'] })
-    },
-  })
-} 
+  });
+}; 
