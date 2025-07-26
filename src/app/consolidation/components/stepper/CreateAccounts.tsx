@@ -1,40 +1,19 @@
-"use client";
-import React, {
-  useEffect,
-  useState,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-  useMemo,
-} from "react";
-import { Plus, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+'use client';
+import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
+import { Plus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   type Account,
   ACCOUNT_COLUMNS,
   type Mapping,
   REPORT_TYPE_COLUMNS,
   REPORT_TYPES,
-} from "../../types/consolidationUiMapping";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  useMappingForAccountByType,
-  useSaveMappings,
-} from "@/hooks/query-hooks/useConsolidationApi";
+} from '../../types/consolidationUiMapping';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMappingForAccountByType, useSaveMappings } from '@/hooks/query-hooks/useConsolidationApi';
 
 // Import SortableTree components from the test page
 import {
@@ -55,15 +34,10 @@ import {
   Modifier,
   defaultDropAnimation,
   UniqueIdentifier,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { createPortal } from "react-dom";
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { createPortal } from 'react-dom';
 
 // Types for SortableTree
 interface TreeItem {
@@ -123,15 +97,24 @@ function getProjection(
   const minDepth = getMinDepth({ nextItem });
   let depth = projectedDepth;
 
-  // Ensure depth doesn't exceed 4 levels
-  if (projectedDepth >= maxDepth) {
-    depth = maxDepth;
-  } else if (projectedDepth < minDepth) {
-    depth = minDepth;
+  // Apply depth restrictions based on drag direction
+  if (dragOffset >= 0) {
+    // Right dragging - apply restrictions
+    if (projectedDepth >= maxDepth) {
+      depth = maxDepth;
+    } else if (projectedDepth < minDepth) {
+      depth = minDepth;
+    } else {
+      depth = projectedDepth;
+    }
+    // Additional check to ensure we never exceed 4 levels
+    depth = Math.min(depth, 4);
+  } else {
+    // Left dragging - allow any depth, no restrictions
+    depth = projectedDepth;
+    // Only ensure depth doesn't go negative
+    depth = Math.max(depth, 0);
   }
-
-  // Additional check to ensure we never exceed 4 levels
-  depth = Math.min(depth, 4);
 
   return { depth, maxDepth, minDepth, parentId: getParentId() };
 
@@ -148,18 +131,25 @@ function getProjection(
       return previousItem.id;
     }
 
-    const newParent = newItems
-      .slice(0, overItemIndex)
-      .reverse()
-      .find((item) => item.depth === depth)?.parentId;
+    // For moving to shallower depth, find the appropriate parent
+    // Look backwards through the items to find the correct parent at the target depth
+    for (let i = overItemIndex - 1; i >= 0; i--) {
+      const item = newItems[i];
+      if (item.depth === depth - 1) {
+        return item.id;
+      }
+      if (item.depth < depth - 1) {
+        break;
+      }
+    }
 
-    return newParent ?? null;
+    return null;
   }
 }
 
 function getMaxDepth({ previousItem }: { previousItem: FlattenedItem }) {
   if (previousItem) {
-    // Limit nesting to 4 levels maximum
+    // Limit nesting to 4 levels maximum for right dragging
     return Math.min(previousItem.depth + 1, 4);
   }
   return 0;
@@ -172,17 +162,9 @@ function getMinDepth({ nextItem }: { nextItem: FlattenedItem }) {
   return 0;
 }
 
-function flatten(
-  items: TreeItems,
-  parentId: UniqueIdentifier | null = null,
-  depth = 0
-): FlattenedItem[] {
+function flatten(items: TreeItems, parentId: UniqueIdentifier | null = null, depth = 0): FlattenedItem[] {
   return items.reduce<FlattenedItem[]>((acc, item, index) => {
-    return [
-      ...acc,
-      { ...item, parentId, depth, index },
-      ...flatten(item.children, item.id, depth + 1),
-    ];
+    return [...acc, { ...item, parentId, depth, index }, ...flatten(item.children, item.id, depth + 1)];
   }, []);
 }
 
@@ -191,7 +173,7 @@ function flattenTree(items: TreeItems): FlattenedItem[] {
 }
 
 function buildTree(flattenedItems: FlattenedItem[]): TreeItems {
-  const root: TreeItem = { id: "root", children: [] };
+  const root: TreeItem = { id: 'root', children: [] };
   const nodes: Record<string, TreeItem> = { [root.id]: root };
   const items = flattenedItems.map((item) => ({ ...item, children: [] }));
 
@@ -211,10 +193,7 @@ function findItem(items: TreeItem[], itemId: UniqueIdentifier) {
   return items.find(({ id }) => id === itemId);
 }
 
-function findItemDeep(
-  items: TreeItems,
-  itemId: UniqueIdentifier
-): TreeItem | undefined {
+function findItemDeep(items: TreeItems, itemId: UniqueIdentifier): TreeItem | undefined {
   for (const item of items) {
     const { id, children } = item;
 
@@ -306,27 +285,14 @@ function removeChildrenOf(items: FlattenedItem[], ids: UniqueIdentifier[]) {
 }
 
 // Keyboard coordinates
-const sortableTreeKeyboardCoordinates: (
-  context: SensorContext,
-  indicator: boolean,
-  indentationWidth: number
-) => any =
+const sortableTreeKeyboardCoordinates: (context: SensorContext, indicator: boolean, indentationWidth: number) => any =
   (context, indicator, indentationWidth) =>
   (
     event: any,
-    {
-      currentCoordinates,
-      context: {
-        active,
-        over,
-        collisionRect,
-        droppableRects,
-        droppableContainers,
-      },
-    }: any
+    { currentCoordinates, context: { active, over, collisionRect, droppableRects, droppableContainers } }: any
   ) => {
-    const directions = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"];
-    const horizontal = ["ArrowLeft", "ArrowRight"];
+    const directions = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'];
+    const horizontal = ['ArrowLeft', 'ArrowRight'];
 
     if (directions.includes(event.code)) {
       if (!active || !collisionRect) {
@@ -340,16 +306,10 @@ const sortableTreeKeyboardCoordinates: (
       } = context;
 
       if (horizontal.includes(event.code) && over?.id) {
-        const { depth, maxDepth, minDepth } = getProjection(
-          items,
-          active.id,
-          over.id,
-          offset,
-          indentationWidth
-        );
+        const { depth, maxDepth, minDepth } = getProjection(items, active.id, over.id, offset, indentationWidth);
 
         switch (event.code) {
-          case "ArrowLeft":
+          case 'ArrowLeft':
             if (depth > minDepth) {
               return {
                 ...currentCoordinates,
@@ -357,7 +317,7 @@ const sortableTreeKeyboardCoordinates: (
               };
             }
             break;
-          case "ArrowRight":
+          case 'ArrowRight':
             if (depth < maxDepth) {
               return {
                 ...currentCoordinates,
@@ -384,12 +344,12 @@ const sortableTreeKeyboardCoordinates: (
         }
 
         switch (event.code) {
-          case "ArrowDown":
+          case 'ArrowDown':
             if (collisionRect.top < rect.top) {
               containers.push(container);
             }
             break;
-          case "ArrowUp":
+          case 'ArrowUp':
             if (collisionRect.top > rect.top) {
               containers.push(container);
             }
@@ -427,9 +387,7 @@ const sortableTreeKeyboardCoordinates: (
             );
             const isBelow = newIndex > activeIndex;
             const modifier = isBelow ? 1 : -1;
-            const offset = indicator
-              ? (collisionRect.height - activeRect.height) / 2
-              : 0;
+            const offset = indicator ? (collisionRect.height - activeRect.height) / 2 : 0;
 
             const newCoordinates = {
               x: newRect.left + depth * indentationWidth,
@@ -446,8 +404,7 @@ const sortableTreeKeyboardCoordinates: (
   };
 
 // Tree Item Component
-interface TreeItemProps
-  extends Omit<React.HTMLAttributes<HTMLLIElement>, "id"> {
+interface TreeItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>, 'id'> {
   childCount?: number;
   clone?: boolean;
   collapsed?: boolean;
@@ -496,7 +453,7 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
     },
     ref
   ) => {
-    const [editValue, setEditValue] = React.useState(title || "New Account");
+    const [editValue, setEditValue] = React.useState(title || 'New Account');
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -513,12 +470,12 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
     };
 
     const handleEditKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         handleEditSubmit();
-      } else if (e.key === "Escape") {
-        setEditValue(title || "New Account");
+      } else if (e.key === 'Escape') {
+        setEditValue(title || 'New Account');
         if (onTitleChange) {
-          onTitleChange(title || "New Account");
+          onTitleChange(title || 'New Account');
         }
       }
     };
@@ -526,34 +483,28 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
     return (
       <li
         className={`list-none box-border pl-[calc(var(--spacing))] mb-[-1px] ${
-          clone ? "inline-block pointer-events-none p-0 pl-[10px] pt-[5px]" : ""
-        } ${
-          ghost
-            ? indicator
-              ? "opacity-100 relative z-[1] mb-[-1px]"
-              : "opacity-50"
-            : ""
-        } ${disableSelection ? "select-none" : ""} ${
-          disableInteraction ? "pointer-events-none" : ""
-        }`}
+          clone ? 'inline-block pointer-events-none p-0 pl-[10px] pt-[5px]' : ''
+        } ${ghost ? (indicator ? 'opacity-100 relative z-[1] mb-[-1px]' : 'opacity-50') : ''} ${
+          disableSelection ? 'select-none' : ''
+        } ${disableInteraction ? 'pointer-events-none' : ''}`}
         ref={wrapperRef}
         style={
           {
-            "--spacing": `${indentationWidth * depth}px`,
+            '--spacing': `${indentationWidth * depth}px`,
           } as React.CSSProperties
         }
         {...props}
       >
         <div
           className={`group relative flex items-center p-[var(--vertical-padding,6px)] pr-[8px] bg-white border border-[#dedede] text-[#222] box-border text-sm ${
-            clone
-              ? "pr-[20px] rounded-[4px] shadow-[0px_15px_15px_0_rgba(34,33,81,0.1)]"
-              : ""
+            clone ? 'pr-[20px] rounded-[4px] shadow-[0px_15px_15px_0_rgba(34,33,81,0.1)]' : ''
           } ${
             ghost && indicator
               ? 'relative p-0 h-[6px] border-[#2389ff] bg-[#56a1f8] before:absolute before:left-[-6px] before:top-[-3px] before:block before:content-[""] before:w-[10px] before:h-[10px] before:rounded-full before:border before:border-[#2389ff] before:bg-white'
-              : ""
-          } ${!clone && onEdit ? "cursor-pointer hover:bg-gray-50" : ""}`}
+              : ghost && !indicator
+              ? 'opacity-50 bg-gray-100 border-dashed border-gray-300'
+              : ''
+          } ${!clone && onEdit ? 'cursor-pointer hover:bg-gray-50' : ''}`}
           ref={ref}
           style={style}
           onClick={!clone && onEdit ? onEdit : undefined}
@@ -578,20 +529,16 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
                       onCollapse();
                     }}
                     className={`transition-transform duration-[250ms] ease-in-out ${
-                      collapsed ? "rotate-[-90deg]" : ""
+                      collapsed ? 'rotate-[-90deg]' : ''
                     }`}
                   >
-                    <svg
-                      width="10"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 70 41"
-                    >
+                    <svg width="10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 41">
                       <path d="M30.76 39.2402C31.885 40.3638 33.41 40.995 35 40.995C36.59 40.995 38.115 40.3638 39.24 39.2402L68.24 10.2402C69.2998 9.10284 69.8768 7.59846 69.8494 6.04406C69.822 4.48965 69.1923 3.00657 68.093 1.90726C66.9937 0.807959 65.5106 0.178263 63.9562 0.150837C62.4018 0.123411 60.8974 0.700397 59.76 1.76024L35 26.5102L10.24 1.76024C9.10259 0.700397 7.59822 0.123411 6.04381 0.150837C4.4894 0.178263 3.00632 0.807959 1.90702 1.90726C0.807714 3.00657 0.178019 4.48965 0.150593 6.04406C0.123167 7.59846 0.700153 9.10284 1.75999 10.2402L30.76 39.2402Z" />
                     </svg>
                   </Action>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{collapsed ? "Expand" : "Collapse"}</p>
+                  <p>{collapsed ? 'Expand' : 'Collapse'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -665,7 +612,7 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
   }
 );
 
-TreeItem.displayName = "TreeItem";
+TreeItem.displayName = 'TreeItem';
 
 // Action Component
 interface ActionProps extends React.HTMLAttributes<HTMLButtonElement> {
@@ -673,7 +620,7 @@ interface ActionProps extends React.HTMLAttributes<HTMLButtonElement> {
     fill: string;
     background: string;
   };
-  cursor?: React.CSSProperties["cursor"];
+  cursor?: React.CSSProperties['cursor'];
 }
 
 const Action = React.forwardRef<HTMLButtonElement, ActionProps>(
@@ -688,8 +635,8 @@ const Action = React.forwardRef<HTMLButtonElement, ActionProps>(
           {
             ...style,
             cursor,
-            "--fill": active?.fill,
-            "--background": active?.background,
+            '--fill': active?.fill,
+            '--background': active?.background,
           } as React.CSSProperties
         }
       >
@@ -699,32 +646,25 @@ const Action = React.forwardRef<HTMLButtonElement, ActionProps>(
   }
 );
 
-Action.displayName = "Action";
+Action.displayName = 'Action';
 
 // Handle Component
-const Handle = React.forwardRef<HTMLButtonElement, ActionProps>(
-  (props, ref) => {
-    return (
-      <Action
-        ref={ref}
-        cursor="grab"
-        data-cypress="draggable-handle"
-        {...props}
+const Handle = React.forwardRef<HTMLButtonElement, ActionProps>((props, ref) => {
+  return (
+    <Action ref={ref} cursor="grab" data-cypress="draggable-handle" {...props}>
+      <svg
+        viewBox="0 0 20 20"
+        width="10"
+        height="10"
+        className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
       >
-        <svg
-          viewBox="0 0 20 20"
-          width="10"
-          height="10"
-          className="flex-none m-auto h-full overflow-visible fill-[#919eab] hover:fill-[#6f7b88]"
-        >
-          <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
-        </svg>
-      </Action>
-    );
-  }
-);
+        <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
+      </svg>
+    </Action>
+  );
+});
 
-Handle.displayName = "Handle";
+Handle.displayName = 'Handle';
 
 // Dustbin Component
 function Dustbin(props: ActionProps) {
@@ -732,8 +672,8 @@ function Dustbin(props: ActionProps) {
     <Action
       {...props}
       active={{
-        fill: "rgba(255, 70, 70, 0.95)",
-        background: "rgba(255, 70, 70, 0.1)",
+        fill: 'rgba(255, 70, 70, 0.95)',
+        background: 'rgba(255, 70, 70, 0.1)',
       }}
     >
       <svg
@@ -755,8 +695,8 @@ function Edit(props: ActionProps) {
     <Action
       {...props}
       active={{
-        fill: "rgba(59, 130, 246, 0.95)",
-        background: "rgba(59, 130, 246, 0.1)",
+        fill: 'rgba(59, 130, 246, 0.95)',
+        background: 'rgba(59, 130, 246, 0.1)',
       }}
     >
       <svg
@@ -778,8 +718,8 @@ function Add(props: ActionProps) {
     <Action
       {...props}
       active={{
-        fill: "rgba(34, 197, 94, 0.95)",
-        background: "rgba(34, 197, 94, 0.1)",
+        fill: 'rgba(34, 197, 94, 0.95)',
+        background: 'rgba(34, 197, 94, 0.1)',
       }}
     >
       <svg
@@ -800,78 +740,70 @@ interface SortableTreeItemProps extends TreeItemProps {
   id: UniqueIdentifier;
 }
 
-const SortableTreeItem = React.forwardRef<
-  HTMLDivElement,
-  SortableTreeItemProps
->(({ id, depth, ...props }, ref) => {
-  const {
-    attributes,
-    isDragging,
-    isSorting,
-    listeners,
-    setDraggableNodeRef,
-    setDroppableNodeRef,
-    transform,
-    transition,
-  } = useSortable({
-    id,
-    animateLayoutChanges: ({ isSorting, wasDragging }) =>
-      isSorting || wasDragging ? false : true,
-  });
+const SortableTreeItem = React.forwardRef<HTMLDivElement, SortableTreeItemProps>(
+  ({ id, depth, indicator, ghost, ...props }, ref) => {
+    const {
+      attributes,
+      isDragging,
+      isSorting,
+      listeners,
+      setDraggableNodeRef,
+      setDroppableNodeRef,
+      transform,
+      transition,
+    } = useSortable({
+      id,
+      animateLayoutChanges: ({ isSorting, wasDragging }) => (isSorting || wasDragging ? false : true),
+    });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
+    const style: React.CSSProperties = {
+      transform: CSS.Translate.toString(transform),
+      transition,
+    };
 
-  return (
-    <TreeItem
-      ref={setDraggableNodeRef}
-      wrapperRef={setDroppableNodeRef}
-      style={style}
-      depth={depth}
-      ghost={isDragging}
-      disableSelection={iOS}
-      disableInteraction={isSorting}
-      handleProps={{
-        ...attributes,
-        ...listeners,
-      }}
-      {...props}
-    />
-  );
-});
+    // Use the ghost prop passed from parent for placeholder display
+    const shouldShowGhost = ghost || (isDragging && indicator);
 
-SortableTreeItem.displayName = "SortableTreeItem";
+    return (
+      <TreeItem
+        ref={setDraggableNodeRef}
+        wrapperRef={setDroppableNodeRef}
+        style={style}
+        depth={depth}
+        ghost={shouldShowGhost}
+        disableSelection={iOS}
+        disableInteraction={isSorting}
+        handleProps={{
+          ...attributes,
+          ...listeners,
+        }}
+        indicator={indicator}
+        {...props}
+      />
+    );
+  }
+);
+
+SortableTreeItem.displayName = 'SortableTreeItem';
 
 // Data conversion utilities
-function convertAccountToTreeItem(
-  account: Account,
-  columnKey: string
-): TreeItem {
+function convertAccountToTreeItem(account: Account, columnKey: string): TreeItem {
   return {
     id: `${columnKey}-${account.account_id}`, // Make IDs unique per column
-    children: account.children.map((child) =>
-      convertAccountToTreeItem(child, columnKey)
-    ),
+    children: account.children.map((child) => convertAccountToTreeItem(child, columnKey)),
     // Store the title in a custom property for display
     title: account.title,
   } as TreeItem & { title: string };
 }
 
-function convertTreeItemToAccount(
-  treeItem: TreeItem & { title?: string },
-  columnKey: string
-): Account {
+function convertTreeItemToAccount(treeItem: TreeItem & { title?: string }, columnKey: string): Account {
   // Extract the original account_id from the column-prefixed ID
-  const accountId = treeItem.id.toString().replace(`${columnKey}-`, "");
+  const accountId = treeItem.id.toString().replace(`${columnKey}-`, '');
   return {
     account_id: accountId,
     realm_id: null,
     title: treeItem.title || accountId,
-    children: treeItem.children.map((child) =>
-      convertTreeItemToAccount(child, columnKey)
-    ),
+    children: treeItem.children.map((child) => convertTreeItemToAccount(child, columnKey)),
     mapped_account: [],
   };
 }
@@ -976,31 +908,17 @@ function SortableTree({
 
   const flattenedItems = useMemo(() => {
     const flattenedTree = flattenTree(items);
-    const collapsedItems = flattenedTree.reduce<UniqueIdentifier[]>(
-      (acc, { children, collapsed, id }) => {
-        const shouldCollapse = collapsed === true && children.length > 0;
-        return shouldCollapse ? [...acc, id] : acc;
-      },
-      []
-    );
+    const collapsedItems = flattenedTree.reduce<UniqueIdentifier[]>((acc, { children, collapsed, id }) => {
+      const shouldCollapse = collapsed === true && children.length > 0;
+      return shouldCollapse ? [...acc, id] : acc;
+    }, []);
 
-    const result = removeChildrenOf(
-      flattenedTree,
-      activeId != null ? [activeId, ...collapsedItems] : collapsedItems
-    );
+    const result = removeChildrenOf(flattenedTree, activeId != null ? [activeId, ...collapsedItems] : collapsedItems);
     return result;
   }, [activeId, items]);
 
   const projected =
-    activeId && overId
-      ? getProjection(
-          flattenedItems,
-          activeId,
-          overId,
-          offsetLeft,
-          indentationWidth
-        )
-      : null;
+    activeId && overId ? getProjection(flattenedItems, activeId, overId, offsetLeft, indentationWidth) : null;
 
   const sensorContext: SensorContext = useRef({
     items: flattenedItems,
@@ -1018,14 +936,9 @@ function SortableTree({
     })
   );
 
-  const sortedIds = useMemo(
-    () => flattenedItems.map(({ id }: FlattenedItem) => id),
-    [flattenedItems]
-  );
+  const sortedIds = useMemo(() => flattenedItems.map(({ id }: FlattenedItem) => id), [flattenedItems]);
 
-  const activeItem = activeId
-    ? flattenedItems.find(({ id }: FlattenedItem) => id === activeId)
-    : null;
+  const activeItem = activeId ? flattenedItems.find(({ id }: FlattenedItem) => id === activeId) : null;
 
   useEffect(() => {
     sensorContext.current = {
@@ -1039,9 +952,7 @@ function SortableTree({
     // Only update if the items are actually different to prevent unnecessary updates
     // Compare structure and titles, but ignore editing state
     const compareItems = (items1: TreeItems, items2: TreeItems): boolean => {
-      const normalizeItems = (
-        items: TreeItems
-      ): Array<{ id: UniqueIdentifier; title?: string; children: any[] }> => {
+      const normalizeItems = (items: TreeItems): Array<{ id: UniqueIdentifier; title?: string; children: any[] }> => {
         return items.map((item) => ({
           id: item.id,
           title: item.title,
@@ -1050,10 +961,7 @@ function SortableTree({
         }));
       };
 
-      return (
-        JSON.stringify(normalizeItems(items1)) ===
-        JSON.stringify(normalizeItems(items2))
-      );
+      return JSON.stringify(normalizeItems(items1)) === JSON.stringify(normalizeItems(items2));
     };
 
     if (!compareItems(defaultItems, items)) {
@@ -1083,13 +991,13 @@ function SortableTree({
       return `Picked up ${active.id}.`;
     },
     onDragMove({ active, over }) {
-      return getMovementAnnouncement("onDragMove", active.id, over?.id);
+      return getMovementAnnouncement('onDragMove', active.id, over?.id);
     },
     onDragOver({ active, over }) {
-      return getMovementAnnouncement("onDragOver", active.id, over?.id);
+      return getMovementAnnouncement('onDragOver', active.id, over?.id);
     },
     onDragEnd({ active, over }) {
-      return getMovementAnnouncement("onDragEnd", active.id, over?.id);
+      return getMovementAnnouncement('onDragEnd', active.id, over?.id);
     },
     onDragCancel({ active }) {
       return `Moving was cancelled. ${active.id} was dropped in its original position.`;
@@ -1116,7 +1024,7 @@ function SortableTree({
         },
       ];
     },
-    easing: "ease-out",
+    easing: 'ease-out',
     sideEffects({ active }) {
       active.node.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: defaultDropAnimation.duration,
@@ -1139,59 +1047,52 @@ function SortableTree({
     >
       <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
         {flattenedItems.length === 0 ? (
-          <div className="text-center text-gray-500 py-4 text-sm">
-            No accounts yet. Click the + button to add one.
-          </div>
+          <div className="text-center text-gray-500 py-4 text-sm">No accounts yet. Click the + button to add one.</div>
         ) : (
-          flattenedItems.map(
-            ({ id, children, collapsed, depth }: FlattenedItem) => {
-              const hasCollapse = collapsible && children.length > 0;
-              // Find the original item to get the title - search recursively
-              const findItemWithTitle = (
-                items: TreeItems,
-                targetId: UniqueIdentifier
-              ): (TreeItem & { title?: string }) | undefined => {
-                for (const item of items) {
-                  if (item.id === targetId) {
-                    return item as TreeItem & { title?: string };
-                  }
-                  if (item.children.length > 0) {
-                    const found = findItemWithTitle(item.children, targetId);
-                    if (found) return found;
-                  }
+          flattenedItems.map(({ id, children, collapsed, depth }: FlattenedItem) => {
+            const hasCollapse = collapsible && children.length > 0;
+            // Find the original item to get the title - search recursively
+            const findItemWithTitle = (
+              items: TreeItems,
+              targetId: UniqueIdentifier
+            ): (TreeItem & { title?: string }) | undefined => {
+              for (const item of items) {
+                if (item.id === targetId) {
+                  return item as TreeItem & { title?: string };
                 }
-                return undefined;
-              };
+                if (item.children.length > 0) {
+                  const found = findItemWithTitle(item.children, targetId);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
 
-              const originalItem = findItemWithTitle(items, id);
-              return (
-                <SortableTreeItem
-                  key={id}
-                  id={id}
-                  value={id.toString()}
-                  title={originalItem?.title}
-                  depth={id === activeId && projected ? projected.depth : depth}
-                  indentationWidth={indentationWidth}
-                  indicator={indicator}
-                  collapsed={originalItem?.collapsed || false}
-                  isEditing={editingId === id}
-                  onCollapse={
-                    hasCollapse ? () => handleCollapse(id) : undefined
-                  }
-                  onRemove={removable ? () => handleRemove(id) : undefined}
-                  onEdit={() => handleEdit(id)}
-                  onAddChild={() => handleAddChild(id)}
-                  onTitleChange={(newTitle) => handleTitleChange(id, newTitle)}
-                />
-              );
-            }
-          )
+            const originalItem = findItemWithTitle(items, id);
+
+            return (
+              <SortableTreeItem
+                key={id}
+                id={id}
+                value={id.toString()}
+                title={originalItem?.title}
+                depth={id === activeId && projected ? projected.depth : depth}
+                indentationWidth={indentationWidth}
+                indicator={false}
+                ghost={false}
+                collapsed={originalItem?.collapsed || false}
+                isEditing={editingId === id}
+                onCollapse={hasCollapse ? () => handleCollapse(id) : undefined}
+                onRemove={removable ? () => handleRemove(id) : undefined}
+                onEdit={() => handleEdit(id)}
+                onAddChild={() => handleAddChild(id)}
+                onTitleChange={(newTitle) => handleTitleChange(id, newTitle)}
+              />
+            );
+          })
         )}
         {createPortal(
-          <DragOverlay
-            dropAnimation={dropAnimationConfig}
-            modifiers={indicator ? [adjustTranslate] : undefined}
-          >
+          <DragOverlay dropAnimation={dropAnimationConfig} modifiers={undefined}>
             {activeId && activeItem ? (
               <SortableTreeItem
                 id={activeId}
@@ -1209,10 +1110,7 @@ function SortableTree({
                         return item as TreeItem & { title?: string };
                       }
                       if (item.children.length > 0) {
-                        const found = findItemWithTitle(
-                          item.children,
-                          targetId
-                        );
+                        const found = findItemWithTitle(item.children, targetId);
                         if (found) return found;
                       }
                     }
@@ -1243,7 +1141,7 @@ function SortableTree({
       });
     }
 
-    document.body.style.setProperty("cursor", "grabbing");
+    document.body.style.setProperty('cursor', 'grabbing');
   }
 
   function handleDragMove({ delta }: DragMoveEvent) {
@@ -1259,18 +1157,45 @@ function SortableTree({
 
     if (projected && over) {
       const { depth, parentId } = projected;
-      const clonedItems: FlattenedItem[] = JSON.parse(
-        JSON.stringify(flattenTree(items))
-      );
+      const clonedItems: FlattenedItem[] = JSON.parse(JSON.stringify(flattenTree(items)));
       const overIndex = clonedItems.findIndex(({ id }) => id === over.id);
       const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
       const activeTreeItem = clonedItems[activeIndex];
 
-      clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
+      // Remove the active item from its current position
+      clonedItems.splice(activeIndex, 1);
 
-      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
-      const newItems = buildTree(sortedItems);
+      // Find the best position to insert the item at the target depth
+      let insertIndex = overIndex;
 
+      // If we're moving to a different depth, find the appropriate position
+      if (depth !== activeTreeItem.depth) {
+        // Find the last item at the target depth or the position where we should insert
+        for (let i = 0; i < clonedItems.length; i++) {
+          const item = clonedItems[i];
+
+          // If we find an item at the same depth, insert after it
+          if (item.depth === depth) {
+            insertIndex = i + 1;
+          }
+          // If we find an item at a deeper depth, insert before it
+          else if (item.depth > depth) {
+            insertIndex = i;
+            break;
+          }
+        }
+
+        // Ensure we don't go out of bounds
+        insertIndex = Math.min(insertIndex, clonedItems.length);
+      }
+
+      // Update the active item with new depth and parent
+      const updatedActiveItem = { ...activeTreeItem, depth, parentId };
+
+      // Insert the item at the calculated position
+      clonedItems.splice(insertIndex, 0, updatedActiveItem);
+
+      const newItems = buildTree(clonedItems);
       setItems(newItems);
     }
   }
@@ -1285,7 +1210,7 @@ function SortableTree({
     setOffsetLeft(0);
     setCurrentPosition(null);
 
-    document.body.style.setProperty("cursor", "");
+    document.body.style.setProperty('cursor', '');
   }
 
   function handleRemove(id: UniqueIdentifier) {
@@ -1294,7 +1219,7 @@ function SortableTree({
 
   function handleCollapse(id: UniqueIdentifier) {
     setItems((items) => {
-      const newItems = setProperty(items, id, "collapsed", (value) => {
+      const newItems = setProperty(items, id, 'collapsed', (value) => {
         return !value;
       });
       return newItems;
@@ -1308,7 +1233,7 @@ function SortableTree({
 
   function handleTitleChange(id: UniqueIdentifier, newTitle: string) {
     setItems((items) => {
-      const newItems = setProperty(items, id, "title", () => newTitle);
+      const newItems = setProperty(items, id, 'title', () => newTitle);
       return newItems;
     });
     setEditingId(null);
@@ -1325,7 +1250,7 @@ function SortableTree({
       const newItem: TreeItem = {
         id: newId,
         children: [],
-        title: "New Account",
+        title: 'New Account',
       };
 
       setItems((items) => {
@@ -1356,18 +1281,10 @@ function SortableTree({
     }
   }
 
-  function getMovementAnnouncement(
-    eventName: string,
-    activeId: UniqueIdentifier,
-    overId?: UniqueIdentifier
-  ) {
+  function getMovementAnnouncement(eventName: string, activeId: UniqueIdentifier, overId?: UniqueIdentifier) {
     if (overId && projected) {
-      if (eventName !== "onDragEnd") {
-        if (
-          currentPosition &&
-          projected.parentId === currentPosition.parentId &&
-          overId === currentPosition.overId
-        ) {
+      if (eventName !== 'onDragEnd') {
+        if (currentPosition && projected.parentId === currentPosition.parentId && overId === currentPosition.overId) {
           return;
         } else {
           setCurrentPosition({
@@ -1377,22 +1294,16 @@ function SortableTree({
         }
       }
 
-      const clonedItems: FlattenedItem[] = JSON.parse(
-        JSON.stringify(flattenTree(items))
-      );
-      const overIndex = clonedItems.findIndex(
-        ({ id }: FlattenedItem) => id === overId
-      );
-      const activeIndex = clonedItems.findIndex(
-        ({ id }: FlattenedItem) => id === activeId
-      );
+      const clonedItems: FlattenedItem[] = JSON.parse(JSON.stringify(flattenTree(items)));
+      const overIndex = clonedItems.findIndex(({ id }: FlattenedItem) => id === overId);
+      const activeIndex = clonedItems.findIndex(({ id }: FlattenedItem) => id === activeId);
       const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
 
       const previousItem = sortedItems[overIndex - 1];
 
       let announcement;
-      const movedVerb = eventName === "onDragEnd" ? "dropped" : "moved";
-      const nestedVerb = eventName === "onDragEnd" ? "dropped" : "nested";
+      const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved';
+      const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested';
 
       if (!previousItem) {
         const nextItem = sortedItems[overIndex + 1];
@@ -1427,174 +1338,165 @@ const adjustTranslate: Modifier = ({ transform }) => {
   };
 };
 
-export const CreateAccounts = forwardRef<
-  CreateAccountsRef,
-  CreateAccountsProps
->(({ onNext, selectedCompanyId }, ref) => {
-  const saveMapping = useSaveMappings();
-  const [selectedTab, setSelectedTab] = useState<string>(REPORT_TYPES[0].value);
-  const [mappingData, setMappingData] = useState<Mapping>({});
-  const [localMapping, setLocalMapping] = useState<Mapping>({});
-  const [autoEditId, setAutoEditId] = useState<UniqueIdentifier | null>(null);
+export const CreateAccounts = forwardRef<CreateAccountsRef, CreateAccountsProps>(
+  ({ onNext, selectedCompanyId }, ref) => {
+    const saveMapping = useSaveMappings();
+    const [selectedTab, setSelectedTab] = useState<string>(REPORT_TYPES[0].value);
+    const [mappingData, setMappingData] = useState<Mapping>({});
+    const [localMapping, setLocalMapping] = useState<Mapping>({});
+    const [autoEditId, setAutoEditId] = useState<UniqueIdentifier | null>(null);
 
-  const { data, isLoading, isError } = useMappingForAccountByType(
-    selectedCompanyId,
-    selectedTab
-  );
+    const { data, isLoading, isError } = useMappingForAccountByType(selectedCompanyId, selectedTab);
 
-  useEffect(() => {
-    if (data?.data?.mapping) {
-      setMappingData(data.data.mapping);
-      // Set local mapping with the data from API
-      setLocalMapping(data.data.mapping);
-    }
-  }, [data]);
+    useEffect(() => {
+      if (data?.data?.mapping) {
+        setMappingData(data.data.mapping);
+        // Set local mapping with the data from API
+        setLocalMapping(data.data.mapping);
+      }
+    }, [data]);
 
-  // Reset local mapping when report type changes
-  useEffect(() => {
-    // Clear autoEditId when report type changes
-    setAutoEditId(null);
-  }, [selectedTab]);
-
-  // Handle report type change
-  const handleReportTypeChange = (newReportType: string) => {
-    setSelectedTab(newReportType);
-  };
-
-  // Convert mapping data to tree items for each column
-  const getTreeItemsForColumn = (colKey: string): TreeItems => {
-    const accounts = localMapping[colKey] || [];
-    const treeItems = accounts.map((account) =>
-      convertAccountToTreeItem(account, colKey)
-    );
-    return treeItems;
-  };
-
-  // Handle tree items change for a specific column
-  const handleTreeItemsChange = (colKey: string, treeItems: TreeItems) => {
-    // Always update the local mapping with the latest tree items
-    const newAccounts = treeItems.map((treeItem) =>
-      convertTreeItemToAccount(treeItem, colKey)
-    );
-
-    console.log(`Updating mapping for column ${colKey}:`, newAccounts);
-
-    setLocalMapping((prev) => {
-      const updated = {
-        ...prev,
-        [colKey]: newAccounts,
-      };
-      console.log("Updated local mapping:", updated);
-      return updated;
-    });
-
-    // Clear autoEditId after successful update
-    if (autoEditId) {
+    // Reset local mapping when report type changes
+    useEffect(() => {
+      // Clear autoEditId when report type changes
       setAutoEditId(null);
-    }
-  };
+    }, [selectedTab]);
 
-  // Add new root account
-  const handleAddRootAccount = (colKey: string) => {
-    const newAccountId = Math.random().toString(36).slice(2);
-    const newAccount: Account = {
-      account_id: newAccountId,
-      realm_id: null,
-      title: "New Account",
-      children: [],
-      mapped_account: [],
+    // Handle report type change
+    const handleReportTypeChange = (newReportType: string) => {
+      setSelectedTab(newReportType);
     };
 
-    setLocalMapping((prev) => ({
-      ...prev,
-      [colKey]: prev[colKey] ? [...prev[colKey], newAccount] : [newAccount],
-    }));
-
-    // Set the auto-edit ID for the new item
-    const treeItemId = `${colKey}-${newAccountId}`;
-    setAutoEditId(treeItemId);
-  };
-
-  // Add new child account
-  const handleAddChildAccount = (colKey: string, parentId: string) => {
-    const newAccountId = Math.random().toString(36).slice(2);
-    const newAccount: Account = {
-      account_id: newAccountId,
-      realm_id: null,
-      title: "New Account",
-      children: [],
-      mapped_account: [],
+    // Convert mapping data to tree items for each column
+    const getTreeItemsForColumn = (colKey: string): TreeItems => {
+      const accounts = localMapping[colKey] || [];
+      const treeItems = accounts.map((account) => convertAccountToTreeItem(account, colKey));
+      return treeItems;
     };
 
-    setLocalMapping((prev) => {
-      const addChildToAccount = (accounts: Account[]): Account[] => {
-        return accounts.map((account) => {
-          if (account.account_id === parentId) {
-            return {
-              ...account,
-              children: [...account.children, newAccount],
-            };
-          }
-          if (account.children.length > 0) {
-            return {
-              ...account,
-              children: addChildToAccount(account.children),
-            };
-          }
-          return account;
-        });
+    // Handle tree items change for a specific column
+    const handleTreeItemsChange = (colKey: string, treeItems: TreeItems) => {
+      // Always update the local mapping with the latest tree items
+      const newAccounts = treeItems.map((treeItem) => convertTreeItemToAccount(treeItem, colKey));
+
+      console.log(`Updating mapping for column ${colKey}:`, newAccounts);
+
+      setLocalMapping((prev) => {
+        const updated = {
+          ...prev,
+          [colKey]: newAccounts,
+        };
+        console.log('Updated local mapping:', updated);
+        return updated;
+      });
+
+      // Clear autoEditId after successful update
+      if (autoEditId) {
+        setAutoEditId(null);
+      }
+    };
+
+    // Add new root account
+    const handleAddRootAccount = (colKey: string) => {
+      const newAccountId = Math.random().toString(36).slice(2);
+      const newAccount: Account = {
+        account_id: newAccountId,
+        realm_id: null,
+        title: 'New Account',
+        children: [],
+        mapped_account: [],
       };
 
-      return {
+      setLocalMapping((prev) => ({
         ...prev,
-        [colKey]: addChildToAccount(prev[colKey] || []),
+        [colKey]: prev[colKey] ? [...prev[colKey], newAccount] : [newAccount],
+      }));
+
+      // Set the auto-edit ID for the new item
+      const treeItemId = `${colKey}-${newAccountId}`;
+      setAutoEditId(treeItemId);
+    };
+
+    // Add new child account
+    const handleAddChildAccount = (colKey: string, parentId: string) => {
+      const newAccountId = Math.random().toString(36).slice(2);
+      const newAccount: Account = {
+        account_id: newAccountId,
+        realm_id: null,
+        title: 'New Account',
+        children: [],
+        mapped_account: [],
       };
-    });
 
-    // Set the auto-edit ID for the new child item
-    const treeItemId = `${colKey}-${newAccountId}`;
-    setAutoEditId(treeItemId);
-  };
-
-  // Expose save functionality and loading state to parent component
-  useImperativeHandle(
-    ref,
-    () => ({
-      handleSave: async () => {
-        return new Promise((resolve) => {
-          // Ensure we have the most up-to-date mapping
-          const currentMapping = { ...localMapping };
-
-          const payload = {
-            realm_id: selectedCompanyId,
-            report_type: selectedTab,
-            mapping: currentMapping,
-          };
-
-          console.log("Saving payload:", payload);
-
-          saveMapping.mutate(payload, {
-            onSuccess: () => {
-              resolve(true);
-            },
-            onError: (error) => {
-              console.error("Error saving mapping:", error);
-              resolve(false);
-            },
+      setLocalMapping((prev) => {
+        const addChildToAccount = (accounts: Account[]): Account[] => {
+          return accounts.map((account) => {
+            if (account.account_id === parentId) {
+              return {
+                ...account,
+                children: [...account.children, newAccount],
+              };
+            }
+            if (account.children.length > 0) {
+              return {
+                ...account,
+                children: addChildToAccount(account.children),
+              };
+            }
+            return account;
           });
-        });
-      },
-      isLoading: saveMapping.isPending,
-      saveLoading: saveMapping.isPending,
-    }),
-    [selectedCompanyId, selectedTab, localMapping, saveMapping]
-  );
+        };
 
-  return (
-    <>
-      <div className="px-10 pt-8 bg-white shrink-0">
-        <div className="flex-wrap bg-white border border-gray-200 rounded-2xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
-          {/* <div className="flex flex-col flex-1 max-w-56">
+        return {
+          ...prev,
+          [colKey]: addChildToAccount(prev[colKey] || []),
+        };
+      });
+
+      // Set the auto-edit ID for the new child item
+      const treeItemId = `${colKey}-${newAccountId}`;
+      setAutoEditId(treeItemId);
+    };
+
+    // Expose save functionality and loading state to parent component
+    useImperativeHandle(
+      ref,
+      () => ({
+        handleSave: async () => {
+          return new Promise((resolve) => {
+            // Ensure we have the most up-to-date mapping
+            const currentMapping = { ...localMapping };
+
+            const payload = {
+              realm_id: selectedCompanyId,
+              report_type: selectedTab,
+              mapping: currentMapping,
+            };
+
+            console.log('Saving payload:', payload);
+
+            saveMapping.mutate(payload, {
+              onSuccess: () => {
+                resolve(true);
+              },
+              onError: (error) => {
+                console.error('Error saving mapping:', error);
+                resolve(false);
+              },
+            });
+          });
+        },
+        isLoading: saveMapping.isPending,
+        saveLoading: saveMapping.isPending,
+      }),
+      [selectedCompanyId, selectedTab, localMapping, saveMapping]
+    );
+
+    return (
+      <>
+        <div className="px-10 pt-8 bg-white shrink-0">
+          <div className="flex-wrap bg-white border border-gray-200 rounded-2xl p-4 flex gap-8 items-end w-full minw-full mx-auto">
+            {/* <div className="flex flex-col flex-1 max-w-56">
             <Label
               className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
               htmlFor="consolidation-name"
@@ -1608,67 +1510,57 @@ export const CreateAccounts = forwardRef<
               className="text-sm text-gray-700 placeholder-gray-400 bg-white"
             />
           </div> */}
-          <div className="flex flex-col min-w-56">
-            <Label
-              className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide"
-              htmlFor="report-type"
-            >
-              REPORT TYPE
-            </Label>
-            <Select value={selectedTab} onValueChange={handleReportTypeChange}>
-              <SelectTrigger className="text-sm min-w-full bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REPORT_TYPES.map((rt) => (
-                  <SelectItem key={rt.value} value={rt.value}>
-                    {rt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col min-w-56">
+              <Label className="text-xs font-medium text-[#767A8B] mb-2 tracking-wide" htmlFor="report-type">
+                REPORT TYPE
+              </Label>
+              <Select value={selectedTab} onValueChange={handleReportTypeChange}>
+                <SelectTrigger className="text-sm min-w-full bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_TYPES.map((rt) => (
+                    <SelectItem key={rt.value} value={rt.value}>
+                      {rt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content Area: Account Columns */}
-      <div className="flex-1 min-h-0 px-10 pt-5 bg-white overflow-hidden">
-        <div className="h-full overflow-x-auto">
-          {isLoading ? (
-            <div className="flex flex-1 items-center justify-center min-h-[400px]">
-              <Loader2 className="animate-spin w-10 h-10 text-[#1E925A]" />
-            </div>
-          ) : (
-            <div className="flex gap-4 w-max h-full pb-6">
-              {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
-                <ColumnContainer
-                  key={`${selectedTab}-${col.key}`}
-                  col={col}
-                  onAddRootAccount={handleAddRootAccount}
-                >
-                  <SortableTree
-                    key={`${selectedTab}-${col.key}-tree`}
-                    collapsible
-                    removable
-                    defaultItems={getTreeItemsForColumn(col.key)}
-                    onItemsChange={(items) =>
-                      handleTreeItemsChange(col.key, items)
-                    }
-                    autoEditId={autoEditId}
-                    onAddChild={(parentId) => {
-                      // Extract the actual parent ID from the tree item ID
-                      const actualParentId = parentId
-                        .toString()
-                        .replace(`${col.key}-`, "");
-                      handleAddChildAccount(col.key, actualParentId);
-                    }}
-                  />
-                </ColumnContainer>
-              ))}
-            </div>
-          )}
+        {/* Main Content Area: Account Columns */}
+        <div className="flex-1 min-h-0 px-10 pt-5 bg-white overflow-hidden">
+          <div className="h-full overflow-x-auto">
+            {isLoading ? (
+              <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                <Loader2 className="animate-spin w-10 h-10 text-[#1E925A]" />
+              </div>
+            ) : (
+              <div className="flex gap-4 w-max h-full pb-6">
+                {(REPORT_TYPE_COLUMNS[selectedTab] || []).map((col) => (
+                  <ColumnContainer key={`${selectedTab}-${col.key}`} col={col} onAddRootAccount={handleAddRootAccount}>
+                    <SortableTree
+                      key={`${selectedTab}-${col.key}-tree`}
+                      collapsible
+                      removable
+                      defaultItems={getTreeItemsForColumn(col.key)}
+                      onItemsChange={(items) => handleTreeItemsChange(col.key, items)}
+                      autoEditId={autoEditId}
+                      onAddChild={(parentId) => {
+                        // Extract the actual parent ID from the tree item ID
+                        const actualParentId = parentId.toString().replace(`${col.key}-`, '');
+                        handleAddChildAccount(col.key, actualParentId);
+                      }}
+                    />
+                  </ColumnContainer>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </>
-  );
-});
+      </>
+    );
+  }
+);

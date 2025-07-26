@@ -16,6 +16,9 @@ const OrganizationSelectionPage = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user.user);
   const token = useAppSelector((state) => state.user.token);
+  const isSelectedCompanyNull = useAppSelector(
+    (state) => state.user.selectedCompany === null || state.user.selectedCompany === undefined
+  );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -101,9 +104,13 @@ const OrganizationSelectionPage = () => {
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
           <div className="mb-8 flex items-center">
-            <button onClick={() => router.back()} className="mr-4">
-              <ArrowLeft className="h-5 w-5 text-gray-500" />
-            </button>
+            {isSelectedCompanyNull ? (
+              <></>
+            ) : (
+              <button onClick={() => router.back()} className="mr-4">
+                <ArrowLeft className="h-5 w-5 text-gray-500" />
+              </button>
+            )}
           </div>
           <div className="flex flex-col items-center justify-center space-y-4 py-12">
             <Loader2 className="h-16 w-16 animate-spin text-gray-400" />
@@ -364,9 +371,13 @@ const OrganizationSelectionPage = () => {
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
           <div className="mb-8 flex items-center">
-            <button onClick={() => router.back()} className="mr-4">
-              <ArrowLeft className="h-5 w-5 text-gray-500" />
-            </button>
+            {isSelectedCompanyNull ? (
+              <></>
+            ) : (
+              <button onClick={() => router.back()} className="mr-4">
+                <ArrowLeft className="h-5 w-5 text-gray-500" />
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col items-center justify-center space-y-6 py-8">
@@ -618,9 +629,13 @@ const OrganizationSelectionPage = () => {
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
           <div className="mb-8 flex items-center">
-            <button onClick={() => router.back()} className="mr-4">
-              <ArrowLeft className="h-5 w-5 text-gray-500" />
-            </button>
+            {isSelectedCompanyNull ? (
+              <></>
+            ) : (
+              <button onClick={() => router.back()} className="mr-4">
+                <ArrowLeft className="h-5 w-5 text-gray-500" />
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col items-center justify-center space-y-6 py-8">
@@ -670,9 +685,13 @@ const OrganizationSelectionPage = () => {
     <div className="flex min-h-screen items-center justify-center bg-white">
       <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
         <div className="mb-8 flex items-center">
-          <button onClick={() => router.back()} className="mr-4">
-            <ArrowLeft className="h-5 w-5 text-gray-500" />
-          </button>
+          {isSelectedCompanyNull ? (
+            <></>
+          ) : (
+            <button onClick={() => router.back()} className="mr-4">
+              <ArrowLeft className="h-5 w-5 text-gray-500" />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col items-center justify-center space-y-6 py-8">
@@ -690,7 +709,7 @@ const OrganizationSelectionPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 pb-6 gap-3 max-h-80 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto">
                 {user.organizations?.map((org) => (
                   <div
                     key={org.organization.id}
@@ -722,20 +741,22 @@ const OrganizationSelectionPage = () => {
 
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
-            <Button
-              onClick={handleConnect}
-              disabled={!selectedOrgId || createOrganizationMutation.isPending}
-              className="w-full text-white"
-            >
-              {createOrganizationMutation.isPending ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </div>
-              ) : (
-                'Continue'
-              )}
-            </Button>
+            <div className="w-full py-6">
+              <Button
+                onClick={handleConnect}
+                disabled={!selectedOrgId || createOrganizationMutation.isPending}
+                className="w-full text-white"
+              >
+                {createOrganizationMutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </div>
+                ) : (
+                  'Continue'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

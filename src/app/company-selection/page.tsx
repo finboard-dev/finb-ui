@@ -4,18 +4,21 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedCompany, setCompanies, selectCompanies, setUserData } from '@/lib/store/slices/userSlice';
+import { setSelectedCompany, setCompanies, setUserData } from '@/lib/store/slices/userSlice';
 import { fetcher } from '@/lib/axios/config';
 import { Building2, Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { initAddQuickBookAccount } from '@/lib/api/intuitService';
 import connectToQuickbooksButton from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_default.svg';
 import connectToQuickBooksHover from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_hover.svg';
-import { getCurrentCompany } from '@/lib/api/allCompany';
-import { useAllCompanies } from '@/hooks/query-hooks/useCompany';
+import { getCurrentCompany, getAllCompany } from '@/lib/api/allCompany';
+import { useAllCompanies, useCurrentCompany } from '@/hooks/query-hooks/useCompany';
+import { store } from '@/lib/store/store';
+import { useQueryClient } from '@tanstack/react-query';
 
 const CompanySelectionPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
   const user = useAppSelector((state) => state.user.user);
   const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const token = useAppSelector((state) => state.user.token);
@@ -23,7 +26,21 @@ const CompanySelectionPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const [isAddingQuickBooks, setIsAddingQuickBooks] = useState(false);
-  const companies = useAppSelector(selectCompanies);
+  const selectedCompany = useAppSelector((state) => state.user.selectedCompany);
+
+  // Check if Redux Persist has rehydrated
+  const [isRehydrated, setIsRehydrated] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe(() => {
+      const state = store.getState();
+      if (state.user && !isRehydrated) {
+        setIsRehydrated(true);
+      }
+    });
+
+    return unsubscribe;
+  }, [isRehydrated]);
 
   // React Query hook for fetching companies
   const {
@@ -33,131 +50,167 @@ const CompanySelectionPage = () => {
     refetch: refetchCompanies,
   } = useAllCompanies();
 
-  // Debug auto-connecting state changes
-  useEffect(() => {
-    console.log('Auto-connecting state changed:', isAutoConnecting);
-  }, [isAutoConnecting]);
+  // Helper function to safely extract companies from API response
+  const getCompaniesFromResponse = (data: any) => {
+    if (!data) return [];
 
-  // Debug auto-connect conditions
-  useEffect(() => {
-    console.log('Auto-connect conditions check:', {
-      selectedCompanyId,
-      companiesLength: companies.length,
-      isLoadingCompanies,
-      isAutoConnecting,
-      shouldAutoConnect: selectedCompanyId && companies.length === 1 && !isLoadingCompanies && !isAutoConnecting,
-    });
-  }, [selectedCompanyId, companies.length, isLoadingCompanies, isAutoConnecting]);
+    // Handle different possible API response structures
+    if (Array.isArray(data)) return data;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    if (data.companies && Array.isArray(data.companies)) return data.companies;
 
-  // Update companies in Redux state when data is fetched
-  useEffect(() => {
-    if (companiesData && !isLoadingCompanies) {
-      console.log('Companies data received:', companiesData);
-      const mappedCompanies = (companiesData?.data || companiesData || []).map((company: any) => ({
-        ...company,
-        name: company.companyName,
-        status: company.isActive ? 'ACTIVE' : 'INACTIVE',
-      }));
-      console.log('Mapped companies:', mappedCompanies);
-      dispatch(setCompanies(mappedCompanies));
+    return [];
+  };
 
-      // Auto-select if there's only one company
-      if (mappedCompanies.length === 1) {
-        console.log('Auto-selecting single company:', mappedCompanies[0]);
-        setSelectedCompanyId(mappedCompanies[0].id);
+  // Force refetch when component mounts to ensure we get fresh data
+  useEffect(() => {
+    if (selectedOrganization?.id && isRehydrated) {
+      // Invalidate the cache first
+      queryClient.invalidateQueries({ queryKey: ['companies', 'all'] });
+      // Then refetch
+      refetchCompanies();
+    }
+  }, [selectedOrganization?.id, isRehydrated, refetchCompanies, queryClient]);
+
+  // Get companies with safe extraction
+  const apiCompanies = getCompaniesFromResponse(companiesData);
+
+  // Force clear Redux companies if API returns empty data
+  useEffect(() => {
+    if (!isLoadingCompanies && companiesData && apiCompanies.length === 0) {
+      dispatch(setCompanies([]));
+    }
+  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
+
+  // Additional check: If React Query has data but it's empty, clear Redux
+  useEffect(() => {
+    if (!isLoadingCompanies && companiesData !== undefined) {
+      if (apiCompanies.length === 0) {
+        dispatch(setCompanies([]));
       }
     }
-  }, [companiesData, isLoadingCompanies, dispatch]);
+  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
 
-  // Debug logging
+  // Direct check: If React Query data is empty array, clear Redux immediately
   useEffect(() => {
-    console.log('Company selection - selectedOrganization:', selectedOrganization);
-    console.log('Company selection - companies from Redux:', companies);
-    console.log('Company selection - companiesData from React Query:', companiesData);
-    console.log('Company selection - isLoadingCompanies:', isLoadingCompanies);
-    console.log('Company selection - companiesError:', companiesError);
-  }, [selectedOrganization, companies, companiesData, isLoadingCompanies, companiesError]);
+    if (apiCompanies.length === 0 && companiesData !== undefined) {
+      dispatch(setCompanies([]));
+    }
+  }, [apiCompanies.length, companiesData, dispatch]);
+
+  // Check if already connected to prevent unnecessary auto-connection
+  const hasSingleCompany = apiCompanies.length === 1;
+  const isAlreadyConnected = selectedCompany && hasSingleCompany && selectedCompany.id === apiCompanies[0].id;
 
   // Auto-connect when single company is auto-selected
   useEffect(() => {
-    if (selectedCompanyId && companies.length === 1 && !isLoadingCompanies && !isAutoConnecting) {
-      console.log('Auto-connecting single company:', selectedCompanyId);
-      setIsAutoConnecting(true);
+    const hasSingleCompany = apiCompanies.length === 1;
 
-      // Add a small delay to ensure UI updates are complete
-      const timer = setTimeout(async () => {
-        try {
-          console.log('Starting auto-connect process...');
+    // If already connected, redirect to home
+    if (isAlreadyConnected) {
+      setIsAutoConnecting(false);
+      router.push('/');
+      return;
+    }
 
-          const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
-          if (!selectedCompany) {
-            throw new Error('Selected company not found');
-          }
+    // Only proceed if we have a single company and all conditions are met
+    if (hasSingleCompany && !isLoadingCompanies && !isAutoConnecting && isRehydrated && selectedOrganization?.id) {
+      const singleCompany = apiCompanies[0];
 
-          console.log('Connecting to company:', selectedCompany.name);
+      // Set selectedCompanyId if not already set
+      if (!selectedCompanyId) {
+        console.log('Auto-selecting company:', singleCompany.companyName);
+        setSelectedCompanyId(singleCompany.id);
+        return; // Exit and wait for next effect run
+      }
 
-          // Call the /company/current API with the selected company ID
-          const response = await getCurrentCompany(selectedCompanyId);
-          const companyData = response?.data || response;
+      // Only proceed if selectedCompanyId matches the single company
+      if (selectedCompanyId === singleCompany.id) {
+        console.log('Starting auto-connection for:', singleCompany.companyName);
+        setIsAutoConnecting(true);
 
-          console.log('Company data received from API:', companyData);
+        // Call getCurrentCompany immediately
+        const connectToCompany = async () => {
+          try {
+            console.log('Calling getCurrentCompany for:', selectedCompanyId);
+            const response = await getCurrentCompany(selectedCompanyId!);
+            const companyData = response?.data || response;
 
-          // The API response contains all the company data including assistants, tools, chat conversations
-          // The existing ecosystem is already built to handle this data structure
-          dispatch(setSelectedCompany(companyData));
-
-          // Also update the user object to keep it in sync
-          if (user) {
-            const updatedUser = {
-              ...user,
-              selectedCompany: companyData,
+            const mappedCompanyData = {
+              ...companyData,
+              name: companyData.companyName || companyData.name,
+              status: companyData.isActive ? 'ACTIVE' : 'INACTIVE',
             };
 
-            dispatch(
-              setUserData({
-                user: updatedUser,
-                selectedOrganization: selectedOrganization || undefined,
-                selectedCompany: companyData,
-              })
-            );
+            dispatch(setSelectedCompany(mappedCompanyData));
+
+            if (user) {
+              const updatedUser = {
+                ...user,
+                selectedCompany: mappedCompanyData,
+              };
+
+              dispatch(
+                setUserData({
+                  user: updatedUser,
+                  selectedOrganization: selectedOrganization || undefined,
+                  selectedCompany: mappedCompanyData,
+                })
+              );
+            }
+
+            document.cookie = 'has_selected_company=true; path=/';
+
+            // Verify that the store was updated before redirecting
+            setTimeout(() => {
+              const currentState = store.getState();
+              const storeSelectedCompany = currentState.user.selectedCompany;
+
+              if (storeSelectedCompany && storeSelectedCompany.id === selectedCompanyId) {
+                console.log('Successfully connected, redirecting to /');
+                setIsAutoConnecting(false);
+                router.push('/');
+              } else {
+                console.log('Retrying dispatch and redirecting');
+                dispatch(setSelectedCompany(mappedCompanyData));
+                setTimeout(() => {
+                  setIsAutoConnecting(false);
+                  router.push('/');
+                }, 200);
+              }
+            }, 200);
+          } catch (error) {
+            console.error('Error in auto-connect:', error);
+            setError(error instanceof Error ? error.message : 'Failed to connect to company');
+            setIsAutoConnecting(false);
           }
+        };
 
-          document.cookie = 'has_selected_company=true; path=/';
+        // Start the connection process
+        connectToCompany();
 
-          console.log('Successfully connected to company, redirecting to dashboard...');
-
-          // Small delay to ensure state updates are processed
-          setTimeout(() => {
-            router.push('/');
-          }, 100);
-        } catch (error) {
-          console.error('Auto-connect failed:', error);
-          setError(error instanceof Error ? error.message : 'Failed to connect to company');
+        // Safety timeout to reset auto-connecting state if it gets stuck
+        const safetyTimer = setTimeout(() => {
+          console.log('Auto-connect safety timeout reached');
           setIsAutoConnecting(false);
-        }
-      }, 500);
+        }, 10000); // 10 seconds timeout
 
-      // Safety timeout to reset auto-connecting state if it gets stuck
-      const safetyTimer = setTimeout(() => {
-        console.warn('Auto-connect timeout, resetting state');
-        setIsAutoConnecting(false);
-      }, 10000); // 10 seconds timeout
-
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(safetyTimer);
-      };
+        return () => {
+          clearTimeout(safetyTimer);
+        };
+      }
     }
   }, [
     selectedCompanyId,
-    companies.length,
+    apiCompanies,
     isLoadingCompanies,
     isAutoConnecting,
-    companies,
-    user,
+    isRehydrated,
     selectedOrganization,
     dispatch,
     router,
+    user,
+    selectedCompany,
   ]);
 
   useEffect(() => {
@@ -177,25 +230,12 @@ const CompanySelectionPage = () => {
   useEffect(() => {
     return () => {
       if (isAutoConnecting) {
-        console.log('Cleaning up auto-connecting state');
         setIsAutoConnecting(false);
       }
     };
   }, [isAutoConnecting]);
 
-  // Force navigation after successful auto-connect
-  useEffect(() => {
-    if (isAutoConnecting && selectedCompanyId && companies.length === 1) {
-      console.log('Checking if we should force navigate...');
-      const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
-      if (selectedCompany) {
-        console.log('Force navigating to dashboard...');
-        setTimeout(() => {
-          router.push('/');
-        }, 2000); // 2 second delay to ensure auto-connect completes
-      }
-    }
-  }, [isAutoConnecting, selectedCompanyId, companies, router]);
+  // Remove the force navigation effect - we only navigate after successful getCurrentCompany
 
   // Show loading state while user/organization data is being loaded
   if (!user || !selectedOrganization) {
@@ -218,7 +258,7 @@ const CompanySelectionPage = () => {
   }
 
   const handleCompanySelect = (companyId: string) => {
-    const selectedCompany = companies.find((company) => company.id === companyId);
+    const selectedCompany = apiCompanies.find((company: any) => company.id === companyId);
     if (selectedCompany) {
       setSelectedCompanyId(companyId);
     }
@@ -255,48 +295,58 @@ const CompanySelectionPage = () => {
     }
 
     try {
-      const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
+      const selectedCompany = apiCompanies.find((company: any) => company.id === selectedCompanyId);
 
       if (!selectedCompany) {
         throw new Error('Selected company not found');
       }
 
-      console.log('Connecting to company:', selectedCompany.name);
-
       // Call the /company/current API with the selected company ID
-      const response = await getCurrentCompany(selectedCompanyId);
+      const response = await getCurrentCompany(selectedCompanyId!);
       const companyData = response?.data || response;
 
-      console.log('Company data received from API:', companyData);
+      // Ensure the company data structure matches the expected interface
+      const mappedCompanyData = {
+        ...companyData,
+        name: companyData.companyName || companyData.name,
+        status: companyData.isActive ? 'ACTIVE' : 'INACTIVE',
+      };
 
       // The API response contains all the company data including assistants, tools, chat conversations
       // The existing ecosystem is already built to handle this data structure
-      dispatch(setSelectedCompany(companyData));
+      dispatch(setSelectedCompany(mappedCompanyData));
 
       // Also update the user object to keep it in sync
       if (user) {
         const updatedUser = {
           ...user,
-          selectedCompany: companyData,
+          selectedCompany: mappedCompanyData,
         };
 
         dispatch(
           setUserData({
             user: updatedUser,
             selectedOrganization: selectedOrganization || undefined,
-            selectedCompany: companyData,
+            selectedCompany: mappedCompanyData,
           })
         );
       }
 
       document.cookie = 'has_selected_company=true; path=/';
 
-      console.log('Successfully connected to company, redirecting...');
-
-      // Small delay to ensure state updates are processed
+      // Verify that the store was updated before redirecting
       setTimeout(() => {
-        router.push('/');
-      }, 100);
+        const currentState = store.getState();
+        const storeSelectedCompany = currentState.user.selectedCompany;
+
+        if (storeSelectedCompany && storeSelectedCompany.id === selectedCompanyId) {
+          router.push('/');
+        } else {
+          // Retry the dispatch
+          dispatch(setSelectedCompany(mappedCompanyData));
+          setTimeout(() => router.push('/'), 200);
+        }
+      }, 200);
     } catch (err) {
       console.error('Error setting current company:', err);
       setError(err instanceof Error ? err.message : 'Failed to connect to company');
@@ -304,10 +354,54 @@ const CompanySelectionPage = () => {
     }
   };
 
+  // Update companies in Redux state when data is fetched
+  useEffect(() => {
+    if (companiesData && !isLoadingCompanies) {
+      const mappedCompanies = apiCompanies.map((company: any) => ({
+        ...company,
+        name: company.companyName,
+        status: company.isActive ? 'ACTIVE' : 'INACTIVE',
+      }));
+
+      console.log('Mapping companies to Redux:', {
+        companiesData: apiCompanies.map((c: any) => ({ id: c.id, name: c.companyName })),
+        mappedCompanies: mappedCompanies.map((c: any) => ({ id: c.id, name: c.name })),
+      });
+
+      // If API returns empty data but Redux has companies, clear the stale data
+      if (mappedCompanies.length === 0 && apiCompanies.length > 0) {
+        dispatch(setCompanies([]));
+      } else {
+        dispatch(setCompanies(mappedCompanies));
+      }
+
+      // Auto-select if there's only one company
+      if (mappedCompanies.length === 1) {
+        console.log('Auto-selecting single company in Redux mapping:', mappedCompanies[0].name);
+        setSelectedCompanyId(mappedCompanies[0].id);
+      }
+    }
+  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
+
+  // Debug logging
+  console.log('Render state:', {
+    selectedCompanyId,
+    isAutoConnecting,
+    companiesData: apiCompanies.map((c: any) => ({ id: c.id, name: c.companyName })),
+    isLoadingCompanies,
+    selectedOrganization: selectedOrganization?.id,
+  });
+
   // Main company selection UI
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
       <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+        <div className="mb-8 flex items-center">
+          <button onClick={() => router.back()} className="mr-4">
+            <ArrowLeft className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
         <div className="mb-14 flex justify-between">
           <div className={'space-y-4'}>
             <h2 className="text-2xl font-semibold">Select a company</h2>
@@ -343,40 +437,53 @@ const CompanySelectionPage = () => {
               <span className="text-gray-500">Loading companies...</span>
             </div>
           </div>
-        ) : isAutoConnecting ? (
+        ) : isAutoConnecting &&
+          selectedCompanyId &&
+          apiCompanies.length === 1 &&
+          selectedCompanyId === apiCompanies[0].id ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-green-500" />
               <span className="text-green-600">
-                Connecting to {selectedCompanyId ? companies.find((c) => c.id === selectedCompanyId)?.name : ''}
+                Connecting to{' '}
+                {(() => {
+                  const company = apiCompanies.find((c: any) => c.id === selectedCompanyId);
+                  return company?.companyName || company?.name || '';
+                })()}
               </span>
             </div>
           </div>
-        ) : companies.length === 0 ? (
+        ) : companiesError ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="mb-4 rounded-md bg-red-50 p-4 text-center">
+              <h3 className="text-lg font-semibold text-red-700 mb-2">Failed to load companies</h3>
+              <p className="text-red-600 text-sm mb-4">
+                {companiesError.message || 'Unable to fetch companies from the server'}
+              </p>
+              <button
+                onClick={() => refetchCompanies()}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : !companiesData || apiCompanies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-700 mb-2">No companies found</h3>
-            <p className="text-gray-500 text-center mb-6">
-              You don't have any companies in {selectedOrganization?.name}'s organization
+            <p className="text-gray-500 text-center mb-6 max-w-md">
+              {selectedOrganization?.name
+                ? `You don't have any companies in ${selectedOrganization.name}'s organization`
+                : 'No companies are available for your organization'}
             </p>
-            {/* <button onClick={handleAddQuickBooks} className="relative w-[238px] h-[52px] group">
-              <Image
-                src={connectToQuickbooksButton}
-                alt="Connect to QuickBooks"
-                className="w-full group-hover:opacity-0"
-                priority
-              />
-              <Image
-                src={connectToQuickBooksHover}
-                alt="Connect to QuickBooks"
-                className="w-full absolute top-0 left-0 opacity-0 group-hover:opacity-100"
-                priority
-              />
-            </button> */}
+            <div className="text-center">
+              <p className="text-sm text-gray-400 mb-4">To get started, connect your first QuickBooks company</p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 max-h-80 overflow-y-auto gap-4">
-            {companies.map((company) => (
+            {apiCompanies.map((company: any) => (
               <div
                 key={company.id}
                 className={`relative flex cursor-pointer items-center gap-3 rounded-md border ${
@@ -388,7 +495,7 @@ const CompanySelectionPage = () => {
               >
                 <Building2 className="h-6 w-6 text-gray-400" />
                 <div>
-                  <p className="font-medium">{company.name}</p>
+                  <p className="font-medium">{company.companyName || company.name}</p>
                   <p className={`text-sm ${company.isActive ? 'text-[#4CAF50]' : 'text-red-500'}`}>
                     {company.isActive ? 'ACTIVE' : 'INACTIVE'}
                   </p>
