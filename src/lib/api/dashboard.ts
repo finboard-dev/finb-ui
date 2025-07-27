@@ -144,6 +144,7 @@ export const createDashboard = async (dashboardData: any): Promise<CreateDashboa
   console.log('Creating dashboard with data:', { ...dashboardData, companyId, orgId });
   
   try {
+    console.log('Making API call to create dashboard...');
     const response = await fetcher.post(
       `${process.env.NEXT_PUBLIC_API_DEV}/dashboard/`,
       {
@@ -152,16 +153,31 @@ export const createDashboard = async (dashboardData: any): Promise<CreateDashboa
         orgId
       }
     );
+    console.log('API call completed successfully');
     
     console.log('Dashboard creation response:', response);
     
+    // The fetcher.post already returns response.data, so response is the actual data
+    const data = response;
+    
+    console.log('Processed data:', data);
+    console.log('Data type:', typeof data);
+    console.log('Data keys:', data ? Object.keys(data) : 'null/undefined');
+    
     // Check if response has the expected structure
-    if (!response || typeof response !== 'object') {
-      console.error('Invalid response structure:', response);
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid response structure:', data);
       throw new Error('Invalid response from server');
     }
     
-    return response.data;
+    // Validate that we have the expected fields
+    if (!data.id) {
+      console.error('Response missing required fields:', data);
+      throw new Error('Invalid response structure - missing dashboard ID');
+    }
+    
+    console.log('Returning data successfully:', data);
+    return data;
   } catch (error: any) {
     console.error('Error creating dashboard:', error);
     console.error('Error details:', {
@@ -169,6 +185,13 @@ export const createDashboard = async (dashboardData: any): Promise<CreateDashboa
       response: error.response?.data,
       status: error.response?.status
     });
+    
+    // Re-throw the original error if it's already an Error object
+    if (error instanceof Error) {
+      throw error;
+    }
+    
+    // Otherwise, create a generic error
     throw new Error('Failed to create dashboard');
   }
 }

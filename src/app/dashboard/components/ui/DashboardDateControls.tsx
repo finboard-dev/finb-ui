@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { DateRangePicker } from './DateRangePicker';
 import { format } from 'date-fns';
-import { formatLastRefreshed, formatMonthYear } from '../../utils/dateUtils';
+import { formatLastRefreshed, formatMonthYear, formatToYYYYMMDD } from '../../utils/dateUtils';
 
 interface DashboardDateControlsProps {
   currentTabStartDate?: string;
@@ -17,6 +17,8 @@ interface DashboardDateControlsProps {
   isLoading?: boolean;
   lastRefreshedAt?: string | null;
   isEditing?: boolean;
+  // New props for frontend filter functionality
+  onExecuteWithNewDates?: (startDate: string, endDate: string) => void;
 }
 
 export default function DashboardDateControls({
@@ -27,8 +29,10 @@ export default function DashboardDateControls({
   isLoading = false,
   lastRefreshedAt,
   isEditing = false,
+  onExecuteWithNewDates,
 }: DashboardDateControlsProps) {
   const [dateRange, setDateRange] = useState<{ start?: Date; end?: Date }>({});
+  const [originalDateRange, setOriginalDateRange] = useState<{ start?: Date; end?: Date }>({});
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -37,7 +41,9 @@ export default function DashboardDateControls({
     if (currentTabStartDate && currentTabEndDate) {
       const startDate = new Date(currentTabStartDate);
       const endDate = new Date(currentTabEndDate);
-      setDateRange({ start: startDate, end: endDate });
+      const newDateRange = { start: startDate, end: endDate };
+      setDateRange(newDateRange);
+      setOriginalDateRange(newDateRange);
       setHasChanges(false);
     }
   }, [currentTabStartDate, currentTabEndDate]);
@@ -62,23 +68,45 @@ export default function DashboardDateControls({
   const handleDateRangeChange = (newRange: { start?: Date; end?: Date }) => {
     setDateRange(newRange);
 
-    // Check if the new range is different from the current tab's range
-    const currentStart = currentTabStartDate ? new Date(currentTabStartDate) : null;
-    const currentEnd = currentTabEndDate ? new Date(currentTabEndDate) : null;
+    // Check if the new range is different from the original range
+    const originalStart = originalDateRange.start;
+    const originalEnd = originalDateRange.end;
 
     const hasChanged =
-      newRange.start?.getTime() !== currentStart?.getTime() || newRange.end?.getTime() !== currentEnd?.getTime();
+      newRange.start?.getTime() !== originalStart?.getTime() || newRange.end?.getTime() !== originalEnd?.getTime();
 
     setHasChanges(hasChanged);
   };
 
   const handleApply = () => {
-    if (dateRange.start && dateRange.end && onDateRangeChange) {
-      const startDate = format(dateRange.start, 'yyyy-MM-dd');
-      const endDate = format(dateRange.end, 'yyyy-MM-dd');
-      onDateRangeChange(startDate, endDate);
+    if (dateRange.start && dateRange.end) {
+      // Format dates as YYYY-MM-DD with proper start/end logic
+      const startDate = formatToYYYYMMDD(dateRange.start, false); // 1st of month
+      const endDate = formatToYYYYMMDD(dateRange.end, true); // Last day of month
+
+      // Trigger frontend filter - no backend save
+      if (onExecuteWithNewDates) {
+        onExecuteWithNewDates(startDate, endDate);
+      }
+
+      // Update original range to current selection
+      setOriginalDateRange(dateRange);
       setHasChanges(false);
       setIsDatePickerOpen(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (originalDateRange.start && originalDateRange.end) {
+      setDateRange(originalDateRange);
+      setHasChanges(false);
+
+      // Trigger execute with original dates
+      if (onExecuteWithNewDates) {
+        const startDate = formatToYYYYMMDD(originalDateRange.start, false);
+        const endDate = formatToYYYYMMDD(originalDateRange.end, true);
+        onExecuteWithNewDates(startDate, endDate);
+      }
     }
   };
 
@@ -107,7 +135,9 @@ export default function DashboardDateControls({
                 dateRange={dateRange}
                 onDateRangeChange={handleDateRangeChange}
                 onApply={handleApply}
+                onReset={handleReset}
                 hasChanges={hasChanges}
+                originalDateRange={originalDateRange}
               />
             </PopoverContent>
           </Popover>

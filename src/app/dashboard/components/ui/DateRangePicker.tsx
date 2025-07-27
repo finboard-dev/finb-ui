@@ -10,7 +10,9 @@ interface DateRangePickerProps {
   dateRange: { start?: Date; end?: Date };
   onDateRangeChange: (range: { start?: Date; end?: Date }) => void;
   onApply: () => void;
+  onReset?: () => void;
   hasChanges: boolean;
+  originalDateRange?: { start?: Date; end?: Date };
 }
 
 const months = [
@@ -28,22 +30,35 @@ const months = [
   'December',
 ];
 
-export function DateRangePicker({ dateRange, onDateRangeChange, onApply, hasChanges }: DateRangePickerProps) {
+export function DateRangePicker({
+  dateRange,
+  onDateRangeChange,
+  onApply,
+  onReset,
+  hasChanges,
+  originalDateRange,
+}: DateRangePickerProps) {
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
 
   const handleMonthSelect = (monthIndex: number) => {
     const selectedDate = new Date(viewYear, monthIndex);
 
     if (!dateRange.start || (dateRange.start && dateRange.end)) {
-      // Start new selection
-      onDateRangeChange({ start: selectedDate, end: undefined });
+      // Start new selection - set to 1st of the month
+      const startDate = new Date(viewYear, monthIndex, 1);
+      onDateRangeChange({ start: startDate, end: undefined });
     } else if (dateRange.start && !dateRange.end) {
-      // Complete the range
+      // Complete the range - set end to last day of the month
       if (selectedDate >= dateRange.start) {
-        onDateRangeChange({ ...dateRange, end: selectedDate });
+        const lastDay = getLastDayOfMonth(selectedDate.getFullYear(), selectedDate.getMonth());
+        const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), lastDay);
+        onDateRangeChange({ ...dateRange, end: endDate });
       } else {
-        // If selected date is before start, make it the new start
-        onDateRangeChange({ start: selectedDate, end: dateRange.start });
+        // If selected date is before start, make it the new start and set end to last day of original start month
+        const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        const lastDay = getLastDayOfMonth(dateRange.start.getFullYear(), dateRange.start.getMonth());
+        const endDate = new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), lastDay);
+        onDateRangeChange({ start: startDate, end: endDate });
       }
     }
   };
@@ -83,10 +98,6 @@ export function DateRangePicker({ dateRange, onDateRangeChange, onApply, hasChan
       default:
         return '!bg-white text-gray-900 hover:bg-gray-100 border-gray-200';
     }
-  };
-
-  const clearRange = () => {
-    onDateRangeChange({});
   };
 
   const formatRange = () => {
@@ -144,14 +155,6 @@ export function DateRangePicker({ dateRange, onDateRangeChange, onApply, hasChan
           <div className="text-sm text-gray-600">
             {dateRange.start && dateRange.end ? 'Range selected' : 'Select end date'}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearRange}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-          >
-            Clear
-          </Button>
         </div>
       )}
 
@@ -162,11 +165,11 @@ export function DateRangePicker({ dateRange, onDateRangeChange, onApply, hasChan
         </div>
       )}
 
-      {/* Apply button */}
+      {/* Apply and Reset buttons */}
       {hasChanges && (
         <div className="flex gap-2 pt-3 border-t border-gray-200">
-          <Button variant="outline" onClick={() => onDateRangeChange({})} className="flex-1 bg-transparent">
-            Cancel
+          <Button variant="outline" onClick={onReset} className="flex-1 bg-transparent" disabled={!originalDateRange}>
+            Reset
           </Button>
           <Button onClick={onApply} className="flex-1 text-white">
             Apply

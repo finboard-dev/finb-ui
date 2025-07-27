@@ -1,15 +1,11 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  loadChatMessages,
-  processToolResponses,
-  setResponsePanelWidth,
-} from "@/lib/store/slices/chatSlice";
-import { setActiveToolCallId } from "@/lib/store/slices/responsePanelSlice";
-import { useChatConversation } from "@/hooks/query-hooks/useChatConversation";
-import { FinancialReportShimmer } from "@/app/chat/components/chat/ui/shimmer/ChatShimmer";
+import React, { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { loadChatMessages, processToolResponses, setResponsePanelWidth } from '@/lib/store/slices/chatSlice';
+import { setActiveToolCallId } from '@/lib/store/slices/responsePanelSlice';
+import { useChatConversation } from '@/hooks/query-hooks/useChatConversation';
+import { FinancialReportShimmer } from '@/app/chat/components/chat/ui/shimmer/ChatShimmer';
 
 interface ChatConversationLoaderProps {
   threadId: string;
@@ -35,15 +31,8 @@ const ErrorSvg = () => {
             mask="url(#b)"
           ></path>
         </g>
-        <path
-          d="M39.989 132.108a8.332 8.332 0 1 1-16.581-1.671 8.332 8.332 0 0 1 16.58 1.671"
-          fill="#FFF"
-        ></path>
-        <path
-          d="M37.19 135.59l10.553 5.983M48.665 147.884l-12.734 10.861"
-          stroke="#FFF"
-          stroke-width="2"
-        ></path>
+        <path d="M39.989 132.108a8.332 8.332 0 1 1-16.581-1.671 8.332 8.332 0 0 1 16.58 1.671" fill="#FFF"></path>
+        <path d="M37.19 135.59l10.553 5.983M48.665 147.884l-12.734 10.861" stroke="#FFF" stroke-width="2"></path>
         <path
           d="M40.11 160.816a5.706 5.706 0 1 1-11.354-1.145 5.706 5.706 0 0 1 11.354 1.145M57.943 144.6a5.747 5.747 0 1 1-11.436-1.152 5.747 5.747 0 0 1 11.436 1.153M99.656 27.434l30.024-.013a4.619 4.619 0 1 0-.004-9.238l-30.024.013a4.62 4.62 0 0 0 .004 9.238M111.14 45.896l30.023-.013a4.62 4.62 0 1 0-.004-9.238l-30.024.013a4.619 4.619 0 1 0 .004 9.238"
           fill="#FFF"
@@ -161,10 +150,7 @@ const ErrorSvg = () => {
           d="M90.207 287.833s2.745 1.437 7.639.738c3.456-.494 3.223.66 7.418 1.282 4.195.621 13.092-.194 14.334-1.126.466 1.242-.388 2.33-.388 2.33s-1.709.682-5.438.932c-2.295.154-8.098.276-10.14-.621-2.02-1.554-4.894-1.515-6.06-.234-4.427 1.075-7.184-.31-7.184-.31l-.181-2.991z"
           fill="#2B0849"
         ></path>
-        <path
-          d="M98.429 272.257h3.496s-.117 7.574 5.127 9.671c-5.244.7-9.672-2.602-8.623-9.671"
-          fill="#A4AABA"
-        ></path>
+        <path d="M98.429 272.257h3.496s-.117 7.574 5.127 9.671c-5.244.7-9.672-2.602-8.623-9.671" fill="#A4AABA"></path>
         <path
           d="M44.425 272.046s-2.208 7.774-4.702 12.899c-1.884 3.874-4.428 7.854 5.729 7.854 6.97 0 9.385-.503 7.782-6.917-1.604-6.415.279-13.836.279-13.836h-9.088z"
           fill="#CBD1D1"
@@ -287,11 +273,7 @@ const ErrorSvg = () => {
           fill="#A3B4C6"
         ></path>
         <mask fill="#fff"></mask>
-        <path
-          fill="#A3B4C6"
-          mask="url(#d)"
-          d="M154.098 190.096h70.513v-84.617h-70.513z"
-        ></path>
+        <path fill="#A3B4C6" mask="url(#d)" d="M154.098 190.096h70.513v-84.617h-70.513z"></path>
         <path
           d="M224.928 190.096H153.78a3.219 3.219 0 0 1-3.208-3.209V167.92a3.219 3.219 0 0 1 3.208-3.21h71.148a3.219 3.219 0 0 1 3.209 3.21v18.967a3.219 3.219 0 0 1-3.21 3.209M224.928 130.832H153.78a3.218 3.218 0 0 1-3.208-3.208v-18.968a3.219 3.219 0 0 1 3.208-3.209h71.148a3.219 3.219 0 0 1 3.209 3.21v18.967a3.218 3.218 0 0 1-3.21 3.208"
           fill="#BFCDDD"
@@ -360,10 +342,17 @@ export const ChatConversationLoader: React.FC<ChatConversationLoaderProps> = ({
   hasExistingMessages = false,
 }) => {
   const dispatch = useAppDispatch();
-  const { data, isLoading, error } = useChatConversation(
-    threadId,
-    hasExistingMessages
-  );
+  const { data, isLoading, error } = useChatConversation(threadId, hasExistingMessages);
+
+  // Get the current chat state to check if we're streaming
+  const activeChat = useAppSelector((state) => {
+    if (state.chat.pendingChat && state.chat.pendingChat.id === chatId) {
+      return state.chat.pendingChat;
+    }
+    return state.chat.chats.find((chat) => chat.id === chatId);
+  });
+
+  const isStreaming = activeChat?.chats[0]?.isResponding || false;
 
   useEffect(() => {
     if (data && data.messages) {
@@ -375,24 +364,23 @@ export const ChatConversationLoader: React.FC<ChatConversationLoaderProps> = ({
       );
       processToolResponses(data.messages, dispatch);
 
-      const toolMessages = data.messages.filter(
-        (msg: { type: string }) => msg.type === "tool"
-      );
+      const toolMessages = data.messages.filter((msg: { type: string }) => msg.type === 'tool');
       if (toolMessages.length > 0) {
-        const latestToolCallId =
-          toolMessages[toolMessages.length - 1].tool_call_id;
+        const latestToolCallId = toolMessages[toolMessages.length - 1].tool_call_id;
         dispatch(setActiveToolCallId(latestToolCallId));
         dispatch(setResponsePanelWidth(30));
       }
     }
   }, [data, chatId, dispatch]);
 
-  if (isLoading) {
+  // Don't show shimmer if we're actively streaming - this prevents jarring UX during active conversations
+  // The shimmer only shows when loading existing conversations from the server, not during live streaming
+  if (isLoading && !isStreaming) {
     return <FinancialReportShimmer />;
   }
 
   if (error) {
-    console.error("Failed to load chat messages:", error);
+    console.error('Failed to load chat messages:', error);
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center space-y-8">

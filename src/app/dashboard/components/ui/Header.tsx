@@ -63,6 +63,12 @@ interface DashboardSpecificHeaderProps {
   draftVersion?: any;
   // Loading state for apply reorder
   isApplyingReorder?: boolean;
+  // New props for change tracking
+  hasUnsavedChanges?: boolean;
+  dashboardItems?: any[];
+  viewBlocks?: any[];
+  apiComponents?: any[];
+  currentTabWidgets?: any[];
 }
 
 interface DateRange {
@@ -112,6 +118,12 @@ export default function DashboardSpecificHeader({
   publishedVersion,
   draftVersion,
   isApplyingReorder,
+  // New props for change tracking
+  hasUnsavedChanges = false,
+  dashboardItems = [],
+  viewBlocks = [],
+  apiComponents = [],
+  currentTabWidgets = [],
 }: DashboardSpecificHeaderProps) {
   const dispatch = useAppDispatch();
 
@@ -162,6 +174,9 @@ export default function DashboardSpecificHeader({
   const canSwitchToDraft = canEdit && currentVersion === 'published' && draftVersion;
   const canSwitchToPublished = canEdit && currentVersion === 'draft' && publishedVersion;
   const isViewOnlyMode = shouldShowViewMode || !canEdit;
+
+  // Determine if there are any unsaved changes (tab reorder or dashboard content changes)
+  const hasAnyChanges = hasReorderChanges || hasUnsavedChanges;
 
   const updateScrollButtons = () => {
     if (!scrollContainerRef.current) return;
@@ -542,7 +557,7 @@ export default function DashboardSpecificHeader({
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
       <Navbar
-        className="h-[3.8rem] !px-4 !shadow-none"
+        className="h-[3.799rem] !px-4 !shadow-none"
         title={currentDashboardName || 'Dashboard'}
         isCollapsed={isSidebarCollapsed}
         collpaseSidebar={handleSidebarToggle}
@@ -571,13 +586,23 @@ export default function DashboardSpecificHeader({
               {/* Save Draft Button - Only show in draft mode */}
               {shouldShowEditMode && onSaveDraft && (
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={onSaveDraft}
-                  className="h-8 px-3 text-xs border-gray-200 hover:bg-gray-50"
+                  disabled={isApplyingReorder}
+                  className="h-8 px-3 text-xs bg-primary text-white hover:bg-primary/90 shadow-md relative"
                 >
-                  <SaveIcon className="w-3 h-3 mr-1" />
-                  Save
+                  {isApplyingReorder ? (
+                    <Loader2Icon className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <SaveIcon className="w-3 h-3 mr-1" />
+                  )}
+                  {isApplyingReorder ? 'Saving...' : 'Save Changes'}
+
+                  {/* Green dot indicator for tab reorder changes */}
+                  {hasReorderChanges && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-green-600 shadow-sm" />
+                  )}
                 </Button>
               )}
 
@@ -687,24 +712,26 @@ export default function DashboardSpecificHeader({
                                   </svg>
                                 </button>
 
-                                {/* Delete button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteTab(tab.id);
-                                  }}
-                                  className="p-1 hover:bg-red-100 rounded text-red-500 hover:text-red-700 transition-colors duration-200"
-                                  title="Delete tab"
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                </button>
+                                {/* Delete button - only show if more than 1 tab */}
+                                {localTabs.length > 1 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTab(tab.id);
+                                    }}
+                                    className="p-1 hover:bg-red-100 rounded text-red-500 hover:text-red-700 transition-colors duration-200"
+                                    title="Delete tab"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -732,37 +759,6 @@ export default function DashboardSpecificHeader({
               >
                 <PlusIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform duration-200" />
               </button>
-            )}
-
-            {/* Apply Reorder Button - Show when there are changes */}
-            {!isViewOnlyMode && shouldShowEditMode && hasReorderChanges && (
-              <div className="flex items-center gap-2 ml-2">
-                <button
-                  className="flex items-center justify-center px-3 py-1.5 rounded-md text-green-600 hover:text-green-700 hover:bg-green-50 transition-all duration-200 border border-green-300 hover:border-green-400 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleApplyReorder}
-                  disabled={isApplyingReorder}
-                  title="Apply tab reorder changes"
-                >
-                  {isApplyingReorder ? (
-                    <Loader2Icon className="w-3.5 h-3.5 mr-1 animate-spin" />
-                  ) : (
-                    <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  {isApplyingReorder ? 'Applying...' : 'Apply'}
-                </button>
-                <button
-                  className="flex items-center justify-center px-2 py-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleCancelReorder}
-                  disabled={isApplyingReorder}
-                  title="Cancel tab reorder changes"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
             )}
 
             {needsScrolling && (

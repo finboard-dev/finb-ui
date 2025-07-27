@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedCompany, setCompanies, setUserData } from '@/lib/store/slices/userSlice';
+import { setSelectedCompany, setCompanies, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
 import { fetcher } from '@/lib/axios/config';
 import { Building2, Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { initAddQuickBookAccount } from '@/lib/api/intuitService';
@@ -22,6 +22,7 @@ const CompanySelectionPage = () => {
   const user = useAppSelector((state) => state.user.user);
   const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const token = useAppSelector((state) => state.user.token);
+  const reduxCompanies = useAppSelector((state) => state.user.companies);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
@@ -62,49 +63,48 @@ const CompanySelectionPage = () => {
     return [];
   };
 
-  // Force refetch when component mounts to ensure we get fresh data
+  // Clear companies and refetch when organization changes to ensure fresh data
   useEffect(() => {
     if (selectedOrganization?.id && isRehydrated) {
+      // Clear existing companies first to prevent mixing with different organizations
+      dispatch(clearCompanies());
+
       // Invalidate the cache first
       queryClient.invalidateQueries({ queryKey: ['companies', 'all'] });
       // Then refetch
       refetchCompanies();
     }
-  }, [selectedOrganization?.id, isRehydrated, refetchCompanies, queryClient]);
+  }, [selectedOrganization?.id, isRehydrated, refetchCompanies, queryClient, dispatch]);
 
-  // Get companies with safe extraction
-  const apiCompanies = getCompaniesFromResponse(companiesData);
+  // Get companies from API data
+  const companies = getCompaniesFromResponse(companiesData);
 
-  // Force clear Redux companies if API returns empty data
+  // Update companies in Redux state when data is fetched
   useEffect(() => {
-    if (!isLoadingCompanies && companiesData && apiCompanies.length === 0) {
-      dispatch(setCompanies([]));
-    }
-  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
+    if (companiesData && !isLoadingCompanies) {
+      // Clear existing companies and populate with fresh API data
+      const mappedCompanies = companies.map((company: any) => ({
+        ...company,
+        name: company.companyName,
+        status: company.isActive ? 'ACTIVE' : 'INACTIVE',
+      }));
 
-  // Additional check: If React Query has data but it's empty, clear Redux
-  useEffect(() => {
-    if (!isLoadingCompanies && companiesData !== undefined) {
-      if (apiCompanies.length === 0) {
-        dispatch(setCompanies([]));
-      }
-    }
-  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
+      console.log('Updating Redux companies with fresh API data:', {
+        companiesCount: mappedCompanies.length,
+        companies: mappedCompanies.map((c: any) => ({ id: c.id, name: c.name })),
+      });
 
-  // Direct check: If React Query data is empty array, clear Redux immediately
-  useEffect(() => {
-    if (apiCompanies.length === 0 && companiesData !== undefined) {
-      dispatch(setCompanies([]));
+      dispatch(setCompanies(mappedCompanies));
     }
-  }, [apiCompanies.length, companiesData, dispatch]);
+  }, [companiesData, isLoadingCompanies, dispatch, companies]);
 
   // Check if already connected to prevent unnecessary auto-connection
-  const hasSingleCompany = apiCompanies.length === 1;
-  const isAlreadyConnected = selectedCompany && hasSingleCompany && selectedCompany.id === apiCompanies[0].id;
+  const hasSingleCompany = companies.length === 1;
+  const isAlreadyConnected = selectedCompany && hasSingleCompany && selectedCompany.id === companies[0].id;
 
   // Auto-connect when single company is auto-selected
   useEffect(() => {
-    const hasSingleCompany = apiCompanies.length === 1;
+    const hasSingleCompany = companies.length === 1;
 
     // If already connected, redirect to home
     if (isAlreadyConnected) {
@@ -115,7 +115,7 @@ const CompanySelectionPage = () => {
 
     // Only proceed if we have a single company and all conditions are met
     if (hasSingleCompany && !isLoadingCompanies && !isAutoConnecting && isRehydrated && selectedOrganization?.id) {
-      const singleCompany = apiCompanies[0];
+      const singleCompany = companies[0];
 
       // Set selectedCompanyId if not already set
       if (!selectedCompanyId) {
@@ -143,6 +143,17 @@ const CompanySelectionPage = () => {
             };
 
             dispatch(setSelectedCompany(mappedCompanyData));
+
+            // Ensure companies array is populated with fresh data
+            if (companies.length > 0) {
+              const mappedCompanies = companies.map((company: any) => ({
+                ...company,
+                name: company.companyName,
+                status: company.isActive ? 'ACTIVE' : 'INACTIVE',
+              }));
+              console.log('Auto-connect: Updating companies array with', mappedCompanies.length, 'companies');
+              dispatch(setCompanies(mappedCompanies));
+            }
 
             if (user) {
               const updatedUser = {
@@ -202,7 +213,7 @@ const CompanySelectionPage = () => {
     }
   }, [
     selectedCompanyId,
-    apiCompanies,
+    companies,
     isLoadingCompanies,
     isAutoConnecting,
     isRehydrated,
@@ -258,7 +269,7 @@ const CompanySelectionPage = () => {
   }
 
   const handleCompanySelect = (companyId: string) => {
-    const selectedCompany = apiCompanies.find((company: any) => company.id === companyId);
+    const selectedCompany = companies.find((company: any) => company.id === companyId);
     if (selectedCompany) {
       setSelectedCompanyId(companyId);
     }
@@ -295,7 +306,7 @@ const CompanySelectionPage = () => {
     }
 
     try {
-      const selectedCompany = apiCompanies.find((company: any) => company.id === selectedCompanyId);
+      const selectedCompany = companies.find((company: any) => company.id === selectedCompanyId);
 
       if (!selectedCompany) {
         throw new Error('Selected company not found');
@@ -315,6 +326,17 @@ const CompanySelectionPage = () => {
       // The API response contains all the company data including assistants, tools, chat conversations
       // The existing ecosystem is already built to handle this data structure
       dispatch(setSelectedCompany(mappedCompanyData));
+
+      // Ensure companies array is populated with fresh data
+      if (companies.length > 0) {
+        const mappedCompanies = companies.map((company: any) => ({
+          ...company,
+          name: company.companyName,
+          status: company.isActive ? 'ACTIVE' : 'INACTIVE',
+        }));
+        console.log('Manual connect: Updating companies array with', mappedCompanies.length, 'companies');
+        dispatch(setCompanies(mappedCompanies));
+      }
 
       // Also update the user object to keep it in sync
       if (user) {
@@ -354,40 +376,20 @@ const CompanySelectionPage = () => {
     }
   };
 
-  // Update companies in Redux state when data is fetched
+  // Auto-select if there's only one company
   useEffect(() => {
-    if (companiesData && !isLoadingCompanies) {
-      const mappedCompanies = apiCompanies.map((company: any) => ({
-        ...company,
-        name: company.companyName,
-        status: company.isActive ? 'ACTIVE' : 'INACTIVE',
-      }));
-
-      console.log('Mapping companies to Redux:', {
-        companiesData: apiCompanies.map((c: any) => ({ id: c.id, name: c.companyName })),
-        mappedCompanies: mappedCompanies.map((c: any) => ({ id: c.id, name: c.name })),
-      });
-
-      // If API returns empty data but Redux has companies, clear the stale data
-      if (mappedCompanies.length === 0 && apiCompanies.length > 0) {
-        dispatch(setCompanies([]));
-      } else {
-        dispatch(setCompanies(mappedCompanies));
-      }
-
-      // Auto-select if there's only one company
-      if (mappedCompanies.length === 1) {
-        console.log('Auto-selecting single company in Redux mapping:', mappedCompanies[0].name);
-        setSelectedCompanyId(mappedCompanies[0].id);
-      }
+    if (companies.length === 1 && !selectedCompanyId && !isLoadingCompanies) {
+      console.log('Auto-selecting single company:', companies[0].companyName);
+      setSelectedCompanyId(companies[0].id);
     }
-  }, [companiesData, isLoadingCompanies, dispatch, apiCompanies.length]);
+  }, [companies, selectedCompanyId, isLoadingCompanies]);
 
   // Debug logging
   console.log('Render state:', {
     selectedCompanyId,
     isAutoConnecting,
-    companiesData: apiCompanies.map((c: any) => ({ id: c.id, name: c.companyName })),
+    companies: companies.map((c: any) => ({ id: c.id, name: c.companyName })),
+    reduxCompanies: reduxCompanies.map((c: any) => ({ id: c.id, name: c.name })),
     isLoadingCompanies,
     selectedOrganization: selectedOrganization?.id,
   });
@@ -437,17 +439,14 @@ const CompanySelectionPage = () => {
               <span className="text-gray-500">Loading companies...</span>
             </div>
           </div>
-        ) : isAutoConnecting &&
-          selectedCompanyId &&
-          apiCompanies.length === 1 &&
-          selectedCompanyId === apiCompanies[0].id ? (
+        ) : isAutoConnecting && selectedCompanyId && companies.length === 1 && selectedCompanyId === companies[0].id ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-green-500" />
               <span className="text-green-600">
                 Connecting to{' '}
                 {(() => {
-                  const company = apiCompanies.find((c: any) => c.id === selectedCompanyId);
+                  const company = companies.find((c: any) => c.id === selectedCompanyId);
                   return company?.companyName || company?.name || '';
                 })()}
               </span>
@@ -468,7 +467,7 @@ const CompanySelectionPage = () => {
               </button>
             </div>
           </div>
-        ) : !companiesData || apiCompanies.length === 0 ? (
+        ) : !companiesData || companies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-700 mb-2">No companies found</h3>
@@ -483,7 +482,7 @@ const CompanySelectionPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 max-h-80 overflow-y-auto gap-4">
-            {apiCompanies.map((company: any) => (
+            {companies.map((company: any) => (
               <div
                 key={company.id}
                 className={`relative flex cursor-pointer items-center gap-3 rounded-md border ${

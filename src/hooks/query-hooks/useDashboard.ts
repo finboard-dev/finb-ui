@@ -53,6 +53,14 @@ export function useCreateDashboard() {
   return useMutation({
     mutationFn: (dashboardData: CreateDashboardRequest) => createDashboard(dashboardData),
     onSuccess: (data) => {
+      console.log('Dashboard created successfully:', data)
+      
+      // Validate that we have the expected data structure
+      if (!data || !data.id) {
+        console.error('Invalid response data structure:', data)
+        return
+      }
+      
       // Invalidate and refetch dashboard-related queries
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['dashboards'] })

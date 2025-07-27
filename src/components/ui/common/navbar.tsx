@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { FC } from "react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { FC } from 'react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   Bell,
   Search,
@@ -22,15 +22,15 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
-} from "lucide-react";
-import { useAppSelector } from "@/lib/store/hooks";
-import { selectSelectedCompany } from "@/lib/store/slices/userSlice";
-import { useRouter } from "next/navigation";
-import { useUrlParams } from "@/lib/utils/urlParams";
-import { logout } from "@/lib/api/logout";
-import { clearBearerToken } from "@/lib/auth/tokenUtils";
-import { toast } from "sonner";
-import { useClearReduxState } from "@/hooks/useClearReduxState";
+} from 'lucide-react';
+import { useAppSelector } from '@/lib/store/hooks';
+import { selectSelectedCompany, selectSelectedOrganization } from '@/lib/store/slices/userSlice';
+import { useRouter } from 'next/navigation';
+import { useUrlParams } from '@/lib/utils/urlParams';
+import { logout } from '@/lib/api/logout';
+import { clearBearerToken } from '@/lib/auth/tokenUtils';
+import { toast } from 'sonner';
+import { useClearReduxState } from '@/hooks/useClearReduxState';
 
 interface NavbarProps {
   className?: string;
@@ -42,7 +42,7 @@ interface NavbarProps {
 }
 
 const Navbar: FC<NavbarProps> = ({
-  className = "",
+  className = '',
   title,
   collpaseSidebar,
   isCollapsed,
@@ -53,19 +53,27 @@ const Navbar: FC<NavbarProps> = ({
   const { navigateToChatSettings, toggleComponentState } = useUrlParams();
   const router = useRouter();
   const selectedCompany = useAppSelector(selectSelectedCompany);
+  const selectedOrganization = useAppSelector(selectSelectedOrganization);
   const user = useAppSelector((state) => state.user.user);
-  const companyModalId = "company-selection";
+  const companyModalId = 'company-selection';
 
   const handleLogout = async () => {
     try {
       await logout();
       clearBearerToken();
       await clearReduxState();
-      router.push("/login");
-      toast.success("Logged out successfully");
+      router.push('/login');
+      toast.success('Logged out successfully');
     } catch (e) {
-      console.error("Error during logout:", e);
-      alert("Error during logout. Please try again.");
+      console.error('Error during logout:', e);
+      alert('Error during logout. Please try again.');
+    }
+  };
+
+  const handleOrganizationClick = () => {
+    // Only navigate if user has multiple organizations
+    if (user?.organizations && user.organizations.length > 1) {
+      router.push('/organization-selection');
     }
   };
 
@@ -78,12 +86,7 @@ const Navbar: FC<NavbarProps> = ({
         {/* TODO: Add company selection */}
         <div className="flex items-center gap-4">
           {!hideSidebarToggle && collpaseSidebar && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-sec hover:text-gray-700"
-              onClick={collpaseSidebar}
-            >
+            <Button variant="ghost" size="icon" className="text-sec hover:text-gray-700" onClick={collpaseSidebar}>
               {isCollapsed ? (
                 <PanelLeftOpen className="w-5 h-5 text-sec" />
               ) : (
@@ -104,21 +107,15 @@ const Navbar: FC<NavbarProps> = ({
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-9 w-9 rounded-full p-0 hover:bg-gray-100"
-            >
+            <Button variant="ghost" className="h-9 w-9 rounded-full p-0 hover:bg-gray-100">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-gray-100 text-gray-700 text-sm font-medium">
-                  {user?.firstName?.[0] || user?.lastName?.[0] || "U"}
+                  {user?.firstName?.[0] || user?.lastName?.[0] || 'U'}
                 </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-56 bg-white shadow-lg border border-gray-200"
-          >
+          <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg border border-gray-200">
             <DropdownMenuLabel className="font-medium text-gray-900">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">
@@ -128,8 +125,32 @@ const Navbar: FC<NavbarProps> = ({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {/* Organization Section */}
+            {selectedOrganization && (
+              <>
+                <DropdownMenuItem
+                  onClick={handleOrganizationClick}
+                  className={`text-sm cursor-pointer text-gray-700 hover:bg-gray-100 focus:bg-gray-100 ${
+                    user?.organizations && user.organizations.length > 1 ? 'cursor-pointer' : 'cursor-default'
+                  }`}
+                >
+                  <div className="flex flex-col space-y-1 w-full">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{selectedOrganization.name}</span>
+                      {user?.organizations && user.organizations.length > 1 && (
+                        <ChevronDown className="h-3 w-3 text-gray-400" />
+                      )}
+                    </div>
+                    {selectedOrganization.role && (
+                      <p className="text-xs text-gray-500">{selectedOrganization.role.name}</p>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
-              onClick={() => navigateToChatSettings("data-connections")}
+              onClick={() => navigateToChatSettings('data-connections')}
               className="text-sm cursor-pointer text-gray-700 hover:bg-gray-100 focus:bg-gray-100"
             >
               <Settings className="mr-2 h-4 w-4" />

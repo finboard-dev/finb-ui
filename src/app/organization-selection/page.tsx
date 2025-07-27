@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedOrganization, setUserData } from '@/lib/store/slices/userSlice';
+import { setSelectedOrganization, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
 import { Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ const OrganizationSelectionPage = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user.user);
   const token = useAppSelector((state) => state.user.token);
+  const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const isSelectedCompanyNull = useAppSelector(
     (state) => state.user.selectedCompany === null || state.user.selectedCompany === undefined
   );
@@ -41,6 +42,7 @@ const OrganizationSelectionPage = () => {
   // Handle organization logic
   useEffect(() => {
     console.log('Organization selection - user organizations:', user?.organizations);
+    console.log('Current selected organization:', selectedOrganization);
 
     if (!user?.organizations || hasAutoSelected) {
       return; // Still loading or already auto-selected
@@ -66,6 +68,9 @@ const OrganizationSelectionPage = () => {
           permissions: [], // You might need to fetch permissions separately
         },
       };
+
+      // Clear companies array to ensure fresh start for new organization
+      dispatch(clearCompanies());
 
       // Update the selected organization
       dispatch(setSelectedOrganization(organizationToSelect));
@@ -94,9 +99,14 @@ const OrganizationSelectionPage = () => {
 
       // Redirect to company selection
       router.push('/company-selection');
+    } else if (user.organizations.length > 1 && selectedOrganization) {
+      // If user has multiple organizations and one is already selected,
+      // don't auto-redirect but preselect the current one
+      console.log('Multiple organizations found with existing selection, staying on page');
+      setHasAutoSelected(true); // Prevent infinite loop
     }
     // If multiple organizations, stay on this page for selection
-  }, [user, hasAutoSelected]);
+  }, [user, hasAutoSelected, selectedOrganization]);
 
   // Show loading state while user data is being loaded
   if (!user) {
@@ -121,6 +131,19 @@ const OrganizationSelectionPage = () => {
       </div>
     );
   }
+
+  // Initialize selectedOrgId with the current selected organization if it exists
+  useEffect(() => {
+    if (selectedOrganization && user?.organizations) {
+      // Check if the selected organization exists in the user's organizations
+      const orgExists = user.organizations.some((org) => org.organization.id === selectedOrganization.id);
+
+      if (orgExists) {
+        setSelectedOrgId(selectedOrganization.id);
+        console.log('Preselecting organization:', selectedOrganization.name);
+      }
+    }
+  }, [selectedOrganization, user?.organizations]);
 
   const handleOrganizationSelect = (orgId: string) => {
     setSelectedOrgId(orgId);
@@ -246,6 +269,9 @@ const OrganizationSelectionPage = () => {
           },
         };
 
+        // Clear companies array to ensure fresh start for new organization
+        dispatch(clearCompanies());
+
         // Update the selected organization
         dispatch(setSelectedOrganization(organizationToSelect));
 
@@ -332,6 +358,9 @@ const OrganizationSelectionPage = () => {
           permissions: [], // You might need to fetch permissions separately
         },
       };
+
+      // Clear companies array to ensure fresh start for new organization
+      dispatch(clearCompanies());
 
       // Update the selected organization
       dispatch(setSelectedOrganization(organizationToSelect));
@@ -721,7 +750,9 @@ const OrganizationSelectionPage = () => {
                     onClick={() => handleOrganizationSelect(org.organization.id)}
                   >
                     <div className="flex-1">
-                      <p className="font-medium">{org.organization.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{org.organization.name}</p>
+                      </div>
                       <p className="text-sm text-gray-500">Role: {org.role.name}</p>
                       <p
                         className={`text-sm ${
@@ -752,6 +783,8 @@ const OrganizationSelectionPage = () => {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Processing...
                   </div>
+                ) : selectedOrganization?.id === selectedOrgId ? (
+                  'Continue'
                 ) : (
                   'Continue'
                 )}

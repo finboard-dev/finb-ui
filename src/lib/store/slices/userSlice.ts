@@ -242,30 +242,20 @@ const userSlice = createSlice({
       state.companies = [];
     },
 
-    setCompanies: (state, action: PayloadAction<Company[]>) => {
-      // Prevent duplicates by using a Map with company ID as key
-      // This ensures that if the same company is added multiple times,
-      // only the latest version is kept in the array
-      const companiesMap = new Map();
-      
-      // First, add existing companies to the map
-      if (state.companies) {
-        state.companies.forEach(company => {
-          if (company.id) {
-            companiesMap.set(company.id, company);
-          }
-        });
+    clearCompanies: (state) => {
+      if (state === null) {
+        console.error("State is null in clearCompanies reducer");
+        return initialState;
       }
-      
-      // Then add new companies, overwriting duplicates
-      action.payload.forEach(company => {
-        if (company.id) {
-          companiesMap.set(company.id, company);
-        }
-      });
-      
-      // Convert back to array
-      state.companies = Array.from(companiesMap.values());
+
+      state.companies = [];
+      state.selectedCompany = null;
+    },
+
+    setCompanies: (state, action: PayloadAction<Company[]>) => {
+      // Completely replace the companies array with fresh data
+      // This ensures that companies from different organizations don't mix
+      state.companies = action.payload || [];
     },
 
     /**
@@ -302,6 +292,7 @@ export const {
   setSelectedOrganization,
   setSelectedCompany,
   clearUserData,
+  clearCompanies,
   setCompanies,
   addCompany,
 } = userSlice.actions;

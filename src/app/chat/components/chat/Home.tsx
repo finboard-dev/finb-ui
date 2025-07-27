@@ -1,42 +1,29 @@
-"use client";
+'use client';
 
-import { FC, useEffect, useRef, useState } from "react";
-import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
-import {
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-  type ImperativePanelHandle,
-} from "react-resizable-panels";
-import ChatContainer from "./layout/ChatContainer";
-import NoChatBranding from "./chat-container/NoChatBranding";
-import ResponsePanel from "./layout/Responsepanel";
-import ChatSidebar from "./layout/ChatSidebar";
-import Navbar from "@/components/ui/common/navbar";
+import { FC, useEffect, useRef, useState } from 'react';
+import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
+import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels';
+import ChatContainer from './layout/ChatContainer';
+import NoChatBranding from './chat-container/NoChatBranding';
+import ResponsePanel from './layout/Responsepanel';
+import ChatSidebar from './layout/ChatSidebar';
+import Navbar from '@/components/ui/common/navbar';
 
-import {
-  setResponsePanelWidth,
-  setActiveMessageId,
-  initializeNewChat,
-} from "@/lib/store/slices/chatSlice";
-import { ChatConversationLoader } from "./chat-container/ChatConversationLoader";
-import { selectSelectedCompany, Company } from "@/lib/store/slices/userSlice";
-import { selectDropDownLoading } from "@/lib/store/slices/loadingSlice";
-import { fetcher } from "@/lib/axios/config";
-import {
-  setMainContent,
-  toggleComponent,
-  selectIsComponentOpen,
-} from "@/lib/store/slices/uiSlice";
-import { store } from "@/lib/store/store";
-import { useRouter, useSearchParams } from "next/navigation";
-import LoadingAnimation from "@/components/ui/common/GlobalLoading";
-import { useUrlParams } from "@/lib/utils/urlParams";
-import { useCompanyData } from "@/hooks/query-hooks/useCompany";
-import { CompanyModal } from "../../../../components/ui/common/CompanyModal";
-import NewChatButton from "./ui/NewChatButton";
-import ChatSearchDropdown from "./ui/ChatSearchDropdown";
-import { Sidebar } from "@/components/ui/common/sidebar";
+import { setResponsePanelWidth, setActiveMessageId, initializeNewChat } from '@/lib/store/slices/chatSlice';
+import { ChatConversationLoader } from './chat-container/ChatConversationLoader';
+import { selectSelectedCompany, Company } from '@/lib/store/slices/userSlice';
+import { selectDropDownLoading } from '@/lib/store/slices/loadingSlice';
+import { fetcher } from '@/lib/axios/config';
+import { setMainContent, toggleComponent, selectIsComponentOpen } from '@/lib/store/slices/uiSlice';
+import { store } from '@/lib/store/store';
+import { useRouter, useSearchParams } from 'next/navigation';
+import LoadingAnimation from '@/components/ui/common/GlobalLoading';
+import { useUrlParams } from '@/lib/utils/urlParams';
+import { useCompanyData } from '@/hooks/query-hooks/useCompany';
+import { CompanyModal } from '../../../../components/ui/common/CompanyModal';
+import NewChatButton from './ui/NewChatButton';
+import ChatSearchDropdown from './ui/ChatSearchDropdown';
+import { Sidebar } from '@/components/ui/common/sidebar';
 
 interface ToolCallResponse {
   messageId: string;
@@ -57,9 +44,7 @@ const Home: FC = () => {
   } = useUrlParams();
   const activeChatId = useAppSelector((state) => state.chat.activeChatId);
   const isCompanyLoading = useAppSelector(selectDropDownLoading);
-  const selectedCompany: any = useAppSelector(
-    selectSelectedCompany
-  ) as Company & {
+  const selectedCompany: any = useAppSelector(selectSelectedCompany) as Company & {
     assistants?: any[];
   };
   const availableAssistants: any[] = selectedCompany?.assistants || [];
@@ -69,24 +54,20 @@ const Home: FC = () => {
 
   const [error, setError] = useState<string | null>(null);
   const companies = useAppSelector((state) => state.user.companies);
-  const selectedOrganization = useAppSelector(
-    (state) => state.user.selectedOrganization
-  );
+  const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const user = useAppSelector((state) => state.user.user);
 
   // Use component-based sidebar state
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, "sidebar-chat")
-  );
+  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
   const isSidebarCollapsed = !isSidebarOpen;
 
   // Initialize sidebar component if it doesn't exist
   useEffect(() => {
     dispatch({
-      type: "ui/initializeComponent",
+      type: 'ui/initializeComponent',
       payload: {
-        type: "sidebar",
-        id: "sidebar-chat",
+        type: 'sidebar',
+        id: 'sidebar-chat',
         isOpenFromUrl: true, // Default to open
       },
     });
@@ -101,10 +82,7 @@ const Home: FC = () => {
   } = useCompanyData(selectedCompanyId);
 
   const activeChat = useAppSelector((state) => {
-    if (
-      state.chat.pendingChat &&
-      state.chat.pendingChat.id === state.chat.activeChatId
-    ) {
+    if (state.chat.pendingChat && state.chat.pendingChat.id === state.chat.activeChatId) {
       return state.chat.pendingChat;
     }
     return state.chat.chats.find((chat) => chat.id === state.chat.activeChatId);
@@ -124,36 +102,63 @@ const Home: FC = () => {
 
   const responsePanelRef = useRef<ImperativePanelHandle>(null);
 
-  const userMessages = messages.filter((msg) => msg.role === "user");
+  const userMessages = messages.filter((msg) => msg.role === 'user');
   const showChat = userMessages.length > 0;
 
   // Check if currently streaming
   const isStreaming = activeChat?.chats[0]?.isResponding || false;
 
+  // Check if this is a fresh conversation (just started) vs an existing one
+  const isFreshConversation =
+    (activeChat?.chats[0]?.messages?.length || 0) <= 2 && !messages.some((msg) => msg.messageId);
+
+  // Check if we have a threadId in URL but no messages in state (refresh scenario)
+  const hasThreadIdButNoMessages = !!activeChat?.thread_id && messages.length === 0;
+
+  // Check if we're in an active conversation session (not navigating to existing)
+  // An active session means we started this conversation in this browser session
+  const isActiveSession = !hasThreadIdButNoMessages && messages.length > 0;
+
   // Check if there are existing messages from a previous conversation
-  // We consider messages as "existing" if they have a messageId (from API) or if there are more than 2 messages (indicating previous conversation)
-  const hasExistingMessages =
-    messages.some((msg) => msg.messageId) || messages.length > 2;
+  // We ONLY consider messages as "existing" if they have a messageId (from API)
+  // This prevents unnecessary refetches during active conversations that cause shimmer UI
+  // The messageId indicates the message was saved to the server and we're loading from server
+  const hasExistingMessages = messages.some((msg) => msg.messageId);
 
   // Load conversation data if:
-  // 1. There are existing messages from a previous conversation, OR
-  // 2. We're not currently streaming (to avoid interference with new chat streaming)
-  const shouldLoadConversation = hasExistingMessages || !isStreaming;
+  // 1. There are existing messages from a previous conversation (with messageId), AND
+  // 2. We're not currently streaming (to avoid interference with new chat streaming), AND
+  // 3. This is not a fresh conversation that just started, AND
+  // 4. We're not in an active session (to prevent refetching during active conversations)
+  // OR if we have a threadId but no messages (refresh scenario)
+  // This prevents the shimmer UI from appearing during active conversations
+  const shouldLoadConversation =
+    (hasExistingMessages && !isStreaming && !isFreshConversation && !isActiveSession) || hasThreadIdButNoMessages;
 
-  const { toolCallResponses } = useAppSelector(
-    (state) => state.responsePanel
-  ) as { toolCallResponses: ToolCallResponse[] };
+  // Debug logging to understand refetch behavior
+  console.log('Chat Load Debug:', {
+    messagesLength: messages.length,
+    hasMessageIds: messages.some((msg) => msg.messageId),
+    hasExistingMessages,
+    isStreaming,
+    isFreshConversation,
+    hasThreadIdButNoMessages,
+    isActiveSession,
+    shouldLoadConversation,
+    threadId: activeChat?.thread_id,
+  });
+
+  const { toolCallResponses } = useAppSelector((state) => state.responsePanel) as {
+    toolCallResponses: ToolCallResponse[];
+  };
   const visibleResponses = activeMessageId
-    ? toolCallResponses.filter(
-        (response) => response.messageId === activeMessageId
-      )
+    ? toolCallResponses.filter((response) => response.messageId === activeMessageId)
     : toolCallResponses;
   const isPanelVisible = visibleResponses.length > 0 && responsePanelWidth > 0;
 
   useEffect(() => {
     const defaultAssistant =
-      availableAssistants.find((assist) => assist.name === "report_agent") ||
-      availableAssistants[0];
+      availableAssistants.find((assist) => assist.name === 'report_agent') || availableAssistants[0];
     if (defaultAssistant && !activeChatId) {
       dispatch(initializeNewChat({ assistantId: defaultAssistant.id }));
     }
@@ -161,8 +166,8 @@ const Home: FC = () => {
 
   useEffect(() => {
     if (!selectedCompany?.name) {
-      console.log("home company");
-      router.push("/company-selection");
+      console.log('home company');
+      router.push('/company-selection');
     }
   }, [companies, router]);
 
@@ -177,7 +182,7 @@ const Home: FC = () => {
 
   // Add sidebar collapse handler
   const handleSidebarCollapse = () => {
-    dispatch(toggleComponent({ id: "sidebar-chat" }));
+    dispatch(toggleComponent({ id: 'sidebar-chat' }));
   };
 
   const ToolCallEventListener: FC = () => {
@@ -187,51 +192,38 @@ const Home: FC = () => {
           dispatch(setActiveMessageId(event.detail.messageId));
         }
       };
-      window.addEventListener(
-        "toolCallSelected",
-        handleToolCallClick as EventListener
-      );
-      return () =>
-        window.removeEventListener(
-          "toolCallSelected",
-          handleToolCallClick as EventListener
-        );
+      window.addEventListener('toolCallSelected', handleToolCallClick as EventListener);
+      return () => window.removeEventListener('toolCallSelected', handleToolCallClick as EventListener);
     }, []);
     return null;
   };
 
   const handleCompanyChange = () => {
     // window.location.reload();
-    console.log("company changed");
+    console.log('company changed');
   };
 
   // Show loading animation for company operations
   if (isCompanyLoading || isLoadingCompanies) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <LoadingAnimation message={"Loading company data... Please wait!"} />
+        <LoadingAnimation message={'Loading company data... Please wait!'} />
       </div>
     );
   }
 
   return (
-    <main
-      className="flex h-screen overflow-hidden bg-white"
-      style={{ minWidth: 0, minHeight: 0 }}
-    >
+    <main className="flex h-screen overflow-hidden bg-white" style={{ minWidth: 0, minHeight: 0 }}>
       <ToolCallEventListener />
       {/* <ChatSidebar /> */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         onClickSettings={() => {
-          console.log("clicked settings");
-          navigateToChatSettings("data-connections");
+          console.log('clicked settings');
+          navigateToChatSettings('data-connections');
         }}
       />
-      <div
-        className="flex flex-1 w-full h-full flex-col"
-        style={{ minWidth: 0 }}
-      >
+      <div className="flex flex-1 w-full h-full flex-col" style={{ minWidth: 0 }}>
         <Navbar
           title="Chat"
           className="!h-[3.8rem]"
@@ -243,11 +235,8 @@ const Home: FC = () => {
             <NewChatButton />
           </div>
         </Navbar>
-        <div
-          className="flex flex-1 w-full flex-row overflow-hidden"
-          style={{ minWidth: 0 }}
-        >
-          {" "}
+        <div className="flex flex-1 w-full flex-row overflow-hidden" style={{ minWidth: 0 }}>
+          {' '}
           {/* Added minWidth: 0 */}
           {activeChatId ? (
             !showChat && pendingChat && pendingChat.id === activeChatId ? (
@@ -287,15 +276,12 @@ const Home: FC = () => {
                       maxSize={60}
                       className="bg-white overflow-auto transition-transform duration-300 ease-in-out transform-gpu"
                       style={{
-                        overflowX: "hidden",
+                        overflowX: 'hidden',
                         minWidth: 0,
-                        maxWidth: "60%",
+                        maxWidth: '60%',
                       }}
                     >
-                      <ResponsePanel
-                        activeMessageId={activeMessageId as any}
-                        isOpen={isPanelVisible}
-                      />
+                      <ResponsePanel activeMessageId={activeMessageId as any} isOpen={isPanelVisible} />
                     </Panel>
                   </>
                 )}

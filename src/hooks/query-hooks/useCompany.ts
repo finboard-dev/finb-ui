@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAllCompany, getCurrentCompany } from '@/lib/api/allCompany'
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks'
-import { setCompanies, setSelectedCompany, setUserData } from '@/lib/store/slices/userSlice'
+import { setCompanies, setSelectedCompany, setUserData, clearCompanies } from '@/lib/store/slices/userSlice'
 import { useEffect } from 'react'
 
 export function useAllCompanies() {
@@ -14,6 +14,8 @@ export function useAllCompanies() {
     queryFn: getAllCompany,
     retry: 1,
     enabled: !!selectedOrganizationId, // Only enable if we have an organization
+    staleTime: 0, // Always consider data stale to ensure fresh fetch
+    gcTime: 0, // Don't cache to prevent mixing companies from different organizations
   })
 }
 
@@ -59,10 +61,12 @@ export function useCompanyData(selectedCompanyId?: string) {
     error: currentCompanyError,
   } = useCurrentCompany(selectedCompanyId || '')
 
+
+
   // Update companies in Redux state
   useEffect(() => {
     if (companiesData) {
-      const mappedCompanies = (companiesData?.data || companiesData || []).map(
+      const mappedCompanies = (Array.isArray(companiesData) ? companiesData : companiesData?.data || []).map(
         (company: any) => ({
           ...company,
           name: company.companyName,

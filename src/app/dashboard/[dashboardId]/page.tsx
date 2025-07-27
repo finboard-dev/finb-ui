@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { selectIsComponentOpen, toggleComponent } from '@/lib/store/slices/uiSlice';
 import { v4 as uuidv4 } from 'uuid';
+import { useQueryClient } from '@tanstack/react-query';
 import DashboardSpecificHeader from '../components/ui/Header';
 import DashboardControls from '../components/Dashboard/DashBoardControls';
 import DashboardView from '../components/Dashboard/DashboardView';
@@ -104,6 +105,7 @@ export default function DashboardPage() {
   // React Query hooks for dashboard operations
   const saveDashboardMutation = useSaveDashboard();
   const publishDraftMutation = usePublishDraft();
+  const queryClient = useQueryClient();
 
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
   const [viewBlocks, setViewBlocks] = useState<Block[]>([]);
@@ -111,6 +113,13 @@ export default function DashboardPage() {
   const [draggingBlock, setDraggingBlock] = useState<DraggingBlock | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsLoaded, setMetricsLoaded] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [originalDashboardState, setOriginalDashboardState] = useState<any>(null);
+
+  // State for frontend date filter - will be initialized after currentTab is defined
+  const [currentFilterStartDate, setCurrentFilterStartDate] = useState<string | undefined>();
+  const [currentFilterEndDate, setCurrentFilterEndDate] = useState<string | undefined>();
 
   // Initialize sidebar component if it doesn't exist
   useEffect(() => {
@@ -190,7 +199,29 @@ export default function DashboardPage() {
 
     setViewBlocks(newBlocks);
     setDashboardItems(newDashboardItems);
+
+    // Set original state for change tracking
+    const originalState = {
+      dashboardItems: newDashboardItems,
+      viewBlocks: newBlocks,
+      apiComponents: [],
+      currentTabWidgets: currentTabWidgets,
+    };
+    setOriginalDashboardState(originalState);
+    setHasUnsavedChanges(false);
   }, [currentTabWidgets]);
+
+  // Track changes in dashboard content
+  useEffect(() => {
+    if (!originalDashboardState) return;
+
+    const hasChanges =
+      JSON.stringify(dashboardItems) !== JSON.stringify(originalDashboardState.dashboardItems) ||
+      JSON.stringify(viewBlocks) !== JSON.stringify(originalDashboardState.viewBlocks) ||
+      JSON.stringify(apiComponents) !== JSON.stringify(originalDashboardState.apiComponents);
+
+    setHasUnsavedChanges(hasChanges);
+  }, [dashboardItems, viewBlocks, apiComponents, originalDashboardState]);
 
   // Memoized values for better performance
   const currentTab = useMemo(() => {
@@ -199,6 +230,14 @@ export default function DashboardPage() {
     const activeVersion = structure.publishedVersion || structure.draftVersion;
     return activeVersion?.tabs.find((tab: any) => tab.id === currentTabId) || null;
   }, [structure, currentTabId]);
+
+  // Initialize filter dates when currentTab changes
+  useEffect(() => {
+    if (currentTab) {
+      setCurrentFilterStartDate(currentTab.startDate);
+      setCurrentFilterEndDate(currentTab.endDate);
+    }
+  }, [currentTab]);
 
   const effectiveIsEditing = useMemo(() => {
     return isEditing && currentVersion === 'draft';
@@ -210,7 +249,7 @@ export default function DashboardPage() {
 
   // Dashboard date controls hook
   const {
-    isRefreshing,
+    isRefreshing: isRefreshingFromHook,
     lastRefreshedAt,
     handleDateRangeChange: handleDateRangeChangeFromHook,
     handleRefresh,
@@ -411,6 +450,16 @@ export default function DashboardPage() {
       // Call the save API using React Query
       await saveDashboardMutation.mutateAsync(saveRequest);
 
+      // Reset change tracking after successful save
+      const newOriginalState = {
+        dashboardItems,
+        viewBlocks,
+        apiComponents,
+        currentTabWidgets,
+      };
+      setOriginalDashboardState(newOriginalState);
+      setHasUnsavedChanges(false);
+
       toast.success('Draft saved successfully');
     } catch (error) {
       console.error('Error saving dashboard:', error);
@@ -567,6 +616,17 @@ export default function DashboardPage() {
       };
 
       await saveDashboardMutation.mutateAsync(saveRequest);
+
+      // Reset change tracking after successful tab reorder
+      const newOriginalState = {
+        dashboardItems,
+        viewBlocks,
+        apiComponents,
+        currentTabWidgets,
+      };
+      setOriginalDashboardState(newOriginalState);
+      setHasUnsavedChanges(false);
+
       toast.success('Tab order updated successfully');
     } catch (error) {
       console.error('Error applying tab reorder:', error);
@@ -665,6 +725,33 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error updating date range:', error);
       toast.error('Failed to update date range');
+    }
+  };
+
+  // New handler for frontend filter functionality
+  const handleExecuteWithNewDates = async (startDate: string, endDate: string) => {
+    if (!currentTabId || !structure) return;
+
+    try {
+      // Validate the date range
+      if (!validateDateRange(startDate, endDate)) {
+        return;
+      }
+
+      console.log('🔄 Triggering frontend filter with new dates:', { startDate, endDate });
+
+      // Update the state for frontend filter
+      setCurrentFilterStartDate(startDate);
+      setCurrentFilterEndDate(endDate);
+
+      // Invalidate all component execution queries to force refetch with new dates
+      // This will trigger all widgets to re-execute with the new date range
+      await queryClient.invalidateQueries({ queryKey: ['component-execution'] });
+
+      toast.success('Date filter applied successfully');
+    } catch (error) {
+      console.error('Error applying date filter:', error);
+      toast.error('Failed to apply date filter');
     }
   };
 
@@ -836,6 +923,12 @@ export default function DashboardPage() {
             draftVersion={structure?.draftVersion}
             // Loading state for apply reorder
             isApplyingReorder={saveDashboardMutation.isPending}
+            // Change tracking props
+            hasUnsavedChanges={hasUnsavedChanges}
+            dashboardItems={dashboardItems}
+            viewBlocks={viewBlocks}
+            apiComponents={apiComponents}
+            currentTabWidgets={currentTabWidgets}
           />
           <DashboardError error={error instanceof Error ? error.message : String(error)} />
         </div>
@@ -882,13 +975,20 @@ export default function DashboardPage() {
           draftVersion={structure?.draftVersion}
           // Loading state for apply reorder
           isApplyingReorder={saveDashboardMutation.isPending}
+          // Change tracking props
+          hasUnsavedChanges={hasUnsavedChanges}
+          dashboardItems={dashboardItems}
+          viewBlocks={viewBlocks}
+          apiComponents={apiComponents}
+          currentTabWidgets={currentTabWidgets}
         />
 
         {/* Dashboard Date Controls */}
         <DashboardDateControls
-          currentTabStartDate={currentTab?.startDate}
-          currentTabEndDate={currentTab?.endDate}
+          currentTabStartDate={currentFilterStartDate || currentTab?.startDate}
+          currentTabEndDate={currentFilterEndDate || currentTab?.endDate}
           onDateRangeChange={handleDateRangeChange}
+          onExecuteWithNewDates={handleExecuteWithNewDates}
           onRefresh={handleRefresh}
           isLoading={isRefreshing}
           lastRefreshedAt={lastRefreshedAt}
@@ -930,8 +1030,8 @@ export default function DashboardPage() {
               blocks={[...viewBlocks, ...apiComponents]} // Include both view blocks and API components
               draggingBlock={draggingBlock}
               isEditing={effectiveIsEditing}
-              currentTabStartDate={currentTab?.startDate}
-              currentTabEndDate={currentTab?.endDate}
+              currentTabStartDate={currentFilterStartDate || currentTab?.startDate}
+              currentTabEndDate={currentFilterEndDate || currentTab?.endDate}
               onBlockTitleUpdate={handleBlockTitleUpdate}
             />
           </div>

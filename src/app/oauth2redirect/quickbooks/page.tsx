@@ -1,13 +1,13 @@
 'use client';
 
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setUserData } from '@/lib/store/slices/userSlice';
+import { setUserData, addCompany } from '@/lib/store/slices/userSlice';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense, useMemo } from 'react';
 import { getAndClearRedirectPath } from '@/lib/auth/authUtils';
 import { AUTH_CONFIG } from '@/lib/auth/authConfig';
 import { quickbooksService } from '@/lib/api/sso/quickbooks';
-import { addCompany } from '@/lib/api/intuitService';
+import { addCompany as addCompanyApi } from '@/lib/api/intuitService';
 import { store } from '@/lib/store/store';
 import { setAuthCookies } from '@/lib/auth/tokenUtils';
 import { useLogin } from '@/hooks/query-hooks/useLogin';
@@ -258,25 +258,67 @@ function CallbackHandler() {
       setProgress(30);
       setCurrentStepIndex(1);
 
-      const response = await addCompany(params.code, params.realmId);
+      const response = await addCompanyApi(params.code, params.realmId);
       setApiResponse(response);
       setProgress(60);
       setCurrentStepIndex(2);
 
       if (response && response.success) {
         const currentUserState = store.getState().user;
-        const userData = {
-          token: currentUserState.token, // Preserve existing token
-          user: { ...currentUserState.user, ...response }, // Merge user details
-          selectedOrganization: response.selectedOrganization || currentUserState.selectedOrganization,
-          selectedCompany: response.selectedCompany || response.data || currentUserState.selectedCompany, // Extract data object from API response
-        };
-        dispatch(setUserData(userData as any));
-        setProgress(90);
 
-        if (userData.selectedCompany) {
-          document.cookie = 'has_selected_company=true; path=/; SameSite=Lax; Secure';
+        // Extract the newly added company from the response
+        // The API response structure might vary, so we need to handle different possibilities
+        let newCompany = null;
+
+        if (response.data) {
+          // If response has a data property, use it
+          newCompany = response.data;
+        } else if (response.company) {
+          // If response has a company property, use it
+          newCompany = response.company;
+        } else if (response.selectedCompany) {
+          // If response has selectedCompany property, use it
+          newCompany = response.selectedCompany;
+        } else if (typeof response === 'object' && response.id) {
+          // If the response itself is a company object
+          newCompany = response;
         }
+
+        // Ensure the company has the required structure
+        if (newCompany) {
+          const mappedCompany = {
+            ...newCompany,
+            name: newCompany.companyName || newCompany.name,
+            status: newCompany.isActive ? 'ACTIVE' : 'INACTIVE',
+          };
+
+          const userData = {
+            token: currentUserState.token, // Preserve existing token
+            user: { ...currentUserState.user, ...response }, // Merge user details
+            selectedOrganization: response.selectedOrganization || currentUserState.selectedOrganization,
+            selectedCompany: mappedCompany, // Set the newly added company as selected
+          };
+
+          dispatch(setUserData(userData as any));
+
+          // Also add the company to the companies array if it's not already there
+          const existingCompanies = currentUserState.companies || [];
+          const companyExists = existingCompanies.some((company: any) => company.id === mappedCompany.id);
+
+          if (!companyExists) {
+            dispatch(addCompany(mappedCompany));
+          }
+
+          setProgress(90);
+
+          // Set the cookie to indicate a company is selected
+          document.cookie = 'has_selected_company=true; path=/; SameSite=Lax; Secure';
+
+          console.log('Successfully added and selected company:', mappedCompany);
+        } else {
+          console.warn('No company data found in response:', response);
+        }
+
         setTimeout(() => {
           // Simulate finalization
           setCurrentStepIndex(3);

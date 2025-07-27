@@ -97,24 +97,15 @@ function getProjection(
   const minDepth = getMinDepth({ nextItem });
   let depth = projectedDepth;
 
-  // Apply depth restrictions based on drag direction
-  if (dragOffset >= 0) {
-    // Right dragging - apply restrictions
-    if (projectedDepth >= maxDepth) {
-      depth = maxDepth;
-    } else if (projectedDepth < minDepth) {
-      depth = minDepth;
-    } else {
-      depth = projectedDepth;
-    }
-    // Additional check to ensure we never exceed 4 levels
-    depth = Math.min(depth, 4);
-  } else {
-    // Left dragging - allow any depth, no restrictions
-    depth = projectedDepth;
-    // Only ensure depth doesn't go negative
-    depth = Math.max(depth, 0);
+  // Ensure depth doesn't exceed 4 levels
+  if (projectedDepth >= maxDepth) {
+    depth = maxDepth;
+  } else if (projectedDepth < minDepth) {
+    depth = minDepth;
   }
+
+  // Additional check to ensure we never exceed 4 levels
+  depth = Math.min(depth, 4);
 
   return { depth, maxDepth, minDepth, parentId: getParentId() };
 
@@ -131,25 +122,18 @@ function getProjection(
       return previousItem.id;
     }
 
-    // For moving to shallower depth, find the appropriate parent
-    // Look backwards through the items to find the correct parent at the target depth
-    for (let i = overItemIndex - 1; i >= 0; i--) {
-      const item = newItems[i];
-      if (item.depth === depth - 1) {
-        return item.id;
-      }
-      if (item.depth < depth - 1) {
-        break;
-      }
-    }
+    const newParent = newItems
+      .slice(0, overItemIndex)
+      .reverse()
+      .find((item) => item.depth === depth)?.parentId;
 
-    return null;
+    return newParent ?? null;
   }
 }
 
 function getMaxDepth({ previousItem }: { previousItem: FlattenedItem }) {
   if (previousItem) {
-    // Limit nesting to 4 levels maximum for right dragging
+    // Limit nesting to 4 levels maximum
     return Math.min(previousItem.depth + 1, 4);
   }
   return 0;
@@ -501,8 +485,6 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
           } ${
             ghost && indicator
               ? 'relative p-0 h-[6px] border-[#2389ff] bg-[#56a1f8] before:absolute before:left-[-6px] before:top-[-3px] before:block before:content-[""] before:w-[10px] before:h-[10px] before:rounded-full before:border before:border-[#2389ff] before:bg-white'
-              : ghost && !indicator
-              ? 'opacity-50 bg-gray-100 border-dashed border-gray-300'
               : ''
           } ${!clone && onEdit ? 'cursor-pointer hover:bg-gray-50' : ''}`}
           ref={ref}
@@ -740,49 +722,43 @@ interface SortableTreeItemProps extends TreeItemProps {
   id: UniqueIdentifier;
 }
 
-const SortableTreeItem = React.forwardRef<HTMLDivElement, SortableTreeItemProps>(
-  ({ id, depth, indicator, ghost, ...props }, ref) => {
-    const {
-      attributes,
-      isDragging,
-      isSorting,
-      listeners,
-      setDraggableNodeRef,
-      setDroppableNodeRef,
-      transform,
-      transition,
-    } = useSortable({
-      id,
-      animateLayoutChanges: ({ isSorting, wasDragging }) => (isSorting || wasDragging ? false : true),
-    });
+const SortableTreeItem = React.forwardRef<HTMLDivElement, SortableTreeItemProps>(({ id, depth, ...props }, ref) => {
+  const {
+    attributes,
+    isDragging,
+    isSorting,
+    listeners,
+    setDraggableNodeRef,
+    setDroppableNodeRef,
+    transform,
+    transition,
+  } = useSortable({
+    id,
+    animateLayoutChanges: ({ isSorting, wasDragging }) => (isSorting || wasDragging ? false : true),
+  });
 
-    const style: React.CSSProperties = {
-      transform: CSS.Translate.toString(transform),
-      transition,
-    };
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
 
-    // Use the ghost prop passed from parent for placeholder display
-    const shouldShowGhost = ghost || (isDragging && indicator);
-
-    return (
-      <TreeItem
-        ref={setDraggableNodeRef}
-        wrapperRef={setDroppableNodeRef}
-        style={style}
-        depth={depth}
-        ghost={shouldShowGhost}
-        disableSelection={iOS}
-        disableInteraction={isSorting}
-        handleProps={{
-          ...attributes,
-          ...listeners,
-        }}
-        indicator={indicator}
-        {...props}
-      />
-    );
-  }
-);
+  return (
+    <TreeItem
+      ref={setDraggableNodeRef}
+      wrapperRef={setDroppableNodeRef}
+      style={style}
+      depth={depth}
+      ghost={isDragging}
+      disableSelection={iOS}
+      disableInteraction={isSorting}
+      handleProps={{
+        ...attributes,
+        ...listeners,
+      }}
+      {...props}
+    />
+  );
+});
 
 SortableTreeItem.displayName = 'SortableTreeItem';
 
@@ -1069,7 +1045,6 @@ function SortableTree({
             };
 
             const originalItem = findItemWithTitle(items, id);
-
             return (
               <SortableTreeItem
                 key={id}
@@ -1078,8 +1053,7 @@ function SortableTree({
                 title={originalItem?.title}
                 depth={id === activeId && projected ? projected.depth : depth}
                 indentationWidth={indentationWidth}
-                indicator={false}
-                ghost={false}
+                indicator={indicator}
                 collapsed={originalItem?.collapsed || false}
                 isEditing={editingId === id}
                 onCollapse={hasCollapse ? () => handleCollapse(id) : undefined}
@@ -1092,7 +1066,7 @@ function SortableTree({
           })
         )}
         {createPortal(
-          <DragOverlay dropAnimation={dropAnimationConfig} modifiers={undefined}>
+          <DragOverlay dropAnimation={dropAnimationConfig} modifiers={indicator ? [adjustTranslate] : undefined}>
             {activeId && activeItem ? (
               <SortableTreeItem
                 id={activeId}
@@ -1162,40 +1136,11 @@ function SortableTree({
       const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
       const activeTreeItem = clonedItems[activeIndex];
 
-      // Remove the active item from its current position
-      clonedItems.splice(activeIndex, 1);
+      clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
 
-      // Find the best position to insert the item at the target depth
-      let insertIndex = overIndex;
+      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
+      const newItems = buildTree(sortedItems);
 
-      // If we're moving to a different depth, find the appropriate position
-      if (depth !== activeTreeItem.depth) {
-        // Find the last item at the target depth or the position where we should insert
-        for (let i = 0; i < clonedItems.length; i++) {
-          const item = clonedItems[i];
-
-          // If we find an item at the same depth, insert after it
-          if (item.depth === depth) {
-            insertIndex = i + 1;
-          }
-          // If we find an item at a deeper depth, insert before it
-          else if (item.depth > depth) {
-            insertIndex = i;
-            break;
-          }
-        }
-
-        // Ensure we don't go out of bounds
-        insertIndex = Math.min(insertIndex, clonedItems.length);
-      }
-
-      // Update the active item with new depth and parent
-      const updatedActiveItem = { ...activeTreeItem, depth, parentId };
-
-      // Insert the item at the calculated position
-      clonedItems.splice(insertIndex, 0, updatedActiveItem);
-
-      const newItems = buildTree(clonedItems);
       setItems(newItems);
     }
   }

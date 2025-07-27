@@ -28,6 +28,7 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
   const isSidebarCollapsed = !isSidebarOpen;
 
@@ -44,6 +45,16 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
     refetch: refetchCompanies,
   } = useAllCompanies();
 
+  // Handle initial load state
+  useEffect(() => {
+    if (!isLoadingCompanies) {
+      const timer = setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 100); // Small delay for smooth transition
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingCompanies]);
+
   // Update Redux state when companies data is fetched
   useEffect(() => {
     if (companiesData && !isLoadingCompanies) {
@@ -56,8 +67,8 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
     }
   }, [companiesData, isLoadingCompanies, dispatch]);
 
-  // Show shimmer while loading
-  if (isLoadingCompanies) {
+  // Show shimmer while loading or during initial load
+  if (isLoadingCompanies || isInitialLoad) {
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
@@ -67,48 +78,45 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
         <div className="flex-1 flex flex-col">
           {/* Navbar */}
           <Navbar
+            className="!h-[3.8rem] !px-4 !shadow-none"
             title={title}
             collpaseSidebar={() => dispatch(toggleComponent({ id: 'sidebar-chat' }))}
             isCollapsed={isSidebarCollapsed}
           />
 
-          {/* Loading Content - Full area shimmer */}
-          <div className={`flex-1 ${className}`}>
-            <div className="h-full p-6 space-y-6">
-              {/* Header shimmer */}
-              <div className="space-y-3">
-                <Shimmer className="h-8 w-64" />
-                <Shimmer className="h-4 w-96" />
-              </div>
+          {/* Loading Content - Center loading state */}
+          <div className={`flex-1 flex items-center justify-center ${className}`}>
+            <Card className="w-full max-w-md">
+              <CardContent className="p-6 text-center">
+                {/* Loading icon shimmer */}
+                <div className="mx-auto mb-4 w-8 h-8">
+                  <Shimmer className="w-full h-full rounded-full" />
+                </div>
 
-              {/* Content area shimmer */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, index) => (
-                  <div key={index} className="space-y-3">
-                    <Shimmer className="h-4 w-32" />
-                    <Shimmer className="h-20 w-full" />
-                    <Shimmer className="h-3 w-24" />
-                  </div>
-                ))}
-              </div>
+                {/* Title shimmer */}
+                <div className="mb-2">
+                  <Shimmer className="h-6 w-48 mx-auto" />
+                </div>
 
-              {/* Bottom content shimmer */}
-              <div className="space-y-4">
-                <Shimmer className="h-6 w-48" />
-                <Shimmer className="h-4 w-80" />
+                {/* Description shimmer */}
+                <div className="mb-6">
+                  <Shimmer className="h-4 w-64 mx-auto" />
+                </div>
+
+                {/* Button shimmer */}
                 <div className="flex justify-center">
                   <Shimmer className="h-10 w-48" />
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     );
   }
 
-  // Show error state if companies fetch failed
-  if (companiesError) {
+  // Show error state if companies fetch failed and not in initial load
+  if (companiesError && !isInitialLoad) {
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
@@ -118,6 +126,7 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
         <div className="flex-1 flex flex-col">
           {/* Navbar */}
           <Navbar
+            className="!h-[3.8rem] !px-4 !shadow-none"
             title={title}
             collpaseSidebar={() => dispatch(toggleComponent({ id: 'sidebar-chat' }))}
             isCollapsed={isSidebarCollapsed}
@@ -177,7 +186,7 @@ const InactiveCompanyUI: React.FC<InactiveCompanyUIProps> = ({ className = '', t
       <div className="flex-1 flex flex-col">
         {/* Navbar */}
         <Navbar
-          className="h-[3.8rem] !px-4 !shadow-none"
+          className="!h-[3.8rem] !px-4 !shadow-none"
           title={title}
           collpaseSidebar={toggleSidebar}
           isCollapsed={isSidebarCollapsed}
