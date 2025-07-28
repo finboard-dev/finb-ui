@@ -97,15 +97,15 @@ function getProjection(
   const minDepth = getMinDepth({ nextItem });
   let depth = projectedDepth;
 
-  // Ensure depth doesn't exceed 4 levels
+  // Ensure depth doesn't exceed 3 levels
   if (projectedDepth >= maxDepth) {
     depth = maxDepth;
   } else if (projectedDepth < minDepth) {
     depth = minDepth;
   }
 
-  // Additional check to ensure we never exceed 4 levels
-  depth = Math.min(depth, 4);
+  // Additional check to ensure we never exceed 3 levels
+  depth = Math.min(depth, 3);
 
   return { depth, maxDepth, minDepth, parentId: getParentId() };
 
@@ -133,8 +133,8 @@ function getProjection(
 
 function getMaxDepth({ previousItem }: { previousItem: FlattenedItem }) {
   if (previousItem) {
-    // Limit nesting to 4 levels maximum
-    return Math.min(previousItem.depth + 1, 4);
+    // Limit nesting to 3 levels maximum
+    return Math.min(previousItem.depth + 1, 3);
   }
   return 0;
 }
@@ -556,7 +556,7 @@ const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
               className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
               onClick={(e) => e.stopPropagation()}
             >
-              {onAddChild && depth < 4 && (
+              {onAddChild && depth < 3 && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
