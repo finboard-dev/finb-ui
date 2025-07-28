@@ -1,35 +1,43 @@
-"use client";
+'use client';
 
-import { FC, useState, useMemo, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import { FC, useState, useMemo, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import { setActiveChatId, setChatsFromAPI } from "@/lib/store/slices/chatSlice";
-import { setMainContent } from "@/lib/store/slices/uiSlice";
-import { useUrlParams } from "@/lib/utils/urlParams";
-import type { AllChats, MessageType, ContentPart } from "@/types/chat";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Search, MessageSquare } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { setActiveChatId, setChatsFromAPI } from '@/lib/store/slices/chatSlice';
+import { setMainContent } from '@/lib/store/slices/uiSlice';
+import { useUrlParams } from '@/lib/utils/urlParams';
+import type { AllChats, MessageType, ContentPart } from '@/types/chat';
+
+// Animated icon component for empty state
+const AnimatedMessageIcon: FC = () => {
+  return (
+    <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3">
+      <div className="relative">
+        <MessageSquare className="h-8 w-8 text-gray-400 animate-pulse" />
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+      </div>
+    </div>
+  );
+};
 
 const ChatSearchDropdown: FC = () => {
   const dispatch = useAppDispatch();
   const { navigateToChat } = useUrlParams();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
-  const { chats, activeChatId, pendingChat } = useAppSelector(
-    (state) => state.chat
-  );
+  const { chats, activeChatId, pendingChat } = useAppSelector((state) => state.chat);
 
   // Get selected company to access chat conversations
-  const selectedCompany = useAppSelector(
-    (state) => state.user.selectedCompany
-  ) as any;
+  const selectedCompany = useAppSelector((state) => state.user.selectedCompany) as any;
   const chatConversations = selectedCompany?.chatConversations || [];
 
   // Sync chats from API to Redux state
@@ -51,33 +59,34 @@ const ChatSearchDropdown: FC = () => {
     } else {
       // Fallback for chats without thread_id (shouldn't happen in normal flow)
       dispatch(setActiveChatId(chatId));
-      dispatch(setMainContent("chat"));
+      dispatch(setMainContent('chat'));
     }
     setIsOpen(false);
   };
 
   const getChatName = (chatIndex: number, chat: AllChats) => {
-    if (chat.name && chat.name !== "New Chat") {
+    if (chat.name && chat.name !== 'New Chat') {
       return chat.name;
     }
 
-    const firstUserMessage: MessageType | undefined =
-      chat.chats[0]?.messages.find((msg: MessageType) => msg.role === "user");
+    const firstUserMessage: MessageType | undefined = chat.chats[0]?.messages.find(
+      (msg: MessageType) => msg.role === 'user'
+    );
 
     if (firstUserMessage) {
       const textContent = firstUserMessage.content
-        .filter((part: ContentPart) => part.type === "text")
-        .map((part) => (part as { type: "text"; content: string }).content)
-        .join("");
+        .filter((part: ContentPart) => part.type === 'text')
+        .map((part) => (part as { type: 'text'; content: string }).content)
+        .join('');
       const truncatedContent = textContent.substring(0, 30);
-      return truncatedContent + (textContent.length > 30 ? "..." : "");
+      return truncatedContent + (textContent.length > 30 ? '...' : '');
     }
 
     return `Untitled Chat ${chatIndex + 1}`;
   };
 
   const getTimeGroup = (lastMessageAt?: string) => {
-    if (!lastMessageAt) return "Recent";
+    if (!lastMessageAt) return 'Recent';
 
     const now = new Date();
     const messageDate = new Date(lastMessageAt);
@@ -91,43 +100,37 @@ const ChatSearchDropdown: FC = () => {
       now.getMonth() === messageDate.getMonth() &&
       now.getFullYear() === messageDate.getFullYear()
     ) {
-      return "Recent";
+      return 'Recent';
     }
 
     // Yesterday
     if (diffDays === 1) {
-      return "Yesterday";
+      return 'Yesterday';
     }
 
     // This week (within last 7 days)
     if (diffDays < 7) {
-      return "This Week";
+      return 'This Week';
     }
 
     // This month
-    if (
-      now.getMonth() === messageDate.getMonth() &&
-      now.getFullYear() === messageDate.getFullYear()
-    ) {
-      return "This Month";
+    if (now.getMonth() === messageDate.getMonth() && now.getFullYear() === messageDate.getFullYear()) {
+      return 'This Month';
     }
 
     // Last month
     const lastMonth = new Date(now);
     lastMonth.setMonth(now.getMonth() - 1);
-    if (
-      lastMonth.getMonth() === messageDate.getMonth() &&
-      lastMonth.getFullYear() === messageDate.getFullYear()
-    ) {
-      return "Last Month";
+    if (lastMonth.getMonth() === messageDate.getMonth() && lastMonth.getFullYear() === messageDate.getFullYear()) {
+      return 'Last Month';
     }
 
     // Last year
     if (now.getFullYear() === messageDate.getFullYear()) {
-      return "This Year";
+      return 'This Year';
     }
 
-    return "Last Year";
+    return 'Last Year';
   };
 
   // Group chats by time periods
@@ -135,11 +138,11 @@ const ChatSearchDropdown: FC = () => {
     const groups: Record<string, AllChats[]> = {
       Recent: [],
       Yesterday: [],
-      "This Week": [],
-      "This Month": [],
-      "Last Month": [],
-      "This Year": [],
-      "Last Year": [],
+      'This Week': [],
+      'This Month': [],
+      'Last Month': [],
+      'This Year': [],
+      'Last Year': [],
     };
 
     // Sort chats by lastMessageAt in descending order
@@ -194,24 +197,34 @@ const ChatSearchDropdown: FC = () => {
         align="start"
         className="w-80 bg-white shadow-lg border border-gray-200 max-h-96 overflow-hidden"
       >
-        {/* Search Input */}
-        <div className="p-3 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search chats..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border-gray-200 focus:border-gray-300"
-            />
+        {/* Search Input - Only show when there are chats to search */}
+        {chats.length > 0 && (
+          <div className="p-3 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 border-gray-200 focus:border-gray-300"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Chat List */}
         <div className="max-h-64 overflow-y-auto">
-          {Object.keys(filteredChatGroups).length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500">
-              {searchQuery ? "No chats found" : "No conversations yet"}
+          {chats.length === 0 ? (
+            <div className="p-6 text-center">
+              <AnimatedMessageIcon />
+              <div className="text-sm font-medium text-gray-700 mb-1">Start your first conversation</div>
+              <div className="text-xs text-gray-500">Your chat history will appear here</div>
+            </div>
+          ) : Object.keys(filteredChatGroups).length === 0 ? (
+            <div className="p-6 text-center">
+              <AnimatedMessageIcon />
+              <div className="text-sm font-medium text-gray-700 mb-1">No chats found</div>
+              <div className="text-xs text-gray-500">Try a different search term</div>
             </div>
           ) : (
             Object.entries(filteredChatGroups).map(
@@ -221,9 +234,7 @@ const ChatSearchDropdown: FC = () => {
                     <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
                       <div className="flex items-center gap-2">
                         {/* {getTimeGroupIcon(group)} */}
-                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
-                          {group}
-                        </span>
+                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">{group}</span>
                       </div>
                     </div>
                     {groupChats.map((chat, index) => (
@@ -231,14 +242,12 @@ const ChatSearchDropdown: FC = () => {
                         key={chat.id}
                         onClick={() => handleSelectChat(chat.id)}
                         className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 ${
-                          chat.id === activeChatId ? "bg-gray-100" : ""
+                          chat.id === activeChatId ? 'bg-gray-100' : ''
                         }`}
                       >
                         {/* <MessageSquare className="h-4 w-4 text-gray-500 flex-shrink-0" /> */}
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 truncate">
-                            {getChatName(index, chat)}
-                          </div>
+                          <div className="text-sm font-medium text-gray-900 truncate">{getChatName(index, chat)}</div>
                         </div>
                       </DropdownMenuItem>
                     ))}

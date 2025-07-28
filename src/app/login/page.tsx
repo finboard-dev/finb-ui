@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { LoginPage } from "./components/LoginPage";
-import { SSO_LOGIN } from "@/constants";
-import { intuitSSOLogin } from "@/lib/api/intuitService";
-import { useRouter } from "next/navigation";
-import { useAppSelector } from "@/lib/store/hooks";
-import { userBearerToken } from "@/lib/store/slices/userSlice";
+import React, { useEffect } from 'react';
+import { LoginPage } from './components/LoginPage';
+import { SSO_LOGIN } from '@/constants';
+import { intuitSSOLogin } from '@/lib/api/intuitService';
+import { useRouter } from 'next/navigation';
+import { useAppSelector } from '@/lib/store/hooks';
+import { userBearerToken } from '@/lib/store/slices/userSlice';
 
 const LoginPageContainer = () => {
   const [isLoading, setIsLoading] = React.useState(false);
@@ -15,15 +15,17 @@ const LoginPageContainer = () => {
 
   useEffect(() => {
     if (token) {
-      const hasSelectedCompany = document.cookie.includes(
-        "has_selected_company=true"
-      );
-      if (hasSelectedCompany) {
-        router.push("/");
-      } else {
-        console.log("comapny selction login");
+      const hasSelectedCompany = document.cookie.includes('has_selected_company=true');
+      const hasSelectedOrganization = document.cookie.includes('has_selected_organization=true');
 
-        router.push("/company-selection");
+      if (hasSelectedCompany) {
+        router.push('/');
+      } else if (hasSelectedOrganization) {
+        console.log('company selection login');
+        router.push('/company-selection');
+      } else {
+        console.log('organization selection login');
+        router.push('/organization-selection');
       }
     }
   }, [token, router]);
@@ -35,7 +37,7 @@ const LoginPageContainer = () => {
       if (redirectUrl) {
         window.location.href = redirectUrl;
       } else {
-        console.error("No redirect URL provided");
+        console.error('No redirect URL provided');
         setIsLoading(false);
       }
     } catch (error) {
@@ -44,12 +46,7 @@ const LoginPageContainer = () => {
     }
   };
 
-  return (
-    <LoginPage
-      handleIntuitLogin={handleInuitLoginClick}
-      isLoading={isLoading}
-    />
-  );
+  return <LoginPage handleIntuitLogin={handleInuitLoginClick} isLoading={isLoading} />;
 };
 
 export default LoginPageContainer;

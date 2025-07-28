@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon, Loader2 } from 'lucide-react';
+import { MagnifyingGlassIcon } from '@heroicons/react/20/solid';
 import {
   LayoutGridIcon,
   Rows3Icon,
@@ -10,23 +10,20 @@ import {
   ComponentIcon,
   TrendingUpIcon,
   BarChart3Icon,
-} from "lucide-react";
-import { useAppSelector } from "@/lib/store/hooks";
-import {
-  selectSelectedOrganization,
-  selectSelectedCompany,
-} from "@/lib/store/slices/userSlice";
-import { getComponentMetrics } from "@/lib/api/metrics";
+} from 'lucide-react';
+import { useAppSelector } from '@/lib/store/hooks';
+import { selectSelectedOrganization, selectSelectedCompany } from '@/lib/store/slices/userSlice';
+import { useComponentMetrics } from '@/hooks/query-hooks/useComponentMetrics';
 
-import type { Block, DraggingBlock } from "../../types";
-import { cn } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { log } from "vega";
+import type { Block, DraggingBlock } from '../../types';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { log } from 'vega';
 
 // (BlockListItem sub-component remains the same as in the original file)
 interface BlockListItemProps {
@@ -40,45 +37,42 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
 
   const renderPreview = (b: Block) => {
     // This preview logic remains unchanged
-    const isValidPreviewImage =
-      b.previewImage && b.previewImage.startsWith("data:image/");
+    const isValidPreviewImage = b.previewImage && b.previewImage.startsWith('data:image/');
     if (isValidPreviewImage) {
       return (
         <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md overflow-hidden relative border-b border-slate-200">
-          <img
-            src={b.previewImage}
-            alt={b.title || "Component Preview"}
-            className="w-full h-full object-contain p-2"
-          />
+          <img src={b.previewImage} alt={b.title || 'Component Preview'} className="w-full h-full object-contain p-2" />
         </div>
       );
     }
 
-    console.log("b", block);
+    console.log('b', block);
 
     // For tables, show a preview of the HTML table if available
-    if (b.type === "TABLE" && b.htmlTable) {
+    if (b.type === 'TABLE' && b.htmlTable) {
       return (
         <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md overflow-hidden relative border-b border-slate-200">
           <div
-            className="w-full h-full p-2 overflow-hidden text-xs"
+            className="w-full h-full p-1 overflow-hidden"
             style={{
-              fontSize: "10px",
-              lineHeight: "1.2",
+              transform: 'scale(0.85)',
+              transformOrigin: 'top left',
+              width: '117.6%', // Compensate for scale (100% / 0.85)
+              height: '117.6%', // Compensate for scale (100% / 0.85)
             }}
             dangerouslySetInnerHTML={{
               __html: b.htmlTable
                 .replace(
                   /<table/g,
-                  '<table style="width: 100%; max-width: 100%; font-size: 10px; border-collapse: collapse;"'
+                  '<table style="width: 100%; max-width: 100%; font-size: 8px; border-collapse: collapse; table-layout: fixed;"'
                 )
                 .replace(
                   /<th/g,
-                  '<th style="padding: 2px 4px; border: 1px solid #e5e7eb; background-color: #f9fafb; font-weight: 600; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"'
+                  '<th style="padding: 1px 2px; border: 1px solid #e5e7eb; background-color: #f9fafb; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; font-size: 8px;"'
                 )
                 .replace(
                   /<td/g,
-                  '<td style="padding: 2px 4px; border: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"'
+                  '<td style="padding: 1px 2px; border: 1px solid #e5e7eb; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; font-size: 8px;"'
                 ),
             }}
           />
@@ -87,19 +81,14 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     }
 
     let icon = <ComponentIcon className="w-10 h-10 text-slate-400" />;
-    if (b.type === "GRAPH")
-      icon = <LayoutGridIcon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "TABLE")
-      icon = <Rows3Icon className="w-10 h-10 text-slate-400" />;
-    else if (b.type === "KPI")
-      icon = <TrendingUpIcon className="w-10 h-10 text-slate-400" />;
+    if (b.type === 'GRAPH') icon = <LayoutGridIcon className="w-10 h-10 text-slate-400" />;
+    else if (b.type === 'TABLE') icon = <Rows3Icon className="w-10 h-10 text-slate-400" />;
+    else if (b.type === 'KPI') icon = <TrendingUpIcon className="w-10 h-10 text-slate-400" />;
 
     return (
       <div className="w-full h-32 bg-slate-100 group-hover:bg-slate-200 transition-colors rounded-t-md flex flex-col items-center justify-center text-slate-500 p-2 text-center border-b border-slate-200 overflow-hidden">
         {icon}
-        <span className="text-xs mt-2 line-clamp-2 w-full">
-          {b.title || "Untitled Component"}
-        </span>
+        <span className="text-xs mt-2 line-clamp-2 w-full">{b.title || 'Untitled Component'}</span>
         <span className="text-xs text-slate-400 mt-1">(Preview N/A)</span>
       </div>
     );
@@ -110,8 +99,8 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
       const rect = blockRef.current?.getBoundingClientRect();
       const width = rect?.width && rect.width > 50 ? rect.width : 300;
       const height = rect?.height && rect.height > 50 ? rect.height : 180;
-      event.dataTransfer.setData("text/plain", block.id);
-      event.dataTransfer.effectAllowed = "copy";
+      event.dataTransfer.setData('text/plain', block.id);
+      event.dataTransfer.effectAllowed = 'copy';
 
       // For tables, pass the html_table as content
       const dragData = {
@@ -134,11 +123,9 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
     <Card
       ref={blockRef}
       className={cn(
-        "mb-3 w-full max-w-full bg-white hover:shadow-xl transition-all duration-200 group relative border-gray-200 hover:border-blue-500/50 overflow-hidden py-0",
-        isDragging
-          ? "opacity-60 ring-2 ring-blue-600 scale-95 shadow-2xl"
-          : "shadow-md",
-        "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-grab"
+        'mb-3 w-full max-w-full bg-white hover:shadow-xl transition-all duration-200 group relative border-gray-200 hover:border-blue-500/50 overflow-hidden py-0',
+        isDragging ? 'opacity-60 ring-2 ring-blue-600 scale-95 shadow-2xl' : 'shadow-md',
+        'focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-grab'
       )}
       draggable={true}
       onDragStart={onDragStartHandler}
@@ -151,9 +138,9 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
         <div className="flex justify-between items-center w-full min-w-0 gap-2">
           <CardTitle
             className="text-sm font-semibold text-gray-800 truncate flex-1 min-w-0"
-            title={block.title || "Untitled"}
+            title={block.title || 'Untitled'}
           >
-            {block.title || "Untitled"}
+            {block.title || 'Untitled'}
           </CardTitle>
           <span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded-sm text-slate-600 border border-slate-200 flex-shrink-0 capitalize whitespace-nowrap">
             {block.type}
@@ -162,8 +149,8 @@ function BlockListItem({ block, onDragStart }: BlockListItemProps) {
       </CardHeader>
       <div
         className={cn(
-          "absolute inset-0 bg-blue-600/5 group-hover:bg-blue-500/10 flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-lg group-focus-visible:opacity-100",
-          isDragging && "opacity-100 bg-blue-500/20"
+          'absolute inset-0 bg-blue-600/5 group-hover:bg-blue-500/10 flex items-center justify-center transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-lg group-focus-visible:opacity-100',
+          isDragging && 'opacity-100 bg-blue-500/20'
         )}
         aria-hidden="true"
       >
@@ -184,6 +171,8 @@ interface DashboardControlsProps {
   onMetricsLoadingChange?: (loading: boolean) => void;
   onMetricsLoaded?: () => void;
   onMetricsError?: () => void;
+  currentTabStartDate?: string;
+  currentTabEndDate?: string;
 }
 
 export default function DashboardControls({
@@ -193,11 +182,13 @@ export default function DashboardControls({
   onMetricsLoadingChange,
   onMetricsLoaded,
   onMetricsError,
+  currentTabStartDate,
+  currentTabEndDate,
 }: DashboardControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeViewFilter, setActiveViewFilter] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<string>("my-components");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeViewFilter, setActiveViewFilter] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('my-components');
   const [globalComponents, setGlobalComponents] = useState<Block[]>([]);
   const [myComponents, setMyComponents] = useState<Block[]>([]);
   const [loadingGlobalComponents, setLoadingGlobalComponents] = useState(false);
@@ -206,132 +197,134 @@ export default function DashboardControls({
   const selectedOrganization = useAppSelector(selectSelectedOrganization);
   const selectedCompany = useAppSelector(selectSelectedCompany);
 
-  console.log("Redux state:", {
+  console.log('Redux state:', {
     selectedOrganization: selectedOrganization?.id,
     selectedCompany: selectedCompany?.id,
     hasOrg: !!selectedOrganization,
     hasCompany: !!selectedCompany,
   });
 
-  // Fetch all components from API
-  const fetchAllComponents = useCallback(async () => {
-    console.log("fetchAllComponents called with:", {
-      orgId: selectedOrganization?.id,
-      companyId: selectedCompany?.id,
-      hasOrg: !!selectedOrganization,
-      hasCompany: !!selectedCompany,
-    });
+  // Use React Query hook for component metrics
+  const {
+    data: metricsResponse,
+    isLoading: isLoadingMetrics,
+    error: metricsError,
+    refetch: refetchMetrics,
+  } = useComponentMetrics(
+    selectedOrganization?.id || '',
+    selectedCompany?.id || '',
+    !!selectedOrganization?.id && !!selectedCompany?.id
+  );
 
-    if (!selectedOrganization?.id || !selectedCompany?.id) {
-      console.warn("Organization or Company not selected");
-      return;
-    }
-
-    setLoadingGlobalComponents(true);
-    onMetricsLoadingChange?.(true);
-    try {
-      console.log("Making API call to getComponentMetrics...");
-      const response = await getComponentMetrics({
-        orgId: selectedOrganization.id,
-        companyId: selectedCompany.id,
-        publishedOnly: true,
+  // Process metrics data when it changes
+  useEffect(() => {
+    if (metricsResponse?.success && metricsResponse?.data) {
+      console.log('Processing metrics response:', {
+        success: metricsResponse.success,
+        dataLength: metricsResponse.data?.length,
+        data: metricsResponse.data,
       });
 
-      console.log("API Response:", {
-        success: response.success,
-        dataLength: response.data?.length,
-        data: response.data,
-      });
+      // Transform API response to Block format and separate by scope
+      const globalBlocks: Block[] = [];
+      const myBlocks: Block[] = [];
 
-      if (response.success && response.data) {
-        // Transform API response to Block format and separate by scope
-        const globalBlocks: Block[] = [];
-        const myBlocks: Block[] = [];
-
-        response.data.forEach((metric: any) => {
-          console.log("Processing metric:", {
-            refId: metric.refId,
-            title: metric.title,
-            scopeLevel: metric.scopeLevel,
-            refType: metric.refType,
-            hasOutput: !!metric.output,
-          });
-
-          const block: Block = {
-            id: metric.refId || `metric-${Date.now()}-${Math.random()}`,
-            title: metric.title || "Untitled Metric",
-            subtitle: metric.description || "",
-            type: getComponentType(metric), // Use smart type detection
-            filter: {}, // No filter in new structure
-            // Map the content properly based on type
-            content: metric.output || "",
-            previewImage: undefined, // No preview image in new structure
-            // Add the html_table for table rendering
-            htmlTable: metric.output,
-            scopeLevel: metric.scopeLevel?.toLowerCase() || "company",
-            refVersion: metric.refVersion, // Include refVersion from API
-            refType: metric.refType, // Include refType from API
-          };
-
-          console.log("Created block:", {
-            title: block.title,
-            type: block.type,
-            scopeLevel: block.scopeLevel,
-            hasContent: !!block.content,
-            contentType: typeof block.content,
-            contentPreview:
-              typeof block.content === "string"
-                ? block.content.substring(0, 100) + "..."
-                : JSON.stringify(block.content).substring(0, 100) + "...",
-          });
-
-          // Separate by scope level
-          if (metric.scopeLevel?.toLowerCase() === "global") {
-            console.log("Adding to global blocks:", block.title);
-            globalBlocks.push(block);
-          } else {
-            console.log("Adding to my blocks:", block.title);
-            myBlocks.push(block);
-          }
+      metricsResponse.data.forEach((metric: any) => {
+        console.log('Processing metric:', {
+          refId: metric.refId,
+          title: metric.title,
+          scopeLevel: metric.scopeLevel,
+          refType: metric.refType,
+          hasOutput: !!metric.output,
         });
 
-        console.log("Final counts:", {
-          globalBlocks: globalBlocks.length,
-          myBlocks: myBlocks.length,
-          totalFromAPI: response.data.length,
+        const block: Block = {
+          id: metric.refId || `metric-${Date.now()}-${Math.random()}`,
+          title: metric.title || 'Untitled Metric',
+          subtitle: metric.description || '',
+          type: getComponentType(metric), // Use smart type detection
+          filter: {}, // No filter in new structure
+          // Map the content properly based on type
+          content: metric.output || '',
+          previewImage: undefined, // No preview image in new structure
+          // Add the html_table for table rendering
+          htmlTable: metric.output,
+          scopeLevel: metric.scopeLevel?.toLowerCase() || 'company',
+          refVersion: metric.refVersion, // Include refVersion from API
+          refType: metric.refType, // Include refType from API
+        };
+
+        console.log('Created block:', {
+          title: block.title,
+          type: block.type,
+          scopeLevel: block.scopeLevel,
+          hasContent: !!block.content,
+          contentType: typeof block.content,
+          contentPreview:
+            typeof block.content === 'string'
+              ? block.content.substring(0, 100) + '...'
+              : JSON.stringify(block.content).substring(0, 100) + '...',
         });
 
-        setGlobalComponents(globalBlocks);
-        setMyComponents(myBlocks);
-
-        // Notify parent component about all available components
-        const allApiComponents = [...globalBlocks, ...myBlocks];
-        if (onApiComponentsLoaded) {
-          onApiComponentsLoaded(allApiComponents);
+        // Separate by scope level
+        if (metric.scopeLevel?.toLowerCase() === 'global') {
+          console.log('Adding to global blocks:', block.title);
+          globalBlocks.push(block);
+        } else {
+          console.log('Adding to my blocks:', block.title);
+          myBlocks.push(block);
         }
-
-        // Notify parent that metrics are loaded
-        onMetricsLoaded?.();
-      }
-    } catch (error: any) {
-      console.error("Error fetching components:", error);
-      console.error("Error details:", {
-        message: error?.message,
-        response: error?.response,
-        status: error?.response?.status,
-        data: error?.response?.data,
       });
-      toast.error("Failed to fetch components from API");
-      onMetricsError?.();
-    } finally {
-      setLoadingGlobalComponents(false);
-      onMetricsLoadingChange?.(false);
+
+      console.log('Final counts:', {
+        globalBlocks: globalBlocks.length,
+        myBlocks: myBlocks.length,
+        totalFromAPI: metricsResponse.data.length,
+      });
+
+      setGlobalComponents(globalBlocks);
+      setMyComponents(myBlocks);
+
+      // Notify parent component about all available components
+      const allApiComponents = [...globalBlocks, ...myBlocks];
+      if (onApiComponentsLoaded) {
+        onApiComponentsLoaded(allApiComponents);
+      }
+
+      // Notify parent that metrics are loaded
+      onMetricsLoaded?.();
     }
-  }, [selectedOrganization?.id, selectedCompany?.id]);
+  }, [metricsResponse]); // Remove callback dependencies to prevent infinite loops
+
+  // Handle loading state
+  useEffect(() => {
+    setLoadingGlobalComponents(isLoadingMetrics);
+    onMetricsLoadingChange?.(isLoadingMetrics);
+  }, [isLoadingMetrics]); // Remove callback dependency to prevent infinite loops
+
+  // Handle error state
+  useEffect(() => {
+    if (metricsError) {
+      console.error('Error fetching components:', metricsError);
+      console.error('Error details:', {
+        message: metricsError?.message,
+        response: metricsError?.response,
+        status: metricsError?.response?.status,
+        data: metricsError?.response?.data,
+      });
+
+      // Only show toast for non-cancellation errors
+      if (metricsError?.code !== 'ERR_CANCELED' && !metricsError?.message?.includes('canceled')) {
+        toast.error('Failed to fetch components from API');
+      }
+
+      onMetricsError?.();
+    }
+  }, [metricsError]); // Remove callback dependency to prevent infinite loops
 
   // Log component mount and Redux state changes
   useEffect(() => {
-    console.log("DashboardControls mounted/updated:", {
+    console.log('DashboardControls mounted/updated:', {
       activeTab,
       orgId: selectedOrganization?.id,
       companyId: selectedCompany?.id,
@@ -340,51 +333,36 @@ export default function DashboardControls({
     });
   }, [selectedOrganization, selectedCompany]);
 
-  // Fetch all components only when org/company changes, not on tab switches
-  useEffect(() => {
-    console.log("Org/Company changed, fetching components:", {
-      orgId: selectedOrganization?.id,
-      companyId: selectedCompany?.id,
-    });
-
-    if (selectedOrganization?.id && selectedCompany?.id) {
-      console.log("Fetching components for new org/company");
-      fetchAllComponents();
-    }
-  }, [selectedOrganization?.id, selectedCompany?.id, fetchAllComponents]);
+  // React Query handles the API calls automatically when org/company changes
 
   // Helper function to detect if content is a table
   const isTableContent = (content: any): boolean => {
-    if (typeof content === "string") {
-      return (
-        content.includes("<table") ||
-        content.includes("<tr") ||
-        content.includes("<td")
-      );
+    if (typeof content === 'string') {
+      return content.includes('<table') || content.includes('<tr') || content.includes('<td');
     }
     return false;
   };
 
   // Helper function to determine component type
-  const getComponentType = (metric: any): "KPI" | "GRAPH" | "TABLE" => {
+  const getComponentType = (metric: any): 'KPI' | 'GRAPH' | 'TABLE' => {
     // If it has output with table HTML, it's a table
-    if (metric.output && metric.output.includes("<table")) {
-      return "TABLE";
+    if (metric.output && metric.output.includes('<table')) {
+      return 'TABLE';
     }
 
     // If it has refType that indicates graph, it's a graph
-    if (metric.refType && metric.refType.toLowerCase().includes("graph")) {
-      return "GRAPH";
+    if (metric.refType && metric.refType.toLowerCase().includes('graph')) {
+      return 'GRAPH';
     }
 
     // Default to KPI
-    return "KPI";
+    return 'KPI';
   };
 
   // Filtering logic based on search and type filters
   const filterAndSearchBlocks = (blocksToFilter: Block[]): Block[] => {
     let filtered = blocksToFilter;
-    console.log("Filtering blocks:", {
+    console.log('Filtering blocks:', {
       totalBlocks: blocksToFilter.length,
       activeViewFilter,
       searchQuery,
@@ -392,27 +370,23 @@ export default function DashboardControls({
     });
 
     if (activeViewFilter) {
-      if (activeViewFilter === "metric") {
+      if (activeViewFilter === 'metric') {
         // Show both KPI and TABLE types under "Metric" filter
-        filtered = filtered.filter(
-          (b) => b.type === "KPI" || b.type === "TABLE"
-        );
-        console.log("After metric filter:", filtered.length);
-      } else if (activeViewFilter === "graph") {
+        filtered = filtered.filter((b) => b.type === 'KPI' || b.type === 'TABLE');
+        console.log('After metric filter:', filtered.length);
+      } else if (activeViewFilter === 'graph') {
         // Show GRAPH types under "Graph" filter
-        filtered = filtered.filter((b) => b.type === "GRAPH");
-        console.log("After graph filter:", filtered.length);
+        filtered = filtered.filter((b) => b.type === 'GRAPH');
+        console.log('After graph filter:', filtered.length);
       } else {
         filtered = filtered.filter((b) => b.type === activeViewFilter);
-        console.log("After type filter:", filtered.length);
+        console.log('After type filter:', filtered.length);
       }
     }
 
     if (searchQuery) {
-      filtered = filtered.filter((b) =>
-        b.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      console.log("After search filter:", filtered.length);
+      filtered = filtered.filter((b) => b.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      console.log('After search filter:', filtered.length);
     }
 
     return filtered;
@@ -423,7 +397,7 @@ export default function DashboardControls({
   const displayComponents = filterAndSearchBlocks(allMyComponents);
   const displayGlobalComponents = filterAndSearchBlocks(globalComponents);
 
-  console.log("Display state:", {
+  console.log('Display state:', {
     activeTab,
     activeViewFilter,
     searchQuery,
@@ -454,14 +428,10 @@ export default function DashboardControls({
   return (
     <aside
       className={cn(
-        "w-[320px] md:w-[360px] h-[calc(100vh-110px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[110px]"
+        'w-[320px] md:w-[360px] h-[calc(100vh-110px)] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-10 fixed right-0 top-[110px] overflow-hidden'
       )}
     >
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex flex-col flex-grow min-h-0"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-grow min-h-0">
         <div className="p-3 border-b border-slate-200 bg-white flex-shrink-0">
           <div className="flex justify-between items-center mb-3">
             <TabsList className="grid w-full grid-cols-2">
@@ -494,89 +464,77 @@ export default function DashboardControls({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 items-center justify-start w-full">
+          <div className="grid grid-cols-2 gap-2 items-center justify-start w-full min-w-0">
             {[
-              { label: "Metric", value: "metric", icon: TrendingUpIcon },
-              { label: "Graph", value: "graph", icon: LayoutGridIcon },
+              { label: 'Metric', value: 'metric', icon: TrendingUpIcon },
+              { label: 'Graph', value: 'graph', icon: LayoutGridIcon },
             ].map((filter) => (
               <Button
                 key={filter.value}
-                variant={
-                  activeViewFilter === filter.value ? "secondary" : "outline"
-                }
+                variant={activeViewFilter === filter.value ? 'secondary' : 'outline'}
                 size="sm"
-                onClick={() =>
-                  setActiveViewFilter((prev) =>
-                    prev === filter.value ? "" : filter.value
-                  )
-                }
+                onClick={() => setActiveViewFilter((prev) => (prev === filter.value ? '' : filter.value))}
                 className={cn(
-                  "px-2 py-1 h-8 text-xs rounded-md flex items-center justify-center gap-1.5 w-full transition-colors",
+                  'px-2 py-1 h-8 text-xs rounded-md flex items-center justify-center gap-1.5 w-full transition-colors min-w-0',
                   activeViewFilter === filter.value
-                    ? "bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                    : "text-slate-600 bg-white border-slate-300 hover:bg-slate-100 hover:border-slate-400"
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 border-blue-600'
+                    : 'text-slate-600 bg-white border-slate-300 hover:bg-slate-100 hover:border-slate-400'
                 )}
               >
-                <filter.icon className="w-3.5 h-3.5" />
-                {filter.label}
+                <filter.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{filter.label}</span>
               </Button>
             ))}
           </div>
         </div>
 
-        <TabsContent
-          value="my-components"
-          className="flex-1 min-h-0 m-0 overflow-hidden"
-        >
+        <TabsContent value="my-components" className="flex-1 min-h-0 m-0 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="p-3 w-full max-w-full box-border">
-              {displayComponents.length > 0 ? (
+            <div className="p-3 w-full max-w-full box-border overflow-hidden">
+              {isLoadingMetrics ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-400 mb-2" />
+                  <div className="text-sm text-slate-500">Loading components...</div>
+                </div>
+              ) : displayComponents.length > 0 ? (
                 displayComponents.map((block) => (
-                  <BlockListItem
-                    key={block.id}
-                    block={block}
-                    onDragStart={onDragStart}
-                  />
+                  <BlockListItem key={block.id} block={block} onDragStart={onDragStart} />
                 ))
               ) : (
-                <p className="text-sm text-slate-500 text-center py-10">
-                  No components found.
-                </p>
+                <div className="text-center py-10">
+                  <BarChart3Icon className="w-12 h-12 text-sec mx-auto mb-3" />
+                  <p className="text-sm text-sec mb-2">No components found.</p>
+                  <p className="text-xs text-sec">
+                    {!selectedOrganization || !selectedCompany
+                      ? 'Please select an organization and company to view components.'
+                      : 'Published components will appear here.'}
+                  </p>
+                </div>
               )}
             </div>
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent
-          value="global-components"
-          className="flex-1 min-h-0 m-0 overflow-hidden"
-        >
+        <TabsContent value="global-components" className="flex-1 min-h-0 m-0 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="p-3 w-full max-w-full box-border">
-              {loadingGlobalComponents ? (
-                <div className="flex items-center justify-center py-10">
-                  <div className="text-sm text-slate-500">
-                    Loading global components...
-                  </div>
+            <div className="p-3 w-full max-w-full box-border overflow-hidden">
+              {isLoadingMetrics ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-400 mb-2" />
+                  <div className="text-sm text-slate-500">Loading global components...</div>
                 </div>
               ) : displayGlobalComponents.length > 0 ? (
                 displayGlobalComponents.map((block) => (
-                  <BlockListItem
-                    key={block.id}
-                    block={block}
-                    onDragStart={onDragStart}
-                  />
+                  <BlockListItem key={block.id} block={block} onDragStart={onDragStart} />
                 ))
               ) : (
                 <div className="text-center py-10">
                   <BarChart3Icon className="w-12 h-12 text-sec mx-auto mb-3" />
-                  <p className="text-sm text-sec mb-2">
-                    No global components found.
-                  </p>
+                  <p className="text-sm text-sec mb-2">No global components found.</p>
                   <p className="text-xs text-sec">
                     {!selectedOrganization || !selectedCompany
-                      ? "Please select an organization and company to view global components."
-                      : "Published global components will appear here."}
+                      ? 'Please select an organization and company to view global components.'
+                      : 'Published global components will appear here.'}
                   </p>
                 </div>
               )}

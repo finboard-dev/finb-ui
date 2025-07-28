@@ -1,7 +1,6 @@
-import { getDashboardStructure, getWidgetData, saveDraft, publishDraft } from '@/lib/api/dashboard';
+import { getDashboardStructure, saveDraft, publishDraft } from '@/lib/api/dashboard';
 import { 
   DashboardStructure, 
-  WidgetDataRequest, 
   WidgetData,
   DashboardStructureResponse,
   WidgetDataResponse,
@@ -167,90 +166,6 @@ export class DashboardService {
         response: error
       });
       throw new Error(`Failed to fetch dashboard structure: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      this.pendingRequests.delete(cacheKey);
-    }
-  }
-
-  /**
-   * Fetch widget data for a specific component with caching
-   */
-  async fetchWidgetData(
-    dashboardId: string, 
-    componentId: string, 
-    tabId: string, 
-    filter: Record<string, any> = {}
-  ): Promise<WidgetData> {
-    const request: WidgetDataRequest = {
-      dashboardId,
-      componentId,
-      tabId,
-      filter
-    };
-
-    const cacheKey = `${dashboardId}_${componentId}_${tabId}_${JSON.stringify(filter)}`;
-    
-    // Check cache first
-    const cached = this.getValidCache<WidgetData>(cacheKey);
-    if (cached) {
-      console.log(`Using cached widget data for ${componentId}`);
-      return cached;
-    }
-
-    // Check if request is already pending
-    if (this.pendingRequests.has(cacheKey)) {
-      console.log(`Widget data request for ${componentId} already pending`);
-      return this.pendingRequests.get(cacheKey)!;
-    }
-
-    try {
-      console.log(`Fetching widget data for ${componentId}:`, request);
-
-      // Check rate limit
-      await this.checkRateLimit(cacheKey);
-
-      const requestPromise = monitorApiCall(
-        'dashboard/widget-data',
-        dashboardId,
-        () => getWidgetData(request),
-        { componentId, tabId }
-      );
-      this.pendingRequests.set(cacheKey, requestPromise);
-
-      const response = await requestPromise;
-      
-      // Validate response structure
-      if (!response) {
-        throw new Error('Invalid widget data response');
-      }
-
-      // Extract the nested data property from the response
-      const widgetData = response as WidgetData;
-      
-      // Cache the widget data
-      this.setCache(cacheKey, widgetData);
-      
-      return widgetData;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log(`Widget data fetch for ${componentId} was cancelled`);
-        throw error;
-      }
-      
-      // Log detailed error information for debugging
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as any;
-        console.error(`Error fetching widget data for ${componentId}:`, {
-          status: axiosError.response?.status,
-          statusText: axiosError.response?.statusText,
-          data: axiosError.response?.data,
-          request: request
-        });
-      } else {
-        console.error(`Error fetching widget data for ${componentId}:`, error);
-      }
-      
-      throw new Error(`Failed to fetch widget data for ${componentId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       this.pendingRequests.delete(cacheKey);
     }

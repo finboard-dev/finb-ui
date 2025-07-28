@@ -20,28 +20,5 @@ export function authMiddleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-
-  if (path === AUTH_CONFIG.loginPath && token) {
-    const hasSelectedCompany = request.cookies.get("has_selected_company")?.value === "true"
-
-    if (hasSelectedCompany) {
-      return NextResponse.redirect(new URL(AUTH_CONFIG.defaultRedirectPath, request.url))
-    } else {
-      return NextResponse.redirect(new URL("/company-selection", request.url))
-    }
-  }
-
-  const hasSelectedCompany = request.cookies.get("has_selected_company")?.value === "true"
-
-
-  if (
-      !hasSelectedCompany &&
-      !path.startsWith("/company-selection") &&
-      !path.startsWith("/oauth2redirect") &&
-      !isPublicRoute(path)
-  ) {
-    return NextResponse.redirect(new URL("/company-selection", request.url))
-  }
-
   return NextResponse.next()
 }

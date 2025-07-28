@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useComponentExecution } from "@/hooks/query-hooks/useComponentExecution";
-import { Block } from "../../types";
-import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import NoDataDisplay from "./NoDataDisplay";
-import { useExecuteComponentMutation } from "@/hooks/query-hooks/useComponentExecution";
-import { getCompanyId } from "@/lib/utils/helpers";
-import { toast } from "sonner";
+import React from 'react';
+import { useComponentExecution } from '@/hooks/query-hooks/useComponentExecution';
+import { Block } from '../../types';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import NoDataDisplay from './NoDataDisplay';
+import { useExecuteComponentMutation } from '@/hooks/query-hooks/useComponentExecution';
+import { getCompanyId } from '@/lib/utils/helpers';
+import { toast } from 'sonner';
 
 interface WidgetExecutionWrapperProps {
   block: Block;
@@ -16,6 +16,12 @@ interface WidgetExecutionWrapperProps {
   currentTabEndDate: string;
   children: (executionData: any) => React.ReactNode;
   className?: string;
+  showDragHandle?: boolean;
+  dragHandleProps?: React.HTMLProps<HTMLDivElement>;
+  showMenu?: boolean;
+  onDelete?: () => void;
+  onEdit?: () => void;
+  onDuplicate?: () => void;
 }
 
 export default function WidgetExecutionWrapper({
@@ -24,12 +30,17 @@ export default function WidgetExecutionWrapper({
   currentTabEndDate,
   children,
   className,
+  showDragHandle,
+  dragHandleProps,
+  showMenu,
+  onDelete,
+  onEdit,
+  onDuplicate,
 }: WidgetExecutionWrapperProps) {
   const executeComponentMutation = useExecuteComponentMutation();
 
   // Try to use a specific version number instead of "latest"
-  const versionToUse =
-    block.refVersion === "latest" ? "1" : block.refVersion || "1";
+  const versionToUse = block.refVersion === 'latest' ? '1' : block.refVersion || '1';
 
   const {
     data: executionData,
@@ -40,7 +51,7 @@ export default function WidgetExecutionWrapper({
   } = useComponentExecution({
     refId: block.id, // Use block.id as refId
     refVersion: versionToUse,
-    refType: block.refType || "METRIC",
+    refType: block.refType || 'METRIC',
     startDate: currentTabStartDate,
     endDate: currentTabEndDate,
     enabled: true, // Always execute when component is rendered
@@ -60,13 +71,13 @@ export default function WidgetExecutionWrapper({
 
   const handleRefetch = React.useCallback(async () => {
     if (!block) {
-      console.error("Missing block data for refetch");
+      console.error('Missing block data for refetch');
       return;
     }
 
     // Prevent multiple simultaneous refetch calls
     if (executeComponentMutation.isPending || isRefetchingRef.current) {
-      console.log("Refetch already in progress, skipping...");
+      console.log('Refetch already in progress, skipping...');
       return;
     }
 
@@ -75,21 +86,20 @@ export default function WidgetExecutionWrapper({
 
     const companyId = getCompanyId();
     if (!companyId) {
-      console.error("Company ID is required for component execution");
+      console.error('Company ID is required for component execution');
       return;
     }
 
     // Try to use a specific version number instead of "latest"
     // If refVersion is "latest", try using "1" as a fallback
-    const versionToUse =
-      block.refVersion === "latest" ? "1" : block.refVersion || "1";
+    const versionToUse = block.refVersion === 'latest' ? '1' : block.refVersion || '1';
 
     try {
       console.log(`🔄 Refetching component data for:`, {
         refId: block.id,
         originalRefVersion: block.refVersion,
         usingVersion: versionToUse,
-        refType: block.refType || "METRIC",
+        refType: block.refType || 'METRIC',
         startDate: currentTabStartDate,
         endDate: currentTabEndDate,
         companyId,
@@ -98,7 +108,7 @@ export default function WidgetExecutionWrapper({
       const result = await executeComponentMutation.mutateAsync({
         refId: block.id,
         refVersion: versionToUse,
-        refType: block.refType || "METRIC",
+        refType: block.refType || 'METRIC',
         startDate: currentTabStartDate,
         endDate: currentTabEndDate,
         companyId,
@@ -124,56 +134,41 @@ export default function WidgetExecutionWrapper({
             await refetch();
           } catch (refetchError: any) {
             // Handle refetch errors gracefully
-            if (
-              refetchError?.code === "ERR_CANCELED" ||
-              refetchError?.message === "canceled"
-            ) {
-              console.log("Refetch was canceled - this is normal");
+            if (refetchError?.code === 'ERR_CANCELED' || refetchError?.message === 'canceled') {
+              console.log('Refetch was canceled - this is normal');
             } else {
-              console.error("Refetch failed:", refetchError);
+              console.error('Refetch failed:', refetchError);
             }
           }
         }, 100);
       }
     } catch (error: any) {
       // Handle canceled requests gracefully
-      if (error?.code === "ERR_CANCELED" || error?.message === "canceled") {
-        console.log(
-          `Refetch for ${block.title} was canceled - this is normal behavior`
-        );
+      if (error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
+        console.log(`Refetch for ${block.title} was canceled - this is normal behavior`);
         return; // Don't show error toast for canceled requests
       }
 
-      console.error("Failed to refresh component data:", error);
-      toast.error(
-        `Failed to refresh ${block.title}: ${error.message || "Unknown error"}`
-      );
+      console.error('Failed to refresh component data:', error);
+      toast.error(`Failed to refresh ${block.title}: ${error.message || 'Unknown error'}`);
     } finally {
       // Always reset the refetching flag
       isRefetchingRef.current = false;
     }
-  }, [
-    block,
-    currentTabStartDate,
-    currentTabEndDate,
-    executeComponentMutation,
-    refetch,
-  ]);
+  }, [block, currentTabStartDate, currentTabEndDate, executeComponentMutation, refetch]);
 
   // Show loading state
   if (isLoading) {
     return (
       <div
         className={cn(
-          "w-full h-full flex flex-col items-center justify-center bg-white rounded-lg border border-gray-200",
+          'w-full h-full flex flex-col items-center justify-center bg-white rounded-lg border border-gray-200',
           className
         )}
       >
         <div className="flex flex-col items-center justify-center p-4 space-y-2">
           <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-          <span className="text-sm text-gray-500 font-medium">
-            Executing {block.title}...
-          </span>
+          <span className="text-sm text-gray-500 font-medium">Executing {block.title}...</span>
         </div>
       </div>
     );
@@ -184,7 +179,7 @@ export default function WidgetExecutionWrapper({
     return (
       <div
         className={cn(
-          "w-full h-full flex flex-col items-center justify-center bg-red-50 rounded-lg border border-red-200",
+          'w-full h-full flex flex-col items-center justify-center bg-red-50 rounded-lg border border-red-200',
           className
         )}
       >
@@ -192,12 +187,10 @@ export default function WidgetExecutionWrapper({
           <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
             <span className="text-red-600 text-xs font-bold">!</span>
           </div>
-          <span className="text-sm text-red-600 font-medium">
-            Failed to execute {block.title}
-          </span>
+          <span className="text-sm text-red-600 font-medium">Failed to execute {block.title}</span>
           {error && (
             <span className="text-xs text-red-500 text-center max-w-full truncate">
-              {error.message || "Unknown error occurred"}
+              {error.message || 'Unknown error occurred'}
             </span>
           )}
         </div>
@@ -231,11 +224,17 @@ export default function WidgetExecutionWrapper({
     console.log(`⚠️ Widget ${block.title} has no data available`);
     return (
       <NoDataDisplay
-        title={`No Data Available`}
+        title={block.title}
         message={`${block.title} has no data to display.`}
         onRefetch={handleRefetch}
         isRefetching={executeComponentMutation.isPending}
         className={className}
+        showDragHandle={showDragHandle}
+        dragHandleProps={dragHandleProps}
+        showMenu={showMenu}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onDuplicate={onDuplicate}
       />
     );
   }
