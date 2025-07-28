@@ -309,7 +309,7 @@ export const useUrlParams = () => {
       params.set("dropdown-organization", "open");
     }
     
-    const newUrl = `/chat/settings?${params.toString()}`;
+    const newUrl = `/settings?${params.toString()}`;
     console.log("Navigating to chat settings:", newUrl);
     
     router.push(newUrl, { scroll: false });
