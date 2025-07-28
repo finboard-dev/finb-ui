@@ -236,7 +236,7 @@ export function Sidebar({ isCollapsed = false, onClickSettings }: SidebarProps) 
             key={item.id}
             variant="link"
             isCollapsed={isCollapsed}
-            onClick={() => onClickSettings?.()}
+            onClick={() => router.push('/settings?section=data-connections')}
             isActive={pathname.includes('/settings')}
           >
             {item.label}

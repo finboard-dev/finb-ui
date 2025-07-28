@@ -557,7 +557,7 @@ export default function DashboardSpecificHeader({
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20 flex-shrink-0">
       <Navbar
-        className="h-[3.799rem] !px-4 !shadow-none"
+        className="h-[3.8rem] !px-4 !shadow-none"
         title={currentDashboardName || 'Dashboard'}
         isCollapsed={isSidebarCollapsed}
         collpaseSidebar={handleSidebarToggle}

@@ -17,7 +17,7 @@ import { fetcher } from '@/lib/axios/config';
 import { setMainContent, toggleComponent, selectIsComponentOpen } from '@/lib/store/slices/uiSlice';
 import { store } from '@/lib/store/store';
 import { useRouter, useSearchParams } from 'next/navigation';
-import LoadingAnimation from '@/components/ui/common/GlobalLoading';
+// import LoadingAnimation from '@/components/ui/common/GlobalLoading';
 import { useUrlParams } from '@/lib/utils/urlParams';
 import { useCompanyData } from '@/hooks/query-hooks/useCompany';
 import { CompanyModal } from '../../../../components/ui/common/CompanyModal';
@@ -204,13 +204,13 @@ const Home: FC = () => {
   };
 
   // Show loading animation for company operations
-  if (isCompanyLoading || isLoadingCompanies) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <LoadingAnimation message={'Loading company data... Please wait!'} />
-      </div>
-    );
-  }
+  // if (isCompanyLoading || isLoadingCompanies) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+  //       <LoadingAnimation message={'Loading company data... Please wait!'} />
+  //     </div>
+  //   );
+  // }
 
   return (
     <main className="flex h-screen overflow-hidden bg-white" style={{ minWidth: 0, minHeight: 0 }}>

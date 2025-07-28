@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { setSelectedCompany, setCompanies, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
 import { fetcher } from '@/lib/axios/config';
-import { Building2, Plus, ArrowLeft, Loader2 } from 'lucide-react';
+import { Building2, Plus, ArrowLeft, Loader2, User, User2 } from 'lucide-react';
 import { initAddQuickBookAccount } from '@/lib/api/intuitService';
 import connectToQuickbooksButton from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_default.svg';
 import connectToQuickBooksHover from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_short_hover.svg';
@@ -397,7 +397,7 @@ const CompanySelectionPage = () => {
   // Main company selection UI
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
-      <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+      <div className="w-full max-w-2xl rounded-lg border-[1.5px] border-gray-200 p-8">
         <div className="mb-8 flex items-center">
           <button onClick={() => router.back()} className="mr-4">
             <ArrowLeft className="h-5 w-5 text-gray-500" />
@@ -412,7 +412,9 @@ const CompanySelectionPage = () => {
 
           <div className=" rounded-md border max-h-fit border-gray-200 px-3 py-1.5 text-sm">
             <span className="flex items-center gap-1.5">
-              <span className="h-4 w-4">👤</span>
+              <span className="h-4 w-4">
+                <User2 className="h-4 w-4" />
+              </span>
               {user.email}
             </span>
           </div>
@@ -487,7 +489,7 @@ const CompanySelectionPage = () => {
                 key={company.id}
                 className={`relative flex cursor-pointer items-center gap-3 rounded-md border ${
                   selectedCompanyId === company.id
-                    ? 'border-[#4CAF50] ring-1 ring-[#4CAF50]'
+                    ? 'border-[#4CAF50] ring-1 ring-[#4CAF50]/20'
                     : 'border-gray-200 hover:border-gray-300'
                 } p-4`}
                 onClick={() => handleCompanySelect(company.id)}
@@ -511,7 +513,7 @@ const CompanySelectionPage = () => {
           <button
             onClick={handleAddQuickBooks}
             disabled={isAddingQuickBooks}
-            className="relative w-[238px] h-[52px] group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative w-[238px] h-[52px] group disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-500 ease-in-out hover:-translate-y-0.5"
           >
             {isAddingQuickBooks ? (
               <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
@@ -525,13 +527,13 @@ const CompanySelectionPage = () => {
                 <Image
                   src={connectToQuickbooksButton}
                   alt="Connect to QuickBooks"
-                  className="w-full group-hover:opacity-0"
+                  className="w-full h-full object-contain group-hover:opacity-0 transition-opacity duration-200"
                   priority
                 />
                 <Image
                   src={connectToQuickBooksHover}
                   alt="Connect to QuickBooks"
-                  className="w-full absolute top-0 left-0 opacity-0 group-hover:opacity-100"
+                  className="w-full h-full object-contain absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   priority
                 />
               </>
@@ -548,10 +550,10 @@ const CompanySelectionPage = () => {
             {isAutoConnecting ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Connecting...
+                Selecting...
               </div>
             ) : (
-              'Connect'
+              'Select'
             )}
           </button>
         </div>

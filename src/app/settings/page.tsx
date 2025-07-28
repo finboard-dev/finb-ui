@@ -1,39 +1,37 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import {
   setActiveSettingsSection,
   setMainContent,
   toggleComponent,
   selectIsComponentOpen,
-} from "@/lib/store/slices/uiSlice";
-import Settings from "../../../components/pages/Settings";
-import { syncUrlParamsToRedux, useUrlParams } from "@/lib/utils/urlParams";
-import { Sidebar } from "@/components/ui/common/sidebar";
-import Navbar from "@/components/ui/common/navbar";
-import { CompanyModal } from "../../../components/ui/common/CompanyModal";
+} from '@/lib/store/slices/uiSlice';
+import Settings from '@/components/pages/Settings';
+import { syncUrlParamsToRedux, useUrlParams } from '@/lib/utils/urlParams';
+import { Sidebar } from '@/components/ui/common/sidebar';
+import Navbar from '@/components/ui/common/navbar';
+import { CompanyModal } from '@/components/ui/common/CompanyModal';
 
 const ChatSettingsPage = () => {
   const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const { navigateToContent } = useUrlParams();
-  const section = searchParams.get("section");
+  const section = searchParams.get('section');
 
   // Use component-based sidebar state
-  const isSidebarOpen = useAppSelector((state) =>
-    selectIsComponentOpen(state, "sidebar-chat")
-  );
+  const isSidebarOpen = useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
   const isSidebarCollapsed = !isSidebarOpen;
 
   // Initialize sidebar component if it doesn't exist
   useEffect(() => {
     dispatch({
-      type: "ui/initializeComponent",
+      type: 'ui/initializeComponent',
       payload: {
-        type: "sidebar",
-        id: "sidebar-chat",
+        type: 'sidebar',
+        id: 'sidebar-chat',
         isOpenFromUrl: true, // Default to open
       },
     });
@@ -46,29 +44,24 @@ const ChatSettingsPage = () => {
 
   useEffect(() => {
     // Handle section parameter and set it as settings-section for compatibility
-    if (
-      section &&
-      ["data-connections", "profile", "security", "users-roles"].includes(
-        section
-      )
-    ) {
+    if (section && ['data-connections', 'profile', 'security', 'users-roles'].includes(section)) {
       dispatch(setActiveSettingsSection(section as any));
     } else {
       // Default to data-connections if no section specified
-      dispatch(setActiveSettingsSection("data-connections"));
+      dispatch(setActiveSettingsSection('data-connections'));
     }
 
     // Ensure we're in settings view
-    dispatch(setMainContent("settings"));
+    dispatch(setMainContent('settings'));
   }, [section, dispatch]);
 
   const handleBackClick = () => {
     // Navigate back to chat using the proper navigation function
-    navigateToContent("chat");
+    navigateToContent('chat');
   };
 
   const handleSidebarCollapse = () => {
-    dispatch(toggleComponent({ id: "sidebar-chat" }));
+    dispatch(toggleComponent({ id: 'sidebar-chat' }));
   };
 
   return (

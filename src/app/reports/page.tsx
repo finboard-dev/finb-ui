@@ -1,49 +1,36 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, useMemo } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  selectIsComponentOpen,
-  toggleComponent,
-} from "@/lib/store/slices/uiSlice";
-import { Sidebar } from "@/components/ui/common/sidebar";
-import { CompanyModal } from "@/components/ui/common/CompanyModal";
-import Navbar from "@/components/ui/common/navbar";
-import { Input } from "@/components/ui/input";
-import {
-  Search,
-  ChevronRight,
-  ChevronDown,
-  FileText,
-  ExternalLink,
-} from "lucide-react";
-import { useReports } from "@/hooks/query-hooks/useReports";
-import { useInactiveCompany } from "@/hooks/useInactiveCompany";
-import { useCompanyData } from "@/hooks/query-hooks/useCompany";
-import { useSelector } from "react-redux";
-import LoadingAnimation from "@/components/ui/common/GlobalLoading";
+import React, { useEffect, useState, useMemo } from 'react';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { selectIsComponentOpen, toggleComponent } from '@/lib/store/slices/uiSlice';
+import { Sidebar } from '@/components/ui/common/sidebar';
+import { CompanyModal } from '@/components/ui/common/CompanyModal';
+import Navbar from '@/components/ui/common/navbar';
+import { Input } from '@/components/ui/input';
+import { Search, ChevronRight, ChevronDown, FileText, ExternalLink } from 'lucide-react';
+import { useReports } from '@/hooks/query-hooks/useReports';
+import { useInactiveCompany } from '@/hooks/useInactiveCompany';
+import { useCompanyData } from '@/hooks/query-hooks/useCompany';
+import { useSelector } from 'react-redux';
+// import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 
 // Format date strings for display in the table
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 };
 
 export default function ReportsPage() {
   const dispatch = useAppDispatch();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(
-    new Set()
-  );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedPackages, setExpandedPackages] = useState<Set<string>>(new Set());
 
-  const selectedCompanyId = useSelector(
-    (state: any) => state.user.selectedCompany?.id
-  );
+  const selectedCompanyId = useSelector((state: any) => state.user.selectedCompany?.id);
 
   // Fetch company data
   const { isLoading: isCompanyDataLoading } = useCompanyData(selectedCompanyId);
@@ -52,14 +39,12 @@ export default function ReportsPage() {
   const { isCompanyInactive, InactiveCompanyUI } = useInactiveCompany();
 
   const { data: reportsData, isLoading, error } = useReports();
-  const isSidebarCollapsed = !useAppSelector((state) =>
-    selectIsComponentOpen(state, "sidebar-chat")
-  );
+  const isSidebarCollapsed = !useAppSelector((state) => selectIsComponentOpen(state, 'sidebar-chat'));
 
   useEffect(() => {
     dispatch({
-      type: "ui/initializeComponent",
-      payload: { type: "sidebar", id: "sidebar-chat", isOpenFromUrl: true },
+      type: 'ui/initializeComponent',
+      payload: { type: 'sidebar', id: 'sidebar-chat', isOpenFromUrl: true },
     });
   }, [dispatch]);
 
@@ -78,20 +63,18 @@ export default function ReportsPage() {
     return reportsData.filter(
       (pkg) =>
         pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.reports.some((report) =>
-          report.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        pkg.reports.some((report) => report.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [reportsData, searchTerm]);
 
   // Show loading while company data is being fetched
-  if (isCompanyDataLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <LoadingAnimation message="Loading company data..." />
-      </div>
-    );
-  }
+  // if (isCompanyDataLoading) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+  //       <LoadingAnimation message="Loading company data..." />
+  //     </div>
+  //   );
+  // }
 
   // If company is inactive, show the inactive company UI
   if (isCompanyInactive) {
@@ -125,15 +108,8 @@ export default function ReportsPage() {
     </tr>
   );
 
-  const columnWidths = ["300px", "180px", "160px", "160px", "180px", "120px"];
-  const headers = [
-    "Reports",
-    "Company",
-    "Last Updated",
-    "Created",
-    "Created By",
-    "Link",
-  ];
+  const columnWidths = ['300px', '180px', '160px', '160px', '180px', '120px'];
+  const headers = ['Reports', 'Company', 'Last Updated', 'Created', 'Created By', 'Link'];
 
   return (
     <div className="flex select-none h-screen bg-slate-100 overflow-hidden">
@@ -144,9 +120,7 @@ export default function ReportsPage() {
           title="Reports"
           isCollapsed={isSidebarCollapsed}
           className="!h-[3.8rem]"
-          collpaseSidebar={() =>
-            dispatch(toggleComponent({ id: "sidebar-chat" }))
-          }
+          collpaseSidebar={() => dispatch(toggleComponent({ id: 'sidebar-chat' }))}
         />
 
         <main className="flex-1 overflow-auto bg-white p-6">
@@ -184,10 +158,7 @@ export default function ReportsPage() {
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         {headers.map((header, index) => (
-                          <th
-                            key={index}
-                            className="text-left py-3 px-6 text-sm font-medium text-gray-700"
-                          >
+                          <th key={index} className="text-left py-3 px-6 text-sm font-medium text-gray-700">
                             {header}
                           </th>
                         ))}
@@ -214,35 +185,25 @@ export default function ReportsPage() {
                                 <td className="py-3 px-6">
                                   <div className="flex items-center gap-2">
                                     <button
-                                      onClick={() =>
-                                        toggleExpanded(reportPackage.id)
-                                      }
+                                      onClick={() => toggleExpanded(reportPackage.id)}
                                       className="p-1 hover:bg-gray-100 rounded"
                                     >
-                                      {expandedPackages.has(
-                                        reportPackage.id
-                                      ) ? (
+                                      {expandedPackages.has(reportPackage.id) ? (
                                         <ChevronDown className="w-4 h-4 text-gray-600" />
                                       ) : (
                                         <ChevronRight className="w-4 h-4 text-gray-600" />
                                       )}
                                     </button>
-                                    <span className="text-sm text-gray-900 truncate">
-                                      {reportPackage.name}
-                                    </span>
+                                    <span className="text-sm text-gray-900 truncate">{reportPackage.name}</span>
                                   </div>
                                 </td>
-                                <td className="py-3 px-6 text-sm text-gray-400">
-                                  -
-                                </td>
-                                <td className="py-3 px-6 text-sm text-gray-400">
-                                  -
-                                </td>
+                                <td className="py-3 px-6 text-sm text-gray-400">-</td>
+                                <td className="py-3 px-6 text-sm text-gray-400">-</td>
                                 <td className="py-3 px-6 text-sm text-gray-600">
                                   {formatDate(reportPackage.createdDate)}
                                 </td>
                                 <td className="py-3 px-6 text-sm text-gray-600 truncate">
-                                  {reportPackage.createdBy || "-"}
+                                  {reportPackage.createdBy || '-'}
                                 </td>
                                 <td className="py-3 px-6">
                                   <a
@@ -259,9 +220,7 @@ export default function ReportsPage() {
                               {/* Report Rows */}
                               {expandedPackages.has(reportPackage.id) &&
                                 reportPackage.reports
-                                  .filter(
-                                    (report) => report.status === "ACTIVE"
-                                  )
+                                  .filter((report) => report.status === 'ACTIVE')
                                   .map((report) => (
                                     <tr
                                       key={`${reportPackage.id}-${report.id}`}
@@ -270,28 +229,20 @@ export default function ReportsPage() {
                                       <td className="py-3 px-6">
                                         <div className="flex items-center gap-2 ml-8">
                                           <FileText className="w-3 h-3 text-gray-500" />
-                                          <span className="text-sm text-gray-900 truncate">
-                                            {report.name}
-                                          </span>
+                                          <span className="text-sm text-gray-900 truncate">{report.name}</span>
                                         </div>
                                       </td>
                                       <td className="py-3 px-6 text-sm text-gray-600 truncate">
-                                        {report.companyName || "-"}
+                                        {report.companyName || '-'}
                                       </td>
                                       <td className="py-3 px-6 text-sm text-gray-600">
-                                        {report.lastSyncAt
-                                          ? formatDate(report.lastSyncAt)
-                                          : "-"}
+                                        {report.lastSyncAt ? formatDate(report.lastSyncAt) : '-'}
                                       </td>
                                       <td className="py-3 px-6 text-sm text-gray-600">
                                         {formatDate(report.createdAt)}
                                       </td>
-                                      <td className="py-3 px-6 text-sm text-gray-400">
-                                        -
-                                      </td>
-                                      <td className="py-3 px-6 text-sm text-gray-400">
-                                        -
-                                      </td>
+                                      <td className="py-3 px-6 text-sm text-gray-400">-</td>
+                                      <td className="py-3 px-6 text-sm text-gray-400">-</td>
                                     </tr>
                                   ))}
                             </React.Fragment>
