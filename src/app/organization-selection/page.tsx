@@ -61,6 +61,9 @@ const OrganizationSelectionPage = () => {
         id: org.organization.id,
         name: org.organization.name,
         status: org.organization.status,
+        enabledFeatures: org.organization.enabledFeatures || [],
+        billingEmail: org.organization.billingEmail,
+        contactEmail: org.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
           id: org.role.id,
@@ -261,6 +264,9 @@ const OrganizationSelectionPage = () => {
           id: newOrganization.id,
           name: newOrganization.name,
           status: newOrganization.status,
+          enabledFeatures: newOrganization.enabledFeatures || [],
+          billingEmail: newOrganization.billingEmail,
+          contactEmail: newOrganization.contactEmail,
           companies: [], // Will be populated when companies are loaded
           role: {
             id: newRole.id,
@@ -351,6 +357,9 @@ const OrganizationSelectionPage = () => {
         id: selectedOrg.organization.id,
         name: selectedOrg.organization.name,
         status: selectedOrg.organization.status,
+        enabledFeatures: selectedOrg.organization.enabledFeatures || [],
+        billingEmail: selectedOrg.organization.billingEmail,
+        contactEmail: selectedOrg.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
           id: selectedOrg.role.id,
@@ -712,7 +721,7 @@ const OrganizationSelectionPage = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
-      <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+      <div className="w-full max-w-2xl rounded-lg border-[1.5px] border-gray-200 p-8">
         <div className="mb-8 flex items-center">
           {isSelectedCompanyNull ? (
             <></>
@@ -744,7 +753,7 @@ const OrganizationSelectionPage = () => {
                     key={org.organization.id}
                     className={`relative flex cursor-pointer items-center gap-3 rounded-md border ${
                       selectedOrgId === org.organization.id
-                        ? 'border-[#4CAF50] ring-1 ring-[#4CAF50]'
+                        ? 'border-[#4CAF50] ring-1 ring-[#4CAF50]/20'
                         : 'border-gray-200 hover:border-gray-300'
                     } p-4`}
                     onClick={() => handleOrganizationSelect(org.organization.id)}

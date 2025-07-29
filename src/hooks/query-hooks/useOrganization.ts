@@ -1,7 +1,10 @@
 import { addOrganizationUser, deleteOrganizationUser, getOrganizationCompanies, getOrganizationUsers, updateOrganizationUser } from '@/lib/api/roles&Permissions';
 import { addConnection, disconnectConnection, getOrganizationConnections } from '@/lib/api/settings';
-  import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { updateOrganizationName, UpdateOrganizationNameRequest } from '@/lib/api/organization';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { updateOrganizationName as updateOrgNameInStore } from '@/lib/store/slices/userSlice';
 
 interface CreateOrganizationParams {
   businessName: string;
@@ -116,3 +119,24 @@ export function useDeleteOrganizationUser() {
     },
   })
 } 
+
+export const useUpdateOrganizationName = () => {
+  const queryClient = useQueryClient();
+  const dispatch = useAppDispatch();
+  
+  return useMutation({
+    mutationFn: (data: UpdateOrganizationNameRequest) => updateOrganizationName(data),
+    onSuccess: (response, variables) => {
+      // Update Redux store with new organization name
+      dispatch(updateOrgNameInStore({
+        id: variables.organizationId,
+        name: variables.name
+      }));
+      
+      // Invalidate and refetch organization data
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['organizationUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['organizationCompanies'] });
+    },
+  });
+}; 

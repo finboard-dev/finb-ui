@@ -12,7 +12,7 @@ import Navbar from "@/components/ui/common/navbar";
 import { useInactiveCompany } from "@/hooks/useInactiveCompany";
 import { useCompanyData } from "@/hooks/query-hooks/useCompany";
 import { useSelector } from "react-redux";
-import LoadingAnimation from "@/components/ui/common/GlobalLoading";
+// import LoadingAnimation from "@/components/ui/common/GlobalLoading";
 
 export default function ComponentsPage() {
   const dispatch = useAppDispatch();
@@ -49,13 +49,13 @@ export default function ComponentsPage() {
   };
 
   // Show loading while company data is being fetched
-  if (isCompanyDataLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <LoadingAnimation message="Loading company data..." />
-      </div>
-    );
-  }
+  // if (isCompanyDataLoading) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen w-screen bg-transparent">
+  //       <LoadingAnimation message="Loading company data..." />
+  //     </div>
+  //   );
+  // }
 
   // If company is inactive, show the inactive company UI
   if (isCompanyInactive) {

@@ -150,7 +150,7 @@ const Navbar: FC<NavbarProps> = ({
               </>
             )}
             <DropdownMenuItem
-              onClick={() => navigateToChatSettings('data-connections')}
+              onClick={() => router.push('/settings?section=data-connections')}
               className="text-sm cursor-pointer text-gray-700 hover:bg-gray-100 focus:bg-gray-100"
             >
               <Settings className="mr-2 h-4 w-4" />

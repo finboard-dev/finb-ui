@@ -12,7 +12,7 @@ interface UIComponentState {
 interface UIState {
   components: Record<string, UIComponentState>;
   mainContent: "chat" | "settings";
-  activeSettingsSection: "data-connections" | "profile" | "security" | "logout" | 'users-roles';
+  activeSettingsSection: "data-connections" | "profile" | "security" | "logout" | 'users-roles' | 'organization';
   isSidebarCollapsed: boolean;
 }
 
@@ -107,7 +107,7 @@ const uiSlice = createSlice({
 
     setActiveSettingsSection: (
         state,
-        action: PayloadAction<"data-connections" | "profile" | "security" | "logout" | 'users-roles'>
+        action: PayloadAction<"data-connections" | "profile" | "security" | "logout" | 'users-roles' | 'organization'>
     ) => {
       state.activeSettingsSection = action.payload;
     },

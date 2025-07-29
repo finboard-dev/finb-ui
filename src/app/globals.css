@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "tw-animate-css";
-
 :root {
   /* shadcn/ui required variables */
   --background: 0 0% 100%;

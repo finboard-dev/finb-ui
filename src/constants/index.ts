@@ -9,4 +9,7 @@ export const ADD_COMPANY = 'ADD_COMPANY';
 export const ADD_APP = 'ADD_APP';
 export const CONNECT_COMPANY = 'CONNECT_COMPANY';
 export const DISCONNECT_COMPANY = 'DISCONNECT_COMPANY';
-export const MAPPINGS = 'mappings'
+export const MAPPINGS = 'mappings';
+
+// Re-export feature constants
+export * from './features';

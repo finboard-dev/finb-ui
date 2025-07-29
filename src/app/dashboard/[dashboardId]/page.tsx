@@ -18,6 +18,7 @@ import { Sidebar } from '@/components/ui/common/sidebar';
 import { CompanyModal } from '@/components/ui/common/CompanyModal';
 import GlobalLoading from '@/components/ui/common/GlobalLoading';
 import DashboardNotFound from '../components/ui/DashboardNotFound';
+import { DashboardShimmer } from '../components/ui/DashboardShimmer';
 import { useDashboard, useSaveDashboard, usePublishDraft } from '@/hooks/query-hooks/useDashboard';
 import { useInactiveCompany } from '@/hooks/useInactiveCompany';
 import { useCompanyData } from '@/hooks/query-hooks/useCompany';
@@ -283,24 +284,13 @@ export default function DashboardPage() {
   }, [effectiveIsEditing, metricsLoaded, metricsLoading]);
 
   // Show loading while URL sync or company data is being fetched
-  if (isSyncing || isCompanyDataLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <GlobalLoading message={isSyncing ? 'Initializing...' : 'Loading company data...'} />
-      </div>
-    );
+  if (isSyncing) {
+    return <DashboardShimmer />;
   }
 
   // If no organization is selected, show message
   if (!hasOrganization) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-transparent">
-        <div className="text-center">
-          <h2 className="text-xl font-medium text-gray-900 mb-2">No Organization Selected</h2>
-          <p className="text-gray-600">Please select an organization to continue.</p>
-        </div>
-      </div>
-    );
+    return <DashboardShimmer />;
   }
 
   // If no dashboard ID is provided, show not found component
@@ -882,7 +872,7 @@ export default function DashboardPage() {
   }
 
   if (loading.structure || (metricsLoading && !metricsLoaded) || (!structure && !error)) {
-    return <GlobalLoading message="Loading Dashboard..." />;
+    return <DashboardShimmer />;
   }
 
   // Show error state
