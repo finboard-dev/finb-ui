@@ -8,7 +8,7 @@ export interface UrlParamUpdates {
 
 // Define the main content types and their associated parameters
 export type MainContentType = "chat" | "settings";
-export type SettingsSection = "data-connections" | "profile" | "security" | "users-roles";
+export type SettingsSection = "data-connections" | "profile" | "security" | "users-roles" | "organization";
 
 // Define parameter groups for better organization
 export const PARAM_GROUPS = {
@@ -459,7 +459,7 @@ export const syncUrlParamsToRedux = (
   // Handle both old settings-section and new section parameters
   const activeSection = section || settingsSection;
   
-  if (activeSection && ["data-connections", "profile", "security", "users-roles"].includes(activeSection)) {
+  if (activeSection && ["data-connections", "profile", "security", "users-roles", "organization"].includes(activeSection)) {
     dispatch({
       type: "ui/setActiveSettingsSection",
       payload: activeSection,

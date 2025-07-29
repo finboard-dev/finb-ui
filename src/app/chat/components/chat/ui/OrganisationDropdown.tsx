@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useRef, useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import {
   ChevronsUpDown,
   Building,
@@ -7,7 +7,7 @@ import {
   Check,
   Loader2,
   ChevronRight,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   selectUser,
   selectSelectedOrganization,
@@ -18,27 +18,20 @@ import {
   type Organization,
   type Company,
   type UserOrganization,
-} from "@/lib/store/slices/userSlice";
-import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-import {
-  initializeComponent,
-  selectIsComponentOpen,
-  toggleComponent,
-} from "@/lib/store/slices/uiSlice";
-import { useSearchParams, useRouter } from "next/navigation";
-import { toggleSidebar } from "@/lib/store/slices/chatSlice";
-import {
-  setDropDownLoading,
-  selectDropDownLoading,
-} from "@/lib/store/slices/loadingSlice";
-import { initAddQuickBookAccount } from "@/lib/api/intuitService";
-import { fetcher } from "@/lib/axios/config";
-import { getCurrentCompany, getAllCompany } from "@/lib/api/allCompany";
-import connectToQuickBooksMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg";
-import connectToQuickBooksHoverMed from "@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg";
-import Image from "next/image";
-import { useUrlParams } from "@/lib/utils/urlParams";
-import { addConnection } from "@/lib/api/settings";
+} from '@/lib/store/slices/userSlice';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { initializeComponent, selectIsComponentOpen, toggleComponent } from '@/lib/store/slices/uiSlice';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { toggleSidebar } from '@/lib/store/slices/chatSlice';
+import { setDropDownLoading, selectDropDownLoading } from '@/lib/store/slices/loadingSlice';
+import { initAddQuickBookAccount } from '@/lib/api/intuitService';
+import { fetcher } from '@/lib/axios/config';
+import { getCurrentCompany, getAllCompany } from '@/lib/api/allCompany';
+import connectToQuickBooksMed from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_default.svg';
+import connectToQuickBooksHoverMed from '@/../public/buttons/Connect_to_QuickBooks_buttons/Connect_to_QuickBooks_English/Connect_to_QuickBooks_SVG/C2QB_green_btn_med_hover.svg';
+import Image from 'next/image';
+import { useUrlParams } from '@/lib/utils/urlParams';
+import { addConnection } from '@/lib/api/settings';
 
 interface OrganizationDropdownProps {
   onCompanyChange?: () => void;
@@ -46,8 +39,8 @@ interface OrganizationDropdownProps {
 }
 
 enum CompanyStatus {
-  ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE",
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
 export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
@@ -61,25 +54,23 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isParamSet, toggleComponentState } = useUrlParams();
-  const componentId = "dropdown-organization";
+  const componentId = 'dropdown-organization';
 
   const user = useSelector(selectUser);
   const selectedOrganization = useSelector(selectSelectedOrganization);
   const selectedCompany = useSelector(selectSelectedCompany);
-  const [quickBooksImgSrc, setQuickBooksImgSrc] = useState(
-    connectToQuickBooksMed
-  );
+  const [quickBooksImgSrc, setQuickBooksImgSrc] = useState(connectToQuickBooksMed);
 
   const companies = useAppSelector((state) => state.user.companies);
 
   // Get dropdown state from URL parameters (source of truth)
-  const isOpen = isParamSet(componentId, "open");
+  const isOpen = isParamSet(componentId, 'open');
 
   // Sync URL parameters to Redux state
   useEffect(() => {
     dispatch(
       initializeComponent({
-        type: "dropdown",
+        type: 'dropdown',
         id: componentId,
         isOpenFromUrl: isOpen,
       })
@@ -98,9 +89,9 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
     try {
       const redirectUrl = await addConnection();
       if (redirectUrl.redirectUrl) {
-        window.open(redirectUrl.redirectUrl, "_self");
+        window.open(redirectUrl.redirectUrl, '_self');
       } else {
-        console.error("No redirect URL provided");
+        console.error('No redirect URL provided');
       }
     } catch (error) {
       console.error(error);
@@ -118,6 +109,9 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
         id: userOrg.organization.id,
         name: userOrg.organization.name,
         status: userOrg.organization.status,
+        enabledFeatures: userOrg.organization.enabledFeatures || [],
+        billingEmail: userOrg.organization.billingEmail,
+        contactEmail: userOrg.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
           id: userOrg.role.id,
@@ -159,43 +153,32 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
         // Find the first active company in the new organization
         const firstActiveCompany = allCompanies.find(
-          (company: any) =>
-            company.status === CompanyStatus.ACTIVE && !company.isMultiEntity
+          (company: any) => company.status === CompanyStatus.ACTIVE && !company.isMultiEntity
         );
 
         if (firstActiveCompany) {
           // Get the full company data including chat conversations
-          const companyResponse = await getCurrentCompany(
-            firstActiveCompany.id
-          );
+          const companyResponse = await getCurrentCompany(firstActiveCompany.id);
           const selectedCompanyData = companyResponse?.data || companyResponse;
 
-          // Update both the top-level selectedCompany and the nested user.selectedCompany
+          // Update the top-level selectedCompany
           dispatch(setSelectedCompany(selectedCompanyData));
 
           // Also update the user object to keep it in sync
           if (user) {
-            const updatedUserWithCompany = {
-              ...user,
-              selectedCompany: selectedCompanyData,
-            };
-
             dispatch(
               setUserData({
-                user: updatedUserWithCompany,
+                user: user,
                 selectedOrganization: organizationToSelect,
                 selectedCompany: selectedCompanyData,
               })
             );
           }
 
-          document.cookie = "has_selected_company=true; path=/";
+          document.cookie = 'has_selected_company=true; path=/';
         }
       } catch (companyError) {
-        console.error(
-          "Error updating company after organization switch:",
-          companyError
-        );
+        console.error('Error updating company after organization switch:', companyError);
         // Don't throw here, as the organization switch was successful
       }
 
@@ -206,8 +189,8 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
       if (onOrganizationChange) onOrganizationChange();
     } catch (err: any) {
-      console.error("Error setting organization:", err);
-      setError(err.message || "Error setting organization");
+      console.error('Error setting organization:', err);
+      setError(err.message || 'Error setting organization');
     } finally {
       dispatch(setDropDownLoading(false));
     }
@@ -226,33 +209,28 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
       const response = await getCurrentCompany(company.id);
       const selectedCompanyData = response?.data || response;
 
-      // Update both the top-level selectedCompany and the nested user.selectedCompany
+      // Update the top-level selectedCompany
       dispatch(setSelectedCompany(selectedCompanyData));
 
       // Also update the user object to keep it in sync
       if (user) {
-        const updatedUser = {
-          ...user,
-          selectedCompany: selectedCompanyData,
-        };
-
         dispatch(
           setUserData({
-            user: updatedUser,
+            user: user,
             selectedOrganization: selectedOrganization || undefined,
             selectedCompany: selectedCompanyData,
           })
         );
       }
 
-      document.cookie = "has_selected_company=true; path=/";
+      document.cookie = 'has_selected_company=true; path=/';
       dispatch(toggleComponent({ id: componentId, forceState: false }));
       toggleComponentState(componentId, false);
       setShowOrganizations(false);
       if (onCompanyChange) onCompanyChange();
     } catch (err: any) {
-      console.error("Error setting current company:", err);
-      setError(err.message || "Error setting current company");
+      console.error('Error setting current company:', err);
+      setError(err.message || 'Error setting current company');
       dispatch(setSelectedCompany(null as any));
     } finally {
       dispatch(setDropDownLoading(false));
@@ -261,19 +239,16 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         dispatch(toggleComponent({ id: componentId, forceState: false }));
         toggleComponentState(componentId, false);
         setShowOrganizations(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [dispatch, searchParams, router]);
 
@@ -290,24 +265,18 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
         <div className="flex items-center gap-2.5">
           <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 text-white shadow-inner">
             <span className="text-xs font-semibold">
-              {selectedCompany?.name?.substring(0, 2).toUpperCase() || "SC"}
+              {selectedCompany?.name?.substring(0, 2).toUpperCase() || 'SC'}
             </span>
             <div
               className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white
-              ${
-                selectedCompany?.status === CompanyStatus.ACTIVE
-                  ? "bg-green-500"
-                  : "bg-red-500"
-              }`}
+              ${selectedCompany?.status === CompanyStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`}
             ></div>
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-gray-900 line-clamp-1">
-              {selectedCompany?.name || "Select Company"}
+              {selectedCompany?.name || 'Select Company'}
             </span>
-            <span className="text-xs text-gray-500 line-clamp-1">
-              {selectedOrganization?.name}
-            </span>
+            <span className="text-xs text-gray-500 line-clamp-1">{selectedOrganization?.name}</span>
           </div>
         </div>
         <ChevronsUpDown className="h-4 w-4 text-gray-500 shrink-0 ml-1.5" />
@@ -323,9 +292,7 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                 <div className="flex items-center justify-between p-2.5">
                   <div className="flex items-center gap-2">
                     {/* <Users className="h-3.5 w-3.5 text-primary" /> */}
-                    <span className="text-xs font-medium text-gray-700">
-                      {selectedOrganization?.name}
-                    </span>
+                    <span className="text-xs font-medium text-gray-700">{selectedOrganization?.name}</span>
                   </div>
                   {organizations.length > 1 && (
                     <button
@@ -343,22 +310,14 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
               {companies && companies.length > 0 ? (
                 <div className="max-h-64 overflow-y-auto py-1">
                   {companies.map((company) => {
-                    const isActive =
-                      company.status === CompanyStatus.ACTIVE &&
-                      !company.isMultiEntity;
+                    const isActive = company.status === CompanyStatus.ACTIVE && !company.isMultiEntity;
                     const isSelected = company.id === selectedCompany?.id;
                     return (
                       <div
                         key={company.id}
                         className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors ${
-                          isSelected
-                            ? "bg-primary/10 text-primary"
-                            : "text-gray-700 hover:bg-gray-50"
-                        } ${
-                          !isActive
-                            ? "opacity-60 cursor-not-allowed"
-                            : "cursor-pointer"
-                        }`}
+                          isSelected ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-50'
+                        } ${!isActive ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         onClick={() => {
                           if (isActive) {
                             handleCompanySelect(selectedOrganization, company);
@@ -368,9 +327,9 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                         title={
                           !isActive
                             ? company.isMultiEntity
-                              ? "Multi-entity companies cannot be selected"
+                              ? 'Multi-entity companies cannot be selected'
                               : `This company is ${company.status}`
-                            : ""
+                            : ''
                         }
                       >
                         {/* <div
@@ -394,17 +353,13 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                         <div className="flex flex-grow items-center">
                           <span className="text-sm">{company.name}</span>
                         </div>
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
+                        {isSelected && <Check className="h-4 w-4 text-primary" />}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="p-4 text-center text-gray-500 text-sm">
-                  No companies available
-                </div>
+                <div className="p-4 text-center text-gray-500 text-sm">No companies available</div>
               )}
             </>
           ) : (
@@ -420,24 +375,19 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                     <ChevronRight className="h-3 w-3 rotate-180" />
                     Back
                   </button>
-                  <span className="text-xs font-medium text-gray-700">
-                    Switch Organization
-                  </span>
+                  <span className="text-xs font-medium text-gray-700">Switch Organization</span>
                 </div>
               </div>
 
               {/* Organizations list */}
               <div className="max-h-64 overflow-y-auto py-1">
                 {organizations.map((org) => {
-                  const isSelected =
-                    org.organization.id === selectedOrganization?.id;
+                  const isSelected = org.organization.id === selectedOrganization?.id;
                   return (
                     <div
                       key={org.organization.id}
                       className={`group mx-1 my-0.5 flex items-center gap-3 rounded-md px-2.5 py-2 transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-primary/10 text-primary"
-                          : "text-gray-700 hover:bg-gray-50"
+                        isSelected ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-50'
                       }`}
                       onClick={() => handleOrganizationSelect(org)}
                       id={`click-organization-${org.organization.id}`}
@@ -452,12 +402,8 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
                         <Users className="h-3.5 w-3.5" />
                       </div> */}
                       <div className="flex flex-grow flex-col">
-                        <span className="text-sm font-medium">
-                          {org.organization.name}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {org.role.name}
-                        </span>
+                        <span className="text-sm font-medium">{org.organization.name}</span>
+                        <span className="text-xs text-gray-500">{org.role.name}</span>
                       </div>
                       {isSelected && <Check className="h-4 w-4 text-primary" />}
                     </div>
@@ -471,15 +417,13 @@ export const OrganizationDropdown: React.FC<OrganizationDropdownProps> = ({
           <div className="border-t border-gray-100 p-2 flex justify-center items-center bg-gray-50">
             <Image
               onClick={() => {
-                dispatch(
-                  toggleComponent({ id: componentId, forceState: false })
-                );
+                dispatch(toggleComponent({ id: componentId, forceState: false }));
                 toggleComponentState(componentId, false);
                 setShowOrganizations(false);
                 handleAddQuickBooks();
               }}
               className="cursor-pointer"
-              src={connectToQuickBooksMed || "/placeholder.svg"}
+              src={connectToQuickBooksMed || '/placeholder.svg'}
               alt="Connect to QuickBooks"
               onMouseEnter={(e) => {
                 const img = e.currentTarget;
@@ -527,17 +471,11 @@ export const CollapsedOrganizationDropdown: React.FC = () => {
         ) : selectedCompany ? (
           <div className="relative flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/80 text-white">
             <span className="text-xs text-white font-semibold">
-              {selectedCompany && selectedCompany.name
-                ? selectedCompany.name.substring(0, 1).toUpperCase()
-                : "SC"}
+              {selectedCompany && selectedCompany.name ? selectedCompany.name.substring(0, 1).toUpperCase() : 'SC'}
             </span>
             <div
               className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white
-                ${
-                  selectedCompany.status === CompanyStatus.ACTIVE
-                    ? "bg-green-500"
-                    : "bg-red-500"
-                }`}
+                ${selectedCompany.status === CompanyStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`}
             ></div>
           </div>
         ) : (

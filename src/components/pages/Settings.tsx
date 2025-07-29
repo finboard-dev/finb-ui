@@ -38,6 +38,7 @@ import {
   useAddOrganizationUser,
   useUpdateOrganizationUser,
   useDeleteOrganizationUser,
+  useUpdateOrganizationName,
 } from '@/hooks/query-hooks/useOrganization';
 import { useClearReduxState } from '@/hooks/useClearReduxState';
 import { clearBearerToken } from '@/lib/auth/tokenUtils';
@@ -108,6 +109,8 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const [inviteUserLoading, setInviteUserLoading] = useState(false);
   const [updateUserLoading, setUpdateUserLoading] = useState(false);
   const [showAllOrgsModal, setShowAllOrgsModal] = useState(false);
+  const [isEditingOrgName, setIsEditingOrgName] = useState(false);
+  const [orgNameDraft, setOrgNameDraft] = useState('');
 
   // React Query hooks
   const {
@@ -132,6 +135,7 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
   const addUserMutation = useAddOrganizationUser();
   const updateUserMutation = useUpdateOrganizationUser();
   const deleteUserMutation = useDeleteOrganizationUser();
+  const updateOrgNameMutation = useUpdateOrganizationName();
 
   // Loading states for individual operations
   const [disconnectingConnectionId, setDisconnectingConnectionId] = useState<string | null>(null);
@@ -144,14 +148,14 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     // Handle both old settings-section and new section parameters
     const activeSection = section || sectionFromUrl;
 
-    if (activeSection && ['data-connections', 'profile', 'users-roles'].includes(activeSection)) {
+    if (activeSection && ['data-connections', 'profile', 'users-roles', 'organization'].includes(activeSection)) {
       dispatch(setActiveSettingsSection(activeSection as any));
       // Ensure we're in settings view when settings-section parameter is present
       dispatch(setMainContent('settings'));
     }
   }, [dispatch, searchParams]);
 
-  const handleSectionChange = (section: 'data-connections' | 'profile' | 'users-roles') => {
+  const handleSectionChange = (section: 'data-connections' | 'profile' | 'users-roles' | 'organization') => {
     dispatch(setActiveSettingsSection(section));
     // Use the new navigateToChatSettings function for the chat settings route
     navigateToChatSettings(section);
@@ -405,246 +409,229 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
     </Card>
   );
 
-  const renderProfile = () => {
-    const userData = store.getState().user.user;
+  // const renderProfile = () => {
+  //   const userData = store.getState().user.user;
+
+  //   const formatDate = (dateString: string) => {
+  //     return new Date(dateString).toLocaleString('en-US', {
+  //       year: 'numeric',
+  //       month: 'short',
+  //       day: 'numeric',
+  //       hour: '2-digit',
+  //       minute: '2-digit',
+  //     });
+  //   };
+
+  //   return (
+  //     <div className="space-y-6">
+  //       {/* Profile Card */}
+  //       <Card className="border-gray-200">
+  //         <CardHeader>
+  //           <CardTitle className="text-xl font-semibold">Profile</CardTitle>
+  //           <CardDescription className="text-gray-500">Your account details</CardDescription>
+  //         </CardHeader>
+  //         <CardContent>
+  //           <div className="space-y-8">
+  //             {/* Personal Information Section */}
+  //             <div>
+  //               <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+  //               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  //                 <div className="space-y-1">
+  //                   <p className="text-xs text-gray-500 uppercase tracking-wide">Name</p>
+  //                   <p className="text-sm text-gray-900">
+  //                     {userData ? `${userData.firstName} ${userData.lastName}` : 'Not available'}
+  //                   </p>
+  //                 </div>
+  //                 <div className="space-y-1">
+  //                   <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
+  //                   <p className="text-sm text-gray-900">{userData?.email || 'Not available'}</p>
+  //                 </div>
+  //                 <div className="space-y-1">
+  //                   <p className="text-xs text-gray-500 uppercase tracking-wide">Last Login</p>
+  //                   <p className="text-sm text-gray-900">
+  //                     {userData?.lastLoginTime ? formatDate(userData.lastLoginTime) : 'Not available'}
+  //                   </p>
+  //                 </div>
+  //               </div>
+  //             </div>
+  //           </div>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   );
+  // };
+
+  const renderOrganization = () => {
     const selectedOrganization = store.getState().user.selectedOrganization;
+    const userData = store.getState().user.user;
     const organizations = userData?.organizations || [];
 
-    const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+    const handleEditOrgName = () => {
+      if (selectedOrganization) {
+        setOrgNameDraft(selectedOrganization.name);
+        setIsEditingOrgName(true);
+      }
+    };
+
+    const handleSaveOrgName = async () => {
+      if (!selectedOrganization || !orgNameDraft.trim()) {
+        toast.error('Please enter a valid organization name');
+        return;
+      }
+
+      try {
+        await updateOrgNameMutation.mutateAsync({
+          organizationId: selectedOrganization.id,
+          name: orgNameDraft.trim(),
+        });
+        toast.success('Organization name updated successfully!');
+        setIsEditingOrgName(false);
+        setOrgNameDraft('');
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to update organization name');
+      }
+    };
+
+    const handleCancelEdit = () => {
+      setIsEditingOrgName(false);
+      setOrgNameDraft('');
     };
 
     return (
       <div className="space-y-6">
-        {/* Profile Card */}
+        {/* Current Organization Card */}
         <Card className="border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold">Profile</CardTitle>
-            <CardDescription className="text-gray-500">Your account details and organizational access</CardDescription>
-          </CardHeader>
+          {/* <CardHeader>
+            <CardTitle className="text-xl font-semibold">Current Organization</CardTitle>
+            <CardDescription className="text-gray-500">Manage your current organization settings</CardDescription>
+          </CardHeader> */}
           <CardContent>
-            <div className="space-y-8">
-              {/* Personal Information Section */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Name</p>
-                    <p className="text-sm text-gray-900">
-                      {userData ? `${userData.firstName} ${userData.lastName}` : 'Not available'}
-                    </p>
+            {selectedOrganization ? (
+              <div className="space-y-6">
+                {/* Organization Name Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Organization Name</h3>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
-                    <p className="text-sm text-gray-900">{userData?.email || 'Not available'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Last Login</p>
-                    <p className="text-sm text-gray-900">
-                      {userData?.lastLoginTime ? formatDate(userData.lastLoginTime) : 'Not available'}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Separator */}
-              <div className="border-t border-gray-200"></div>
-
-              {/* Organizations Section */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Organizations</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Current Organization */}
-                  {selectedOrganization && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-medium text-gray-900">Current Organization</h4>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Active
-                        </Badge>
-                      </div>
-                      <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        <h5 className="font-medium text-gray-900 mb-2 text-sm">{selectedOrganization.name}</h5>
-                        <div className="space-y-1 text-xs text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                selectedOrganization.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'
-                              }`}
-                            ></div>
-                            <span className="capitalize">{selectedOrganization.status.toLowerCase()}</span>
-                          </div>
-                          <div>
-                            Role:{' '}
-                            <span className="font-medium">{selectedOrganization.role?.name || 'Not specified'}</span>
-                          </div>
-                          {selectedOrganization.companies && selectedOrganization.companies.length > 0 && (
-                            <div>{selectedOrganization.companies.length} companies</div>
+                  {isEditingOrgName ? (
+                    <div className="inline-flex items-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3">
+                      <input
+                        type="text"
+                        value={orgNameDraft}
+                        onChange={(e) => setOrgNameDraft(e.target.value)}
+                        className="w-80 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 font-medium"
+                        placeholder="Enter organization name"
+                        autoFocus
+                        maxLength={64}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={handleSaveOrgName}
+                          disabled={updateOrgNameMutation.isPending}
+                          size="sm"
+                          className="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 h-8"
+                        >
+                          {updateOrgNameMutation.isPending ? (
+                            <div className="flex items-center gap-1">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              <span className="text-xs">Saving</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs">Save</span>
                           )}
-                        </div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          disabled={updateOrgNameMutation.isPending}
+                          size="sm"
+                          className="text-gray-700 border-gray-300 hover:bg-gray-50 px-3 py-1 h-8"
+                        >
+                          <span className="text-xs">Cancel</span>
+                        </Button>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3">
+                      <span className="w-80 text-gray-900 font-medium">{selectedOrganization.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleEditOrgName}
+                        className="text-gray-500 hover:text-gray-700 p-1 h-8 w-8"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </Button>
                     </div>
                   )}
+                </div>
 
-                  {/* All Organizations */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-base font-medium text-gray-900">All Organizations</h4>
+                {/* Organization Details */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Organization Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">{organizations.length} total</span>
-                        {organizations.length > 3 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowAllOrgsModal(true)}
-                            className="text-xs px-2 py-1 h-6"
-                          >
-                            View All
-                          </Button>
-                        )}
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            selectedOrganization.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'
+                          }`}
+                        ></div>
+                        <span className="text-sm text-gray-900 capitalize">
+                          {selectedOrganization.status.toLowerCase()}
+                        </span>
                       </div>
                     </div>
-                    <div className="border border-gray-200 rounded-lg">
-                      {organizations.length === 0 ? (
-                        <div className="p-4 text-center">
-                          <p className="text-gray-500 text-sm">No organizations found.</p>
-                        </div>
-                      ) : (
-                        <div className="max-h-48 overflow-y-auto">
-                          {organizations.slice(0, 3).map((org: any) => (
-                            <div
-                              key={org.organization.id}
-                              className={`p-3 border-b border-gray-100 last:border-b-0 transition-colors ${
-                                selectedOrganization?.id === org.organization.id
-                                  ? 'bg-blue-50 border-l-2 border-l-blue-300'
-                                  : 'hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <h5 className="font-medium text-gray-900 truncate text-sm">
-                                    {org.organization.name}
-                                  </h5>
-                                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                    <div
-                                      className={`w-1 h-1 rounded-full ${
-                                        org.organization.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'
-                                      }`}
-                                    ></div>
-                                    <span className="capitalize">{org.organization.status.toLowerCase()}</span>
-                                    <span className="text-gray-300">•</span>
-                                    <span className="truncate">{org.role.name}</span>
-                                  </div>
-                                </div>
-                                {selectedOrganization?.id === org.organization.id && (
-                                  <Badge
-                                    variant="outline"
-                                    className="bg-blue-100 text-blue-700 border-blue-300 text-xs ml-2 flex-shrink-0"
-                                  >
-                                    Current
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {organizations.length > 3 && (
-                            <div className="p-3 text-center border-t border-gray-100">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowAllOrgsModal(true)}
-                                className="text-xs text-gray-600 hover:text-gray-800"
-                              >
-                                +{organizations.length - 3} more organizations
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">Your Role</p>
+                      <p className="text-sm text-gray-900">{selectedOrganization.role?.name || 'Not specified'}</p>
                     </div>
+                    {selectedOrganization.enabledFeatures && selectedOrganization.enabledFeatures.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Enabled Features</p>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedOrganization.enabledFeatures.map((feature) => (
+                            <span
+                              key={feature}
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {feature}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedOrganization.billingEmail && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Billing Email</p>
+                        <p className="text-sm text-gray-900">{selectedOrganization.billingEmail}</p>
+                      </div>
+                    )}
+                    {selectedOrganization.contactEmail && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Contact Email</p>
+                        <p className="text-sm text-gray-900">{selectedOrganization.contactEmail}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No organization selected</p>
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* All Organizations Modal */}
-        <Dialog open={showAllOrgsModal} onOpenChange={setShowAllOrgsModal}>
-          <DialogContent className="max-w-2xl bg-white border border-gray-200 shadow-xl rounded-lg">
-            <DialogHeader className="bg-white border-b border-gray-100 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-lg font-semibold text-gray-900">All Organizations</DialogTitle>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {organizations.length} organization{organizations.length !== 1 ? 's' : ''} total
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllOrgsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </DialogHeader>
-            <div className="mt-4 bg-white pb-6">
-              <div className="overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="text-gray-600 font-medium px-6 py-3">Organization Name</TableHead>
-                      <TableHead className="text-gray-600 font-medium px-6 py-3">Status</TableHead>
-                      <TableHead className="text-gray-600 font-medium px-6 py-3">Role</TableHead>
-                      <TableHead className="text-gray-600 font-medium px-6 py-3">Current</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {organizations.map((org: any) => (
-                      <TableRow key={org.organization.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <TableCell className="px-6 py-4">
-                          <div className="flex items-center">
-                            <span className="text-gray-900 font-medium">{org.organization.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-2 h-2 rounded-full ${
-                                org.organization.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'
-                              }`}
-                            ></div>
-                            <span className="capitalize text-sm">{org.organization.status.toLowerCase()}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          <span className="text-sm text-gray-600">{org.role.name}</span>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          {selectedOrganization?.id === org.organization.id ? (
-                            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
-                              Current
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   };
@@ -1249,14 +1236,14 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
               >
                 Data Connections
               </button>
-              <button
+              {/* <button
                 onClick={() => handleSectionChange('profile')}
                 className={`block rounded-md px-3 py-2 font-medium ${
                   activeSection === 'profile' ? 'bg-gray-100' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Profile
-              </button>
+              </button> */}
 
               <button
                 onClick={() => handleSectionChange('users-roles')}
@@ -1265,6 +1252,14 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
                 }`}
               >
                 Users & Roles
+              </button>
+              <button
+                onClick={() => handleSectionChange('organization')}
+                className={`block rounded-md px-3 py-2 font-medium ${
+                  activeSection === 'organization' ? 'bg-gray-100' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Organization
               </button>
             </div>
 
@@ -1284,8 +1279,9 @@ const Settings = ({ onBackClick }: { onBackClick: () => void }) => {
         <div className="overflow-x-auto w-full">
           <div className="min-w-lg:max-w-2xl w-full">
             {activeSection === 'data-connections' && renderDataConnections()}
-            {activeSection === 'profile' && renderProfile()}
+            {/* {activeSection === 'profile' && renderProfile()} */}
             {activeSection === 'users-roles' && renderUsersRoles()}
+            {activeSection === 'organization' && renderOrganization()}
             {/*{activeSection === "logout" && renderLogout()}*/}
           </div>
         </div>

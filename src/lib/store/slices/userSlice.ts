@@ -43,6 +43,9 @@ interface Organization {
   status: string;
   companies: Company[];
   role?: OrganizationRole;
+  enabledFeatures?: string[];
+  billingEmail?: string;
+  contactEmail?: string;
 }
 
 interface Role {
@@ -57,6 +60,9 @@ interface UserOrganization {
     id: string;
     name: string;
     status: string;
+    enabledFeatures?: string[];
+    billingEmail?: string;
+    contactEmail?: string;
   };
   role: {
     id: string;
@@ -71,8 +77,6 @@ interface User {
   firstName: string;
   lastName: string;
   lastLoginTime: string;
-  selectedOrganization?: Organization;
-  selectedCompany?: Company;
   role?: Role;
   organizations?: UserOrganization[];
 }
@@ -141,11 +145,9 @@ const userSlice = createSlice({
       // Set user data
       state.user = user;
 
-      // Handle selectedOrganization - Auto-select from user.selectedOrganization if available
+      // Handle selectedOrganization - Use payload or auto-select from first organization
       if (action.payload.selectedOrganization) {
         state.selectedOrganization = action.payload.selectedOrganization;
-      } else if (user.selectedOrganization) {
-        state.selectedOrganization = user.selectedOrganization;
       } else if (user.organizations && user.organizations.length > 0) {
         // Convert UserOrganization to Organization format
         const firstOrg = user.organizations[0];
@@ -153,6 +155,9 @@ const userSlice = createSlice({
           id: firstOrg.organization.id,
           name: firstOrg.organization.name,
           status: firstOrg.organization.status,
+          enabledFeatures: firstOrg.organization.enabledFeatures || [],
+          billingEmail: firstOrg.organization.billingEmail,
+          contactEmail: firstOrg.organization.contactEmail,
           companies: [],
           role: {
             id: firstOrg.role.id,
@@ -164,11 +169,9 @@ const userSlice = createSlice({
         state.selectedOrganization = null;
       }
 
-      // Handle selectedCompany - Auto-select from user.selectedCompany if available
+      // Handle selectedCompany - Use payload or auto-select from organization companies
       if (action.payload.selectedCompany) {
         state.selectedCompany = action.payload.selectedCompany;
-      } else if (user.selectedCompany) {
-        state.selectedCompany = user.selectedCompany;
       } else if (
           state.selectedOrganization?.companies &&
           state.selectedOrganization.companies.length > 0
@@ -206,7 +209,13 @@ const userSlice = createSlice({
         return initialState;
       }
 
-      state.selectedOrganization = action.payload;
+      // Ensure all organization fields are preserved, including the new ones
+      state.selectedOrganization = {
+        ...action.payload,
+        enabledFeatures: action.payload.enabledFeatures || [],
+        billingEmail: action.payload.billingEmail,
+        contactEmail: action.payload.contactEmail,
+      };
 
       // Don't auto-select first company when organization changes - keep existing selection
       // state.selectedCompany = action.payload.companies && action.payload.companies.length > 0
@@ -282,6 +291,37 @@ const userSlice = createSlice({
         state.companies.push(action.payload);
       }
     },
+
+    updateOrganizationName: (state, action: PayloadAction<{ id: string; name: string }>) => {
+      if (!action.payload || !action.payload.id || !action.payload.name) {
+        console.error("Invalid organization name update payload");
+        return;
+      }
+
+      // Update the selected organization name if it matches
+      if (state.selectedOrganization && state.selectedOrganization.id === action.payload.id) {
+        state.selectedOrganization.name = action.payload.name;
+      }
+
+      // Update the organization name in user's organizations array if it exists
+      if (state.user && state.user.organizations) {
+        state.user.organizations = state.user.organizations.map(org => {
+          if (org.organization.id === action.payload.id) {
+            return {
+              ...org,
+              organization: {
+                ...org.organization,
+                name: action.payload.name
+              }
+            };
+          }
+          return org;
+        });
+      }
+
+      // Note: We no longer store selectedOrganization in the user object
+      // The top-level selectedOrganization is the single source of truth
+    },
   },
 });
 
@@ -295,6 +335,7 @@ export const {
   clearCompanies,
   setCompanies,
   addCompany,
+  updateOrganizationName,
 } = userSlice.actions;
 
 export const selectedCompanyId = (state: { user: UserState }) =>
@@ -329,6 +370,31 @@ export const selectUserPermissions = (state: { user: UserState }) =>
 
 export const selectCompanies = (state: { user: UserState }) =>
   state.user?.companies || [];
+
+// New selectors for organization features and contact info
+export const selectOrganizationEnabledFeatures = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures || [];
+
+export const selectOrganizationBillingEmail = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.billingEmail;
+
+export const selectOrganizationContactEmail = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.contactEmail;
+
+export const selectHasConsolidationFeature = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures?.includes('CONSOLIDATION') || false;
+
+export const selectHasReportingFeature = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures?.includes('REPORTING') || false;
+
+export const selectHasDashboardFeature = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures?.includes('DASHBOARD') || false;
+
+export const selectHasChatFeature = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures?.includes('FINB_AGENT') || false;
+
+export const selectHasComponentsFeature = (state: { user: UserState }) =>
+  state.user?.selectedOrganization?.enabledFeatures?.includes('COMPONENTS') || false;
 
 /**
  * Utility function to safely add a company to the Redux store

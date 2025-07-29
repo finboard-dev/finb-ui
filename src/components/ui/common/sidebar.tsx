@@ -4,6 +4,15 @@ import { store } from '@/lib/store/store';
 import { useUrlParams } from '@/lib/utils/urlParams';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter, usePathname } from 'next/navigation';
+import { useSelector } from 'react-redux';
+import {
+  selectHasConsolidationFeature,
+  selectHasReportingFeature,
+  selectHasDashboardFeature,
+  selectHasChatFeature,
+  selectHasComponentsFeature,
+} from '@/lib/store/slices/userSlice';
+import { FeatureIds, FeatureDisplayNames, FeatureRoutes } from '@/constants/features';
 import UserIconLogo from '@/../public/images/icons/sidebarIcons/user.svg';
 import DashboardIconLogo from '@/../public/images/icons/sidebarIcons/dashboard.svg';
 import ConsolidationIconLogo from '@/../public/images/icons/sidebarIcons/consolidation.svg';
@@ -24,35 +33,34 @@ const navigationItems = [
     href: '/',
   },
   {
-    id: 'dashboard',
-    label: 'Dashboard',
+    id: FeatureIds.DASHBOARD,
+    label: FeatureDisplayNames[FeatureIds.DASHBOARD],
     icon: <Image src={DashboardIconLogo} alt="Dashboard" width={16} height={16} />,
-    href: '/dashboard',
+    href: FeatureRoutes[FeatureIds.DASHBOARD],
   },
   {
-    id: 'FinChat',
-    label: 'Fin Chat',
+    id: FeatureIds.FINB_AGENT,
+    label: FeatureDisplayNames[FeatureIds.FINB_AGENT],
     icon: <Image src={FinChatIconLogo} alt="Fin Chat" width={16} height={16} />,
-
-    href: '/chat',
+    href: FeatureRoutes[FeatureIds.FINB_AGENT],
   },
   {
-    id: 'components',
-    label: 'Components',
+    id: FeatureIds.COMPONENTS,
+    label: FeatureDisplayNames[FeatureIds.COMPONENTS],
     icon: <Image src={ComponentsIconLogo} alt="Components" width={16} height={16} />,
-    href: '/components',
+    href: FeatureRoutes[FeatureIds.COMPONENTS],
   },
   {
-    id: 'Reports',
-    label: 'Reports',
+    id: FeatureIds.REPORTING,
+    label: FeatureDisplayNames[FeatureIds.REPORTING],
     icon: <Image src={ReportsIconLogo} alt="Reports" width={16} height={16} />,
-    href: '/reports',
+    href: FeatureRoutes[FeatureIds.REPORTING],
   },
   {
-    id: 'Mapping',
-    label: 'Mapping',
+    id: FeatureIds.CONSOLIDATION,
+    label: FeatureDisplayNames[FeatureIds.CONSOLIDATION],
     icon: <Image src={ConsolidationIconLogo} alt="Mapping" width={16} height={16} />,
-    href: '/consolidation',
+    href: FeatureRoutes[FeatureIds.CONSOLIDATION],
   },
 ];
 
@@ -149,6 +157,13 @@ export function Sidebar({ isCollapsed = false, onClickSettings }: SidebarProps) 
   const pathname = usePathname();
   const { toggleComponentState } = useUrlParams();
 
+  // Get feature flags from Redux
+  const hasConsolidationFeature = useSelector(selectHasConsolidationFeature);
+  const hasReportingFeature = useSelector(selectHasReportingFeature);
+  const hasDashboardFeature = useSelector(selectHasDashboardFeature);
+  const hasChatFeature = useSelector(selectHasChatFeature);
+  const hasComponentsFeature = useSelector(selectHasComponentsFeature);
+
   // Function to check if a navigation item is active
   const isActiveItem = (href: string) => {
     if (href === '/') {
@@ -208,23 +223,43 @@ export function Sidebar({ isCollapsed = false, onClickSettings }: SidebarProps) 
           </div>
         </div>
         <nav className={`space-y-4 py-3 ${isCollapsed ? 'px-2' : 'px-4'}`}>
-          {navigationItems.map((item) => (
-            <NavButton
-              onClick={() => {
-                if (item.href) {
-                  router.push(item.href);
-                }
-              }}
-              item={item}
-              className="text-primary"
-              key={item.id}
-              variant="link"
-              isCollapsed={isCollapsed}
-              isActive={isActiveItem(item.href || '')}
-            >
-              {item.label}
-            </NavButton>
-          ))}
+          {navigationItems
+            .filter((item) => {
+              // Filter based on feature flags - show items when feature is enabled
+              if (item.id === FeatureIds.REPORTING && !hasReportingFeature) {
+                return false;
+              }
+              if (item.id === FeatureIds.CONSOLIDATION && !hasConsolidationFeature) {
+                return false;
+              }
+              if (item.id === FeatureIds.DASHBOARD && !hasDashboardFeature) {
+                return false;
+              }
+              if (item.id === FeatureIds.FINB_AGENT && !hasChatFeature) {
+                return false;
+              }
+              if (item.id === FeatureIds.COMPONENTS && !hasComponentsFeature) {
+                return false;
+              }
+              return true;
+            })
+            .map((item) => (
+              <NavButton
+                onClick={() => {
+                  if (item.href) {
+                    router.push(item.href);
+                  }
+                }}
+                item={item}
+                className="text-primary"
+                key={item.id}
+                variant="link"
+                isCollapsed={isCollapsed}
+                isActive={isActiveItem(item.href || '')}
+              >
+                {item.label}
+              </NavButton>
+            ))}
         </nav>
       </div>
       <div className={`space-y-2 pb-2 ${isCollapsed ? 'px-2' : 'px-4'}`}>

@@ -26,6 +26,9 @@ interface LoginResponse {
         id: string;
         name: string;
         status: string;
+        enabledFeatures?: string[];
+        billingEmail?: string;
+        contactEmail?: string;
       };
       role: {
         id: string;
@@ -76,6 +79,9 @@ export const useLogin = () => {
             id: org.organization.id,
             name: org.organization.name,
             status: org.organization.status,
+            enabledFeatures: org.organization.enabledFeatures || [],
+            billingEmail: org.organization.billingEmail,
+            contactEmail: org.organization.contactEmail,
             companies: [],
             role: {
               id: org.role.id,

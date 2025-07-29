@@ -44,7 +44,7 @@ const ChatSettingsPage = () => {
 
   useEffect(() => {
     // Handle section parameter and set it as settings-section for compatibility
-    if (section && ['data-connections', 'profile', 'security', 'users-roles'].includes(section)) {
+    if (section && ['data-connections', 'profile', 'security', 'users-roles', 'organization'].includes(section)) {
       dispatch(setActiveSettingsSection(section as any));
     } else {
       // Default to data-connections if no section specified

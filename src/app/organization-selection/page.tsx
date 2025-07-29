@@ -61,6 +61,9 @@ const OrganizationSelectionPage = () => {
         id: org.organization.id,
         name: org.organization.name,
         status: org.organization.status,
+        enabledFeatures: org.organization.enabledFeatures || [],
+        billingEmail: org.organization.billingEmail,
+        contactEmail: org.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
           id: org.role.id,
@@ -261,6 +264,9 @@ const OrganizationSelectionPage = () => {
           id: newOrganization.id,
           name: newOrganization.name,
           status: newOrganization.status,
+          enabledFeatures: newOrganization.enabledFeatures || [],
+          billingEmail: newOrganization.billingEmail,
+          contactEmail: newOrganization.contactEmail,
           companies: [], // Will be populated when companies are loaded
           role: {
             id: newRole.id,
@@ -351,6 +357,9 @@ const OrganizationSelectionPage = () => {
         id: selectedOrg.organization.id,
         name: selectedOrg.organization.name,
         status: selectedOrg.organization.status,
+        enabledFeatures: selectedOrg.organization.enabledFeatures || [],
+        billingEmail: selectedOrg.organization.billingEmail,
+        contactEmail: selectedOrg.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
           id: selectedOrg.role.id,

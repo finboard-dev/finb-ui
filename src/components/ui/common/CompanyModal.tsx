@@ -312,6 +312,9 @@ export const CompanyModal: React.FC<OrganizationModalProps> = ({ onCompanyChange
         id: userOrg.organization.id,
         name: userOrg.organization.name,
         status: userOrg.organization.status,
+        enabledFeatures: userOrg.organization.enabledFeatures || [],
+        billingEmail: userOrg.organization.billingEmail,
+        contactEmail: userOrg.organization.contactEmail,
         companies: [],
         role: {
           id: userOrg.role.id,
