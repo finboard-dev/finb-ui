@@ -79,6 +79,9 @@ interface User {
   lastLoginTime: string;
   role?: Role;
   organizations?: UserOrganization[];
+  redirectTo?: string;
+  newUser?: boolean;
+  pluginInstalled?: boolean;
 }
 
 // We'll define a separate interface for the payload
@@ -101,6 +104,9 @@ interface UserState {
   selectedOrganization: Organization | null;
   selectedCompany: Company | null;
   companies: Company[];
+  redirectTo?: string;
+  newUser?: boolean;
+  pluginInstalled?: boolean;
 }
 
 // Initial state
@@ -144,6 +150,11 @@ const userSlice = createSlice({
 
       // Set user data
       state.user = user;
+
+      // Set additional fields from magic link response
+      state.redirectTo = user.redirectTo;
+      state.newUser = user.newUser;
+      state.pluginInstalled = user.pluginInstalled;
 
       // Handle selectedOrganization - Use payload or auto-select from first organization
       if (action.payload.selectedOrganization) {
@@ -249,6 +260,9 @@ const userSlice = createSlice({
       state.selectedOrganization = null;
       state.selectedCompany = null;
       state.companies = [];
+      state.redirectTo = undefined;
+      state.newUser = undefined;
+      state.pluginInstalled = undefined;
     },
 
     clearCompanies: (state) => {
@@ -322,6 +336,15 @@ const userSlice = createSlice({
       // Note: We no longer store selectedOrganization in the user object
       // The top-level selectedOrganization is the single source of truth
     },
+
+    setNewUserFalse: (state) => {
+      if (state === null) {
+        console.error("State is null in setNewUserFalse reducer");
+        return initialState;
+      }
+
+      state.newUser = false;
+    },
   },
 });
 
@@ -336,6 +359,7 @@ export const {
   setCompanies,
   addCompany,
   updateOrganizationName,
+  setNewUserFalse,
 } = userSlice.actions;
 
 export const selectedCompanyId = (state: { user: UserState }) =>
@@ -395,6 +419,19 @@ export const selectHasChatFeature = (state: { user: UserState }) =>
 
 export const selectHasComponentsFeature = (state: { user: UserState }) =>
   state.user?.selectedOrganization?.enabledFeatures?.includes('COMPONENTS') || false;
+
+export const selectRedirectTo = (state: { user: UserState }) =>
+  state.user?.redirectTo;
+
+export const selectNewUser = (state: { user: UserState }) =>
+  state.user?.newUser;
+
+export const selectPluginInstalled = (state: { user: UserState }) =>
+  state.user?.pluginInstalled;
+
+export const clearRedirectTo = (state: { user: UserState }) => {
+  state.user.redirectTo = undefined;
+};
 
 /**
  * Utility function to safely add a company to the Redux store

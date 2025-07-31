@@ -195,7 +195,8 @@ const HomeInactiveCompanyUI = () => {
 
 const Page = () => {
   const router = useRouter();
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const isGoogleSheetsInstalled = store.getState().user?.pluginInstalled || false;
+  const [isPopupOpen, setIsPopupOpen] = useState(!isGoogleSheetsInstalled);
 
   useClickEventTracking();
 

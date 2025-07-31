@@ -3,27 +3,30 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedOrganization, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
+import { setSelectedOrganization, setUserData, clearCompanies, selectRedirectTo } from '@/lib/store/slices/userSlice';
 import { Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateOrganization } from '@/hooks/query-hooks/useOrganization';
 import { useOnboardingForm } from '@/hooks/query-hooks/useOnboarding';
+import { setNewUserFalse } from '@/lib/store/slices/userSlice';
 
 const OrganizationSelectionPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user.user);
   const token = useAppSelector((state) => state.user.token);
+  const newUser = useAppSelector((state) => state.user.newUser);
   const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
+  const redirectTo = useAppSelector(selectRedirectTo);
   const isSelectedCompanyNull = useAppSelector(
     (state) => state.user.selectedCompany === null || state.user.selectedCompany === undefined
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showOnboardingForm, setShowOnboardingForm] = useState(false);
+
   const [businessName, setBusinessName] = useState('');
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({});
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -50,7 +53,7 @@ const OrganizationSelectionPage = () => {
 
     if (user.organizations.length === 0) {
       console.log('No organizations found, showing onboarding form');
-      setShowOnboardingForm(true);
+      // setShowOnboardingForm(true);
     } else if (user.organizations.length === 1) {
       console.log('One organization found, auto-selecting');
       setHasAutoSelected(true); // Prevent infinite loop
@@ -100,7 +103,9 @@ const OrganizationSelectionPage = () => {
       // Set cookie to indicate organization is selected
       document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
 
-      // Redirect to company selection
+      // Always redirect to company selection first, even if we have redirectTo
+      // The company selection page will handle the redirectTo logic
+      console.log('Organization selected, redirecting to company selection');
       router.push('/company-selection');
     } else if (user.organizations.length > 1 && selectedOrganization) {
       // If user has multiple organizations and one is already selected,
@@ -307,10 +312,15 @@ const OrganizationSelectionPage = () => {
           })
         );
 
+        // Set newUser to false after successful onboarding
+        dispatch(setNewUserFalse());
+
         // Set cookie to indicate organization is selected
         document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
 
-        // Redirect to company selection
+        // Always redirect to company selection first, even if we have redirectTo
+        // The company selection page will handle the redirectTo logic
+        console.log('Organization created, redirecting to company selection');
         router.push('/company-selection');
       } else {
         throw new Error('No organization data received from server');
@@ -396,7 +406,9 @@ const OrganizationSelectionPage = () => {
       // Set cookie to indicate organization is selected
       document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
 
-      // Redirect to company selection
+      // Always redirect to company selection first, even if we have redirectTo
+      // The company selection page will handle the redirectTo logic
+      console.log('Organization selected, redirecting to company selection');
       router.push('/company-selection');
     } catch (err: any) {
       console.error('Error setting organization:', err);
@@ -404,7 +416,7 @@ const OrganizationSelectionPage = () => {
     }
   };
 
-  if (showOnboardingForm) {
+  if (newUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
