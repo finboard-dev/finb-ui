@@ -5,6 +5,7 @@ export interface OnboardingCaptureFormRequest {
   orgName: string
   source: string
   userInputs: Record<string, any> // Empty object type as requested
+  orgId?: string
 }
 
 export interface OnboardingCaptureFormResponse {

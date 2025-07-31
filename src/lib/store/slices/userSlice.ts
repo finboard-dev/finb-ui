@@ -345,6 +345,15 @@ const userSlice = createSlice({
 
       state.newUser = false;
     },
+
+    setPluginInstalledFalse: (state) => {
+      if (state === null) {
+        console.error("State is null in setPluginInstalledFalse reducer");
+        return initialState;
+      }
+
+      state.pluginInstalled = false;
+    },
   },
 });
 
@@ -360,6 +369,7 @@ export const {
   addCompany,
   updateOrganizationName,
   setNewUserFalse,
+  setPluginInstalledFalse,
 } = userSlice.actions;
 
 export const selectedCompanyId = (state: { user: UserState }) =>

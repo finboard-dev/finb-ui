@@ -35,6 +35,7 @@ import { useState, useEffect } from 'react';
 import GoogleSheetsPopup from '@/components/ui/templates/GoogleSheetsPopup';
 import { store } from '@/lib/store/store';
 import { FeatureIds, FeatureDisplayNames, FeatureDescriptions, FeatureRoutes } from '@/constants/features';
+import { setPluginInstalledFalse } from '@/lib/store/slices/userSlice';
 
 const stepItems = [
   {
@@ -308,7 +309,7 @@ const Page = () => {
                     }
                     return true;
                   })
-                  .map((item) => (
+                  .map((item, index) => (
                     <div
                       key={item.id}
                       className="bg-gray-50 rounded-lg p-6 flex items-center justify-between cursor-pointer"
@@ -333,7 +334,7 @@ const Page = () => {
                       >
                         Connect
                       </Button> */}
-                        <span className="text-6xl font-light text-gray-200">{item.stepNumber}</span>
+                        <span className="text-6xl font-light text-gray-200">{index + 1}</span>
                       </div>
                     </div>
                   ))}
