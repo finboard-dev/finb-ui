@@ -3,27 +3,37 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedOrganization, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
+import {
+  setSelectedOrganization,
+  setUserData,
+  clearCompanies,
+  selectRedirectTo,
+  updateOrganizationName,
+} from '@/lib/store/slices/userSlice';
 import { Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateOrganization } from '@/hooks/query-hooks/useOrganization';
 import { useOnboardingForm } from '@/hooks/query-hooks/useOnboarding';
+import { setNewUserFalse } from '@/lib/store/slices/userSlice';
 
 const OrganizationSelectionPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user.user);
   const token = useAppSelector((state) => state.user.token);
+  const newUser = useAppSelector((state) => state.user.newUser);
   const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
+  const redirectTo = useAppSelector(selectRedirectTo);
   const isSelectedCompanyNull = useAppSelector(
     (state) => state.user.selectedCompany === null || state.user.selectedCompany === undefined
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const currentSelectedOrgId = selectedOrganization?.id;
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showOnboardingForm, setShowOnboardingForm] = useState(false);
+
   const [businessName, setBusinessName] = useState('');
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({});
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -32,125 +42,6 @@ const OrganizationSelectionPage = () => {
   // React Query mutations
   const createOrganizationMutation = useCreateOrganization();
   const onboardingFormMutation = useOnboardingForm();
-
-  useEffect(() => {
-    if (!token?.accessToken) {
-      router.push('/login');
-    }
-  }, [token, router]);
-
-  // Handle organization logic
-  useEffect(() => {
-    console.log('Organization selection - user organizations:', user?.organizations);
-    console.log('Current selected organization:', selectedOrganization);
-
-    if (!user?.organizations || hasAutoSelected) {
-      return; // Still loading or already auto-selected
-    }
-
-    if (user.organizations.length === 0) {
-      console.log('No organizations found, showing onboarding form');
-      setShowOnboardingForm(true);
-    } else if (user.organizations.length === 1) {
-      console.log('One organization found, auto-selecting');
-      setHasAutoSelected(true); // Prevent infinite loop
-
-      // Auto-select the single organization
-      const org = user.organizations[0];
-      const organizationToSelect = {
-        id: org.organization.id,
-        name: org.organization.name,
-        status: org.organization.status,
-        enabledFeatures: org.organization.enabledFeatures || [],
-        billingEmail: org.organization.billingEmail,
-        contactEmail: org.organization.contactEmail,
-        companies: [], // Will be populated when companies are loaded
-        role: {
-          id: org.role.id,
-          name: org.role.name,
-          permissions: [], // You might need to fetch permissions separately
-        },
-      };
-
-      // Clear companies array to ensure fresh start for new organization
-      dispatch(clearCompanies());
-
-      // Update the selected organization
-      dispatch(setSelectedOrganization(organizationToSelect));
-
-      // Update the user's role to match the selected organization's role
-      const updatedUser = {
-        ...user,
-        role: {
-          id: org.role.id,
-          key: org.role.key,
-          name: org.role.name,
-          permissions: [], // You might need to fetch permissions separately
-        },
-        selectedOrganization: organizationToSelect,
-      };
-
-      dispatch(
-        setUserData({
-          user: updatedUser,
-          selectedOrganization: organizationToSelect,
-        })
-      );
-
-      // Set cookie to indicate organization is selected
-      document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
-
-      // Redirect to company selection
-      router.push('/company-selection');
-    } else if (user.organizations.length > 1 && selectedOrganization) {
-      // If user has multiple organizations and one is already selected,
-      // don't auto-redirect but preselect the current one
-      console.log('Multiple organizations found with existing selection, staying on page');
-      setHasAutoSelected(true); // Prevent infinite loop
-    }
-    // If multiple organizations, stay on this page for selection
-  }, [user, hasAutoSelected, selectedOrganization]);
-
-  // Show loading state while user data is being loaded
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
-          <div className="mb-8 flex items-center">
-            {isSelectedCompanyNull ? (
-              <></>
-            ) : (
-              <button onClick={() => router.back()} className="mr-4">
-                <ArrowLeft className="h-5 w-5 text-gray-500" />
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col items-center justify-center space-y-4 py-12">
-            <Loader2 className="h-16 w-16 animate-spin text-gray-400" />
-            <h2 className="text-2xl font-semibold">Loading user data...</h2>
-            <p className="text-gray-500">Please wait while we fetch your information</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Initialize selectedOrgId with the current selected organization if it exists
-  useEffect(() => {
-    if (selectedOrganization && user?.organizations) {
-      // Check if the selected organization exists in the user's organizations
-      const orgExists = user.organizations.some((org) => org.organization.id === selectedOrganization.id);
-
-      if (orgExists) {
-        setSelectedOrgId(selectedOrganization.id);
-        console.log('Preselecting organization:', selectedOrganization.name);
-      }
-    }
-  }, [selectedOrganization, user?.organizations]);
-
-  const handleOrganizationSelect = (orgId: string) => {
-    setSelectedOrgId(orgId);
-  };
 
   // Onboarding questions and options
   const onboardingQuestions = {
@@ -233,6 +124,7 @@ const OrganizationSelectionPage = () => {
     }
   };
 
+  // Forward declaration for handleOnboardingSubmit
   const handleOnboardingSubmit = async () => {
     if (!onboardingAnswers[onboardingQuestions.organizationName]?.trim()) {
       setError('Please enter your organization name');
@@ -245,21 +137,22 @@ const OrganizationSelectionPage = () => {
       const response = await onboardingFormMutation.mutateAsync({
         orgName: onboardingAnswers[onboardingQuestions.organizationName],
         userInputs: onboardingAnswers,
+        orgId: currentSelectedOrgId,
       });
 
-      console.log('Onboarding response:', response);
-      console.log('Response type:', typeof response);
-      console.log('Response keys:', Object.keys(response || {}));
-      console.log('Response.data:', response?.data);
-      console.log('Response.data type:', typeof response?.data);
-      console.log('Response.data keys:', Object.keys(response?.data || {}));
+      console.log('response', response);
 
-      // Check if organization was created successfully
+      if (response?.organization) {
+        console.log('Onboarding form submitted successfully, setting newUser to false');
+        console.log('Before setNewUserFalse - newUser state:', newUser);
+        dispatch(setNewUserFalse());
+        console.log('After setNewUserFalse dispatched');
+      }
+
       if (response?.organization) {
         const newOrganization = response.organization;
         const newRole = response.role;
 
-        // Create the organization object in the expected format
         const organizationToSelect = {
           id: newOrganization.id,
           name: newOrganization.name,
@@ -278,39 +171,66 @@ const OrganizationSelectionPage = () => {
         // Clear companies array to ensure fresh start for new organization
         dispatch(clearCompanies());
 
-        // Update the selected organization
-        dispatch(setSelectedOrganization(organizationToSelect));
+        // Check if this organization already exists in the user's organizations
+        const existingOrg = user?.organizations?.find((org) => org.organization.id === newOrganization.id);
 
-        // Update the user's role to match the new organization's role
-        const updatedUser = {
-          ...user,
-          role: {
-            id: newRole.id,
-            key: newRole.key,
-            name: newRole.name,
-            permissions: [], // You might need to fetch permissions separately
-          },
-          selectedOrganization: organizationToSelect,
-          // Add the new organization to the user's organizations list
-          organizations: [
+        if (existingOrg) {
+          // Update existing organization name using the Redux action
+          dispatch(
+            updateOrganizationName({
+              id: newOrganization.id,
+              name: newOrganization.name,
+            })
+          );
+        } else {
+          // Update the selected organization
+          dispatch(setSelectedOrganization(organizationToSelect));
+
+          // Prepare updated organizations array
+          let updatedOrganizations = user?.organizations || [];
+
+          // Add new organization to the array
+          updatedOrganizations = [
+            ...updatedOrganizations,
             {
               organization: newOrganization,
               role: newRole,
             },
-          ],
-        };
+          ];
 
-        dispatch(
-          setUserData({
-            user: updatedUser,
-            selectedOrganization: organizationToSelect,
-          })
-        );
+          // Update the user's role to match the new organization's role
+          const updatedUser = user
+            ? {
+                ...user,
+                role: {
+                  id: newRole.id,
+                  key: newRole.key,
+                  name: newRole.name,
+                  permissions: [], // You might need to fetch permissions separately
+                },
+                selectedOrganization: organizationToSelect,
+                organizations: updatedOrganizations,
+                newUser: false, // Explicitly set newUser to false
+              }
+            : null;
+
+          if (updatedUser) {
+            console.log('Calling setUserData with updatedUser.newUser:', updatedUser.newUser);
+            dispatch(
+              setUserData({
+                user: updatedUser,
+                selectedOrganization: organizationToSelect,
+              })
+            );
+          }
+        }
 
         // Set cookie to indicate organization is selected
         document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
 
-        // Redirect to company selection
+        // Always redirect to company selection first, even if we have redirectTo
+        // The company selection page will handle the redirectTo logic
+        console.log('Organization created, redirecting to company selection');
         router.push('/company-selection');
       } else {
         throw new Error('No organization data received from server');
@@ -321,49 +241,48 @@ const OrganizationSelectionPage = () => {
     }
   };
 
-  const handleCreateOrganization = async () => {
-    if (!businessName.trim()) {
-      setError('Please enter a business name');
-      return;
+  useEffect(() => {
+    if (!token?.accessToken) {
+      router.push('/login');
+    }
+  }, [token, router]);
+
+  // Handle organization logic
+  useEffect(() => {
+    console.log('Organization selection - user organizations:', user?.organizations);
+    console.log('Current selected organization:', selectedOrganization);
+    console.log('newUser:', newUser);
+
+    // If newUser is true, show onboarding form regardless of existing organizations
+    if (newUser) {
+      console.log('New user detected, showing onboarding form');
+      return; // Don't auto-select, let the onboarding form handle it
     }
 
-    setError(null);
-
-    try {
-      await createOrganizationMutation.mutateAsync({ businessName });
-    } catch (err: any) {
-      console.error('Failed to create organization:', err);
-      setError(err.message || 'Failed to create organization. Please try again.');
-    }
-  };
-
-  const handleConnect = async () => {
-    if (!selectedOrgId) {
-      setError('Please select an organization to continue');
-      return;
+    if (!user?.organizations || hasAutoSelected) {
+      return; // Still loading or already auto-selected
     }
 
-    setError(null);
+    if (user.organizations.length === 0) {
+      console.log('No organizations found, showing onboarding form');
+      // setShowOnboardingForm(true);
+    } else if (user.organizations.length === 1) {
+      console.log('One organization found, auto-selecting');
+      setHasAutoSelected(true); // Prevent infinite loop
 
-    try {
-      const selectedOrg = user.organizations?.find((org) => org.organization.id === selectedOrgId);
-
-      if (!selectedOrg) {
-        throw new Error('Selected organization not found');
-      }
-
-      // Create the organization object in the expected format
+      // Auto-select the single organization
+      const org = user.organizations[0];
       const organizationToSelect = {
-        id: selectedOrg.organization.id,
-        name: selectedOrg.organization.name,
-        status: selectedOrg.organization.status,
-        enabledFeatures: selectedOrg.organization.enabledFeatures || [],
-        billingEmail: selectedOrg.organization.billingEmail,
-        contactEmail: selectedOrg.organization.contactEmail,
+        id: org.organization.id,
+        name: org.organization.name,
+        status: org.organization.status,
+        enabledFeatures: org.organization.enabledFeatures || [],
+        billingEmail: org.organization.billingEmail,
+        contactEmail: org.organization.contactEmail,
         companies: [], // Will be populated when companies are loaded
         role: {
-          id: selectedOrg.role.id,
-          name: selectedOrg.role.name,
+          id: org.role.id,
+          name: org.role.name,
           permissions: [], // You might need to fetch permissions separately
         },
       };
@@ -378,12 +297,13 @@ const OrganizationSelectionPage = () => {
       const updatedUser = {
         ...user,
         role: {
-          id: selectedOrg.role.id,
-          key: selectedOrg.role.key,
-          name: selectedOrg.role.name,
+          id: org.role.id,
+          key: org.role.key,
+          name: org.role.name,
           permissions: [], // You might need to fetch permissions separately
         },
         selectedOrganization: organizationToSelect,
+        newUser: false, // Explicitly set newUser to false
       };
 
       dispatch(
@@ -396,15 +316,34 @@ const OrganizationSelectionPage = () => {
       // Set cookie to indicate organization is selected
       document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
 
-      // Redirect to company selection
+      // Always redirect to company selection first, even if we have redirectTo
+      // The company selection page will handle the redirectTo logic
+      console.log('Organization selected, redirecting to company selection');
       router.push('/company-selection');
-    } catch (err: any) {
-      console.error('Error setting organization:', err);
-      setError(err.message || 'Error setting organization');
+    } else if (user.organizations.length > 1 && selectedOrganization) {
+      // If user has multiple organizations and one is already selected,
+      // don't auto-redirect but preselect the current one
+      console.log('Multiple organizations found with existing selection, staying on page');
+      setHasAutoSelected(true); // Prevent infinite loop
     }
-  };
+    // If multiple organizations, stay on this page for selection
+  }, [user, hasAutoSelected, selectedOrganization, newUser]);
 
-  if (showOnboardingForm) {
+  // Initialize selectedOrgId with the current selected organization if it exists
+  useEffect(() => {
+    if (selectedOrganization && user?.organizations) {
+      // Check if the selected organization exists in the user's organizations
+      const orgExists = user.organizations.some((org) => org.organization.id === selectedOrganization.id);
+
+      if (orgExists) {
+        setSelectedOrgId(selectedOrganization.id);
+        console.log('Preselecting organization:', selectedOrganization.name);
+      }
+    }
+  }, [selectedOrganization, user?.organizations]);
+
+  // Check for newUser first, regardless of loading state
+  if (newUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
@@ -661,6 +600,120 @@ const OrganizationSelectionPage = () => {
       </div>
     );
   }
+
+  // Show loading state while user data is being loaded
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="w-full max-w-2xl rounded-lg border border-gray-200 p-8">
+          <div className="mb-8 flex items-center">
+            {isSelectedCompanyNull ? (
+              <></>
+            ) : (
+              <button onClick={() => router.back()} className="mr-4">
+                <ArrowLeft className="h-5 w-5 text-gray-500" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col items-center justify-center space-y-4 py-12">
+            <Loader2 className="h-16 w-16 animate-spin text-gray-400" />
+            <h2 className="text-2xl font-semibold">Loading user data...</h2>
+            <p className="text-gray-500">Please wait while we fetch your information</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleOrganizationSelect = (orgId: string) => {
+    setSelectedOrgId(orgId);
+  };
+
+  const handleCreateOrganization = async () => {
+    if (!businessName.trim()) {
+      setError('Please enter a business name');
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await createOrganizationMutation.mutateAsync({ businessName });
+    } catch (err: any) {
+      console.error('Failed to create organization:', err);
+      setError(err.message || 'Failed to create organization. Please try again.');
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!selectedOrgId) {
+      setError('Please select an organization to continue');
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const selectedOrg = user.organizations?.find((org) => org.organization.id === selectedOrgId);
+
+      if (!selectedOrg) {
+        throw new Error('Selected organization not found');
+      }
+
+      // Create the organization object in the expected format
+      const organizationToSelect = {
+        id: selectedOrg.organization.id,
+        name: selectedOrg.organization.name,
+        status: selectedOrg.organization.status,
+        enabledFeatures: selectedOrg.organization.enabledFeatures || [],
+        billingEmail: selectedOrg.organization.billingEmail,
+        contactEmail: selectedOrg.organization.contactEmail,
+        companies: [], // Will be populated when companies are loaded
+        role: {
+          id: selectedOrg.role.id,
+          name: selectedOrg.role.name,
+          permissions: [], // You might need to fetch permissions separately
+        },
+      };
+
+      // Clear companies array to ensure fresh start for new organization
+      dispatch(clearCompanies());
+
+      // Update the selected organization
+      dispatch(setSelectedOrganization(organizationToSelect));
+
+      // Update the user's role to match the selected organization's role
+      const updatedUser = {
+        ...user,
+        role: {
+          id: selectedOrg.role.id,
+          key: selectedOrg.role.key,
+          name: selectedOrg.role.name,
+          permissions: [], // You might need to fetch permissions separately
+        },
+        selectedOrganization: organizationToSelect,
+        newUser: false, // Explicitly set newUser to false
+      };
+
+      dispatch(
+        setUserData({
+          user: updatedUser,
+          selectedOrganization: organizationToSelect,
+        })
+      );
+
+      // Set cookie to indicate organization is selected
+      document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
+
+      // Always redirect to company selection first, even if we have redirectTo
+      // The company selection page will handle the redirectTo logic
+      console.log('Organization selected, redirecting to company selection');
+      router.push('/company-selection');
+    } catch (err: any) {
+      console.error('Error setting organization:', err);
+      setError(err.message || 'Error setting organization');
+    }
+  };
 
   if (showCreateForm) {
     return (

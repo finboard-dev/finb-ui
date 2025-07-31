@@ -1,7 +1,6 @@
 'use client';
 
 import type React from 'react';
-
 import { v4 as uuidv4 } from 'uuid';
 import { type Layout, Responsive, WidthProvider } from 'react-grid-layout';
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
@@ -42,7 +41,8 @@ const BREAKPOINT_COLS = {
   xxs: 2 * GRID_GRANULARITY,
 };
 const ROW_HEIGHT = 20;
-const MAX_DASHBOARD_HEIGHT = 2000; // Maximum height in pixels
+const MAX_DASHBOARD_HEIGHT = 5000;
+const REAL_TIME_HEIGHT_INCREMENT = 100;
 
 function getMins(t: BlockType): { minW: number; minH: number } {
   const factor = GRID_GRANULARITY;
@@ -72,7 +72,6 @@ function getDefaults(t: BlockType): { w: number; h: number } {
   }
 }
 
-// Helper function to check if two rectangles overlap
 function rectanglesOverlap(
   rect1: { x: number; y: number; w: number; h: number },
   rect2: { x: number; y: number; w: number; h: number }
@@ -85,38 +84,31 @@ function rectanglesOverlap(
   );
 }
 
-// Helper function to find the next available position for a new item
-function findAvailablePosition(
+function findExactDropPosition(
   newItem: { x: number; y: number; w: number; h: number },
   existingItems: DashboardItem[],
   maxCols: number
 ): { x: number; y: number } {
-  // If no existing items, place at the drop position
   if (existingItems.length === 0) {
-    console.log('No existing items, placing at drop position:', { x: newItem.x, y: newItem.y });
     return { x: newItem.x, y: newItem.y };
   }
 
-  let position = { x: newItem.x, y: newItem.y };
-  let attempts = 0;
-  const maxAttempts = 200; // Increased to handle more complex layouts
-
-  // First, try the exact position where the user dropped
   const hasCollisionAtDrop = existingItems.some((item) =>
     rectanglesOverlap(
-      { x: position.x, y: position.y, w: newItem.w, h: newItem.h },
+      { x: newItem.x, y: newItem.y, w: newItem.w, h: newItem.h },
       { x: item.x, y: item.y, w: item.w, h: item.h }
     )
   );
 
   if (!hasCollisionAtDrop) {
-    console.log('Item placed at drop position:', position);
-    return position;
+    return { x: newItem.x, y: newItem.y };
   }
 
-  // If there's a collision, find the next available position
+  let position = { x: newItem.x, y: newItem.y };
+  let attempts = 0;
+  const maxAttempts = existingItems.length * 10;
+
   while (attempts < maxAttempts) {
-    // Check if the current position is available
     const hasCollision = existingItems.some((item) =>
       rectanglesOverlap(
         { x: position.x, y: position.y, w: newItem.w, h: newItem.h },
@@ -125,33 +117,19 @@ function findAvailablePosition(
     );
 
     if (!hasCollision) {
-      console.log('Item placed at found position:', position, 'after', attempts, 'attempts');
       return position;
     }
 
-    // Try moving down first
     position.y += 1;
-
-    // If we've moved too far down, try moving to the right
-    if (position.y > 100) {
-      position.y = 0;
-      position.x += 1;
-
-      // If we've moved too far right, wrap to the next row
-      if (position.x + newItem.w > maxCols) {
-        position.x = 0;
-        position.y += 1;
-      }
-    }
-
     attempts++;
+
+    if (position.y > 200) {
+      break;
+    }
   }
 
-  // If we can't find a position, place it at the bottom
   const maxY = Math.max(...existingItems.map((item) => item.y + item.h), 0);
-  const fallbackPosition = { x: 0, y: maxY };
-  console.log('Item placed at fallback position:', fallbackPosition);
-  return fallbackPosition;
+  return { x: position.x, y: maxY };
 }
 
 function generateBackgroundPattern(
@@ -165,7 +143,7 @@ function generateBackgroundPattern(
   const cellWidth = (gridWidth - marginH * (cols + 1)) / cols;
   const cellHeight = rowHeight;
   const dots = [];
-  const numVerticalCellsToDraw = Math.max(20, Math.ceil(1200 / (cellHeight + marginV)) + 2);
+  const numVerticalCellsToDraw = Math.max(30, Math.ceil(2000 / (cellHeight + marginV)) + 2);
 
   for (let y = 0; y < numVerticalCellsToDraw; y++) {
     for (let x = 0; x < cols + 1; x++) {
@@ -199,26 +177,12 @@ export default function DashboardView({
   const [currentCols, setCurrentCols] = useState(BREAKPOINT_COLS.lg);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHeight, setResizeHeight] = useState<number | null>(null);
+  const [realTimeHeight, setRealTimeHeight] = useState<number>(0);
+  const [isDraggingOnBottom, setIsDraggingOnBottom] = useState(false);
   const rglRef = useRef<any>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  // Debug dragging block dimensions
-  useEffect(() => {
-    if (draggingBlock) {
-      console.log('Dragging block changed:', {
-        id: draggingBlock.id,
-        type: draggingBlock.type,
-        width: draggingBlock.width,
-        height: draggingBlock.height,
-      });
-
-      const blockToAdd = blocks.find((b) => b.id === draggingBlock.id);
-      if (blockToAdd) {
-        const defaultSize = getDefaults(blockToAdd.type);
-        console.log('Expected placeholder size:', defaultSize);
-      }
-    }
-  }, [draggingBlock, blocks]);
-
+  // Define layout first
   const layout = useMemo(
     () =>
       dashboardItems.map((item) => {
@@ -240,25 +204,53 @@ export default function DashboardView({
     [dashboardItems, blocks, isEditing]
   );
 
-  // Calculate dynamic height based on layout content with maximum limit
+  // Now define functions that use layout
+  const updateRealTimeHeight = useCallback(() => {
+    if (!isDraggingOnBottom) return;
+
+    const maxY = Math.max(...layout.map((item) => item.y + item.h), 0);
+    const calculatedHeight = (maxY + 2) * (ROW_HEIGHT + MARGIN[1]) + MARGIN[1] + REAL_TIME_HEIGHT_INCREMENT;
+    const limitedHeight = Math.min(calculatedHeight, MAX_DASHBOARD_HEIGHT);
+
+    setRealTimeHeight(limitedHeight);
+  }, [layout, isDraggingOnBottom]);
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditingBlock(null);
+  }, []);
+
+  const handleSaveBlockTitle = useCallback(
+    (newTitle: string) => {
+      if (editingBlock && onBlockTitleUpdate) {
+        onBlockTitleUpdate(editingBlock.id, newTitle);
+      }
+      setEditingBlock(null);
+    },
+    [editingBlock, onBlockTitleUpdate]
+  );
+
+  const handleEditBlock = useCallback((blockId: string, currentTitle: string) => {
+    setEditingBlock({ id: blockId, title: currentTitle });
+  }, []);
+
   const dynamicHeight = useMemo(() => {
     if (layout.length === 0) return 'calc(100vh - 115px)';
 
-    // Use resize height if currently resizing, otherwise calculate from layout
+    if (isDraggingOnBottom && realTimeHeight > 0) {
+      return `${realTimeHeight}px`;
+    }
+
     if (isResizing && resizeHeight !== null) {
       const limitedHeight = Math.min(resizeHeight, MAX_DASHBOARD_HEIGHT);
       return `${limitedHeight}px`;
     }
 
-    // Find the bottommost item in the layout
     const maxY = Math.max(...layout.map((item) => item.y + item.h));
     const calculatedHeight = (maxY + 2) * (ROW_HEIGHT + MARGIN[1]) + MARGIN[1];
-
-    // Limit the height to prevent infinite growth
     const limitedHeight = Math.min(calculatedHeight, MAX_DASHBOARD_HEIGHT);
 
     return `${limitedHeight}px`;
-  }, [layout, isResizing, resizeHeight]);
+  }, [layout, isResizing, resizeHeight, isDraggingOnBottom, realTimeHeight]);
 
   const onLayoutChange = useCallback(
     (newLayout: Layout[], allLayouts: Record<string, Layout[]>) => {
@@ -307,56 +299,17 @@ export default function DashboardView({
     [setDashboardItems]
   );
 
-  const handleEditBlock = useCallback((blockId: string, currentTitle: string) => {
-    setEditingBlock({ id: blockId, title: currentTitle });
-  }, []);
-
-  const handleSaveBlockTitle = useCallback(
-    (newTitle: string) => {
-      if (editingBlock && onBlockTitleUpdate) {
-        onBlockTitleUpdate(editingBlock.id, newTitle);
-      }
-      setEditingBlock(null);
-    },
-    [editingBlock, onBlockTitleUpdate]
-  );
-
-  const handleCloseEditModal = useCallback(() => {
-    setEditingBlock(null);
-  }, []);
-
   const onDrop = useCallback(
     (gridLayout: Layout[], layoutItem: Layout, event: DragEvent) => {
       event.preventDefault();
       setDragOverIndicator(false);
       const blockTemplateId = event.dataTransfer?.getData('text/plain');
 
-      console.log('Drop event:', {
-        blockTemplateId,
-        draggingBlock,
-        totalBlocks: blocks.length,
-        blockIds: blocks.map((b) => b.id),
-        layoutItem,
-      });
-
       if (!blockTemplateId || !draggingBlock || draggingBlock.id !== blockTemplateId) {
-        console.warn('Mismatched or missing drag data for drop.');
         return;
       }
+
       const blockToAdd = blocks.find((b) => b.id === blockTemplateId);
-
-      console.log(
-        'Found block to add:',
-        blockToAdd
-          ? {
-              id: blockToAdd.id,
-              title: blockToAdd.title,
-              type: blockToAdd.type,
-              hasContent: !!blockToAdd.content,
-            }
-          : null
-      );
-
       if (!blockToAdd) {
         toast.error(`Component (ID: ${blockTemplateId}) definition not found.`);
         return;
@@ -366,7 +319,6 @@ export default function DashboardView({
       const mins = getMins(blockToAdd.type);
       const colsForCurrentBreakpoint = currentCols || BREAKPOINT_COLS.lg;
 
-      // Find available position for the new item
       const initialPosition = {
         x: Math.max(0, Math.min(layoutItem.x, colsForCurrentBreakpoint - defaultSize.w)),
         y: layoutItem.y,
@@ -374,24 +326,19 @@ export default function DashboardView({
         h: defaultSize.h,
       };
 
-      console.log('Initial drop position:', initialPosition);
-      console.log('Current dashboard items:', dashboardItems);
-
-      const availablePosition = findAvailablePosition(initialPosition, dashboardItems, colsForCurrentBreakpoint);
+      const dropPosition = findExactDropPosition(initialPosition, dashboardItems, colsForCurrentBreakpoint);
 
       const newItemId = uuidv4();
       const newItem: DashboardItem = {
         id: newItemId,
         blockId: blockToAdd.id,
-        x: availablePosition.x,
-        y: availablePosition.y,
+        x: dropPosition.x,
+        y: dropPosition.y,
         w: defaultSize.w,
         h: defaultSize.h,
         minW: mins.minW,
         minH: mins.minH,
       };
-
-      console.log('Adding new item:', newItem);
 
       setDashboardItems((prevItems: DashboardItem[]) => [...prevItems, newItem]);
       toast.success(`"${blockToAdd.title}" added to dashboard!`);
@@ -399,29 +346,18 @@ export default function DashboardView({
     [draggingBlock, blocks, currentCols, setDashboardItems, dashboardItems]
   );
 
-  // Handle drop drag over to set placeholder size
   const onDropDragOver = useCallback(
     (event: any) => {
       if (!draggingBlock) {
-        console.log('No dragging block, using default placeholder size');
         return { w: 4, h: 4 };
       }
 
       const blockToAdd = blocks.find((b) => b.id === draggingBlock.id);
       if (!blockToAdd) {
-        console.log('Block not found, using default placeholder size');
         return { w: 4, h: 4 };
       }
 
       const defaultSize = getDefaults(blockToAdd.type);
-      console.log('Setting placeholder size for', blockToAdd.type, ':', defaultSize);
-      console.log('Block details:', {
-        id: blockToAdd.id,
-        title: blockToAdd.title,
-        type: blockToAdd.type,
-        defaultSize,
-      });
-
       return defaultSize;
     },
     [draggingBlock, blocks]
@@ -430,15 +366,35 @@ export default function DashboardView({
   const handleDragOverWrapper = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      if (draggingBlock && isEditing) setDragOverIndicator(true);
+      if (draggingBlock && isEditing) {
+        setDragOverIndicator(true);
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mouseY = e.clientY - rect.top;
+        const threshold = 50;
+
+        if (mouseY > rect.height - threshold) {
+          setIsDraggingOnBottom(true);
+          updateRealTimeHeight();
+        } else {
+          setIsDraggingOnBottom(false);
+        }
+      }
     },
-    [draggingBlock, isEditing]
+    [draggingBlock, isEditing, updateRealTimeHeight]
   );
 
-  const handleDragLeaveWrapper = useCallback(() => setDragOverIndicator(false), []);
+  const handleDragLeaveWrapper = useCallback(() => {
+    setDragOverIndicator(false);
+    setIsDraggingOnBottom(false);
+    setRealTimeHeight(0);
+  }, []);
+
   const handleDropOnWrapper = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOverIndicator(false);
+    setIsDraggingOnBottom(false);
+    setRealTimeHeight(0);
   }, []);
 
   const onWidthChange = useCallback((containerWidth: number, margin: [number, number], cols: number) => {
@@ -448,7 +404,6 @@ export default function DashboardView({
 
   const onBreakpointChange = useCallback((newBreakpoint: string, newCols: number) => setCurrentCols(newCols), []);
 
-  // Handle resize start
   const onResizeStart = useCallback(
     (layout: Layout[], oldItem: Layout, newItem: Layout, placeholder: Layout, e: MouseEvent, element: HTMLElement) => {
       setIsResizing(true);
@@ -456,23 +411,18 @@ export default function DashboardView({
     []
   );
 
-  // Handle resize during drag with height limiting
   const onResize = useCallback(
     (layout: Layout[], oldItem: Layout, newItem: Layout, placeholder: Layout, e: MouseEvent, element: HTMLElement) => {
       if (!isResizing) return;
 
-      // Calculate the new height based on the current layout during resize
       const maxY = Math.max(...layout.map((item) => item.y + item.h));
       const calculatedHeight = (maxY + 2) * (ROW_HEIGHT + MARGIN[1]) + MARGIN[1];
-
-      // Limit the height to prevent infinite growth
       const limitedHeight = Math.min(calculatedHeight, MAX_DASHBOARD_HEIGHT);
       setResizeHeight(limitedHeight);
     },
     [isResizing]
   );
 
-  // Handle resize stop
   const onResizeStop = useCallback(
     (layout: Layout[], oldItem: Layout, newItem: Layout, placeholder: Layout, e: MouseEvent, element: HTMLElement) => {
       setIsResizing(false);
@@ -486,21 +436,6 @@ export default function DashboardView({
       layout.map((itemLayout) => {
         const dashboardItem = dashboardItems.find((di) => di.id === itemLayout.i);
         const blockTemplate = blocks.find((b) => b.id === dashboardItem?.blockId);
-
-        console.log('Rendering dashboard item:', {
-          itemId: dashboardItem?.id,
-          blockId: dashboardItem?.blockId,
-          blockTemplate: blockTemplate
-            ? {
-                id: blockTemplate.id,
-                title: blockTemplate.title,
-                type: blockTemplate.type,
-                hasContent: !!blockTemplate.content,
-                contentType: typeof blockTemplate.content,
-              }
-            : null,
-          totalBlocks: blocks.length,
-        });
 
         if (!dashboardItem || !blockTemplate) {
           return (
@@ -606,38 +541,44 @@ export default function DashboardView({
           isEditing &&
           'outline-dashed outline-2 outline-offset-[-2px] outline-blue-500 bg-blue-100/50',
         !isEditing && 'p-1 bg-slate-100',
-        isResizing && 'resizing'
+        isResizing && 'resizing',
+        isDraggingOnBottom && 'dragging-bottom'
       )}
       onDragOver={handleDragOverWrapper}
       onDragLeave={handleDragLeaveWrapper}
       onDrop={handleDropOnWrapper}
       style={{ height: dynamicHeight }}
     >
-      {/* Custom CSS for 8-pixel increment resize */}
       {isEditing && (
         <style jsx>{`
-          .react-resizable-handle {
-            transition: all 0.1s ease;
-          }
-          .react-resizable-handle:hover {
-            background-color: rgba(59, 130, 246, 0.3);
-          }
-          /* Make resize more responsive to smaller movements */
-          .react-grid-item {
-            transition: none !important;
-          }
-          .react-grid-item.resizing {
-            transition: none !important;
-          }
-          /* Smooth height transitions for the container */
           .dashboard-view-container {
             transition: height 0.1s ease-out;
             overflow: visible !important;
           }
 
-          /* Faster transitions during resize for real-time feedback */
           .dashboard-view-container.resizing {
             transition: height 0.05s ease-out !important;
+          }
+
+          .dashboard-view-container.dragging-bottom {
+            transition: height 0.05s ease-out !important;
+            height: auto !important;
+          }
+
+          .react-grid-item {
+            transition: none !important;
+          }
+
+          .react-grid-item.resizing {
+            transition: none !important;
+          }
+
+          .react-resizable-handle {
+            transition: all 0.1s ease;
+          }
+
+          .react-resizable-handle:hover {
+            background-color: rgba(59, 130, 246, 0.3);
           }
         `}</style>
       )}
@@ -686,14 +627,15 @@ export default function DashboardView({
 
       {/* Block Title Edit Modal */}
       {editingBlock && (
-        <BlockTitleEditModal
+        <BlockTitleEditModal                  
           isOpen={!!editingBlock}
           onClose={handleCloseEditModal}
           onSave={handleSaveBlockTitle}
           currentTitle={editingBlock.title}
           blockId={editingBlock.id}
-        />
+        />                                     
       )}
     </div>
   );
 }
+

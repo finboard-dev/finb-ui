@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setSelectedCompany, setCompanies, setUserData, clearCompanies } from '@/lib/store/slices/userSlice';
+import {
+  setSelectedCompany,
+  setCompanies,
+  setUserData,
+  clearCompanies,
+  selectRedirectTo,
+} from '@/lib/store/slices/userSlice';
 import { fetcher } from '@/lib/axios/config';
 import { Building2, Plus, ArrowLeft, Loader2, User, User2 } from 'lucide-react';
 import { initAddQuickBookAccount } from '@/lib/api/intuitService';
@@ -23,6 +29,7 @@ const CompanySelectionPage = () => {
   const selectedOrganization = useAppSelector((state) => state.user.selectedOrganization);
   const token = useAppSelector((state) => state.user.token);
   const reduxCompanies = useAppSelector((state) => state.user.companies);
+  const redirectTo = useAppSelector(selectRedirectTo);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
@@ -178,15 +185,26 @@ const CompanySelectionPage = () => {
               const storeSelectedCompany = currentState.user.selectedCompany;
 
               if (storeSelectedCompany && storeSelectedCompany.id === selectedCompanyId) {
-                console.log('Successfully connected, redirecting to /');
+                console.log('Successfully connected, checking redirect destination');
                 setIsAutoConnecting(false);
-                router.push('/');
+                // Check if we have a redirectTo path from magic link
+                if (redirectTo) {
+                  console.log('Auto-connect: redirecting to original destination:', redirectTo);
+                  router.push(redirectTo);
+                } else {
+                  router.push('/');
+                }
               } else {
                 console.log('Retrying dispatch and redirecting');
                 dispatch(setSelectedCompany(mappedCompanyData));
                 setTimeout(() => {
                   setIsAutoConnecting(false);
-                  router.push('/');
+                  if (redirectTo) {
+                    console.log('Auto-connect (retry): redirecting to original destination:', redirectTo);
+                    router.push(redirectTo);
+                  } else {
+                    router.push('/');
+                  }
                 }, 200);
               }
             }, 200);
@@ -362,11 +380,24 @@ const CompanySelectionPage = () => {
         const storeSelectedCompany = currentState.user.selectedCompany;
 
         if (storeSelectedCompany && storeSelectedCompany.id === selectedCompanyId) {
-          router.push('/');
+          // Check if we have a redirectTo path from magic link
+          if (redirectTo) {
+            console.log('Company selected, redirecting to original destination:', redirectTo);
+            router.push(redirectTo);
+          } else {
+            router.push('/');
+          }
         } else {
           // Retry the dispatch
           dispatch(setSelectedCompany(mappedCompanyData));
-          setTimeout(() => router.push('/'), 200);
+          setTimeout(() => {
+            if (redirectTo) {
+              console.log('Company selected (retry), redirecting to original destination:', redirectTo);
+              router.push(redirectTo);
+            } else {
+              router.push('/');
+            }
+          }, 200);
         }
       }, 200);
     } catch (err) {

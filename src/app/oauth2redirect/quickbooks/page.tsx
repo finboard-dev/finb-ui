@@ -167,15 +167,9 @@ function CallbackHandler() {
       typeof selectedCompany !== 'undefined'
     ) {
       const timer = setTimeout(() => {
-        // Check the latest value of selectedCompany at the time of redirect
-        let redirectPath = getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
-        if (status === 'success' && !selectedCompany) {
-          console.log('company-selection outh');
-          redirectPath = '/company-selection';
-          console.log('No company selected, will redirect to company selection.');
-        } else {
-          console.log(`Token verified, will redirect to ${redirectPath}.`);
-        }
+        // Redirect based on the operation type
+        let redirectPath = status === 'add-company-success' ? '/' : '/organization-selection';
+        console.log(`OAuth callback completed, redirecting to ${redirectPath}.`);
         router.push(redirectPath);
       }, AUTO_REDIRECT_DELAY_MS);
       return () => clearTimeout(timer);
@@ -341,12 +335,9 @@ function CallbackHandler() {
   };
 
   const manualRedirect = () => {
-    let redirectPath = getAndClearRedirectPath() || AUTH_CONFIG.defaultRedirectPath;
-    if (status === 'success' && !selectedCompany) {
-      console.log('company selection aouth 2');
-
-      redirectPath = '/company-selection';
-    }
+    // Redirect based on the operation type
+    let redirectPath = status === 'add-company-success' ? '/' : '/organization-selection';
+    console.log(`Manual redirect to ${redirectPath}.`);
     router.push(redirectPath);
   };
 

@@ -4,6 +4,7 @@ import { captureOnboardingForm, OnboardingCaptureFormRequest } from '@/lib/api/o
 interface OnboardingFormData {
   orgName: string;
   userInputs: Record<string, string>;
+  orgId?: string;
 }
 
 export const useOnboardingForm = () => {
@@ -13,6 +14,7 @@ export const useOnboardingForm = () => {
         orgName: data.orgName,
         source: 'Web',
         userInputs: data.userInputs,
+        ...(data.orgId && { orgId: data.orgId }),
       };
       
       return await captureOnboardingForm(payload);

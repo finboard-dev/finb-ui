@@ -36,6 +36,11 @@ interface LoginResponse {
         name: string;
       };
     }>;
+    selectedCompany?: any;
+    selectedOrganization?: any;
+    newUser?: boolean;
+    redirectTo?: string;
+    pluginInstalled?: boolean;
   };
   code?: string;
   message?: string;
@@ -59,72 +64,23 @@ export const useLogin = () => {
         setAuthCookies(response.token.accessToken);
         
         const user = response.user;
-        const organizations = user.organizations || [];
         
-        console.log('Login response - organizations count:', organizations.length);
-        console.log('Organizations:', organizations);
+        console.log('Login response - user data:', {
+          newUser: user.newUser,
+          organizations: user.organizations?.length || 0,
+          selectedCompany: user.selectedCompany,
+          selectedOrganization: user.selectedOrganization
+        });
         
-        if (organizations.length === 0) {
-          // No organizations - redirect to organization-selection for creation
-          const userData = {
-            token: response.token,
-            user: user,
-          };
-          dispatch(setUserData(userData));
-          router.push('/organization-selection');
-        } else if (organizations.length === 1) {
-          // Single organization - auto-select it
-          const org = organizations[0];
-          const organizationToSelect = {
-            id: org.organization.id,
-            name: org.organization.name,
-            status: org.organization.status,
-            enabledFeatures: org.organization.enabledFeatures || [],
-            billingEmail: org.organization.billingEmail,
-            contactEmail: org.organization.contactEmail,
-            companies: [],
-            role: {
-              id: org.role.id,
-              name: org.role.name,
-              permissions: [],
-            },
-          };
-
-          const updatedUser = {
-            ...user,
-            role: {
-              id: org.role.id,
-              key: org.role.key,
-              name: org.role.name,
-              permissions: [],
-            },
-            selectedOrganization: organizationToSelect,
-          };
-
-          const userData = {
-            token: response.token,
-            user: updatedUser,
-            selectedOrganization: organizationToSelect,
-          };
-          
-          dispatch(setUserData(userData));
-          
-          // Set organization cookie for auto-selected organization
-          document.cookie = 'has_selected_organization=true; path=/; SameSite=Lax; Secure';
-          
-          // Redirect to company-selection
-          router.push('/company-selection');
-        } else {
-          // Multiple organizations - redirect to organization-selection for choice
-          const userData = {
-            token: response.token,
-            user: user,
-          };
-          dispatch(setUserData(userData));
-          
-          // Redirect to organization-selection for choice
-          router.push('/organization-selection');
-        }
+        // Simply set the user data and let the OAuth callback handle redirects
+        const userData = {
+          token: response.token,
+          user: user,
+        };
+        dispatch(setUserData(userData));
+        
+        // Don't handle redirects here - let the OAuth callback page handle it
+        console.log('User data set in Redux, redirect will be handled by OAuth callback');
       } else {
         throw new Error(response?.error?.message || 'Invalid response from authentication server.');
       }
